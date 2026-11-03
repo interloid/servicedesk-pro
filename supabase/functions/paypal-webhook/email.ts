@@ -1,3 +1,4 @@
+import type { PlatformBrand } from "../_shared/platform-brand.ts";
 import { sendEmail } from "../_shared/gmail.ts";
 
 // Every value interpolated into the HTML body is escaped. customerName comes
@@ -19,6 +20,7 @@ export async function sendInvoiceEmail({
   amount,
   currency,
   signedUrl,
+  brand,
 }: {
   customerEmail: string;
   customerName: string;
@@ -26,7 +28,10 @@ export async function sendInvoiceEmail({
   amount: number;
   currency: string;
   signedUrl: string;
+  brand: PlatformBrand;
 }) {
+  const safeBrand = escapeHtml(brand.platformName);
+  const safeSupport = escapeHtml(brand.supportEmail);
   const safeName = escapeHtml(customerName);
   const safeInvoiceNumber = escapeHtml(invoiceNumber);
   const safeCurrency = escapeHtml(currency);
@@ -39,11 +44,11 @@ export async function sendInvoiceEmail({
   await sendEmail({
     to: customerEmail,
     subject: `Invoice ${invoiceNumber}`,
-    text: `Hi ${customerName},\n\nThank you for your payment. Your invoice has been generated successfully.\n\nInvoice: ${invoiceNumber}\nAmount paid: ${amountPaid}\nPayment status: Paid\n\nView invoice: ${signedUrl}\n\nIf the link does not work, you can access your invoice from your ServiceDesk billing account.\n\nThank you for choosing ServiceDesk.`,
+    text: `Hi ${customerName},\n\nThank you for your payment. Your invoice has been generated successfully.\n\nInvoice: ${invoiceNumber}\nAmount paid: ${amountPaid}\nPayment status: Paid\n\nView invoice: ${signedUrl}\n\nIf the link does not work, you can access your invoice from your ${brand.platformName} billing account.\n\nThank you for choosing ${brand.platformName}.`,
     html: `
         <div style="max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:Arial,sans-serif;background:white">
           <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb">
-            <strong style="font-size:20px;color:#111827">ServiceDesk</strong>
+            <strong style="font-size:20px;color:#111827">${safeBrand}</strong>
             <span style="font-size:13px;color:#6b7280">Help Desk &amp; Ticket Management Platform</span>
           </div>
           <div style="padding:32px">
@@ -71,12 +76,12 @@ export async function sendInvoiceEmail({
             <div style="text-align:center;margin:30px">
               <a href="${safeUrl}" style="display:inline-block;background:#0f766e;color:#ffffff;padding:13px 28px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px">View Invoice</a>
             </div>
-            <p style="font-size:12px;color:#6b7280;text-align:center">If the button above does not work, you can access your invoice from your ServiceDesk billing account.</p>
+            <p style="font-size:12px;color:#6b7280;text-align:center">If the button above does not work, you can access your invoice from your ${safeBrand} billing account.</p>
           </div>
           <div style="padding:22px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;text-align:center;font-size:13px;color:#374151">
-            Thank you for choosing ServiceDesk.<br>
+            Thank you for choosing ${safeBrand}.<br>
             Questions about your invoice?
-            <span style="color:#0e7adf">support@servicedesk.com</span>
+            <span style="color:#0e7adf">${safeSupport}</span>
           </div>
         </div>
         `,

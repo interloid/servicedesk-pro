@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   canManageTenantBilling,
@@ -190,6 +191,13 @@ export async function fetchTenantBillingData(
 
   if (!(await canManageTenantBilling(user.id, callerTenantId))) return null;
 
+  // The check above read the live membership. Everything below is scoped to that
+  // tenant, so it reads with the admin client: the database rules go by the role
+  // in the login token, which can be up to an hour old. Someone just made Billing
+  // Admin would pass the check and then be shown an empty subscription and no
+  // invoices.
+  const db = createSupabaseAdminClient();
+
   // Every read below is keyed on the tenant id alone, so none waits on another.
   const [
     { data: tenant, error: tenantError },
@@ -198,12 +206,12 @@ export async function fetchTenantBillingData(
     { data: activeMembers },
     { data: invoiceRows },
   ] = await Promise.all([
-    supabase
+    db
       .from("tenants")
       .select("id, name, slug, plan_id")
       .eq("id", callerTenantId)
       .single(),
-    supabase
+    db
       .from("subscriptions")
       // subscriptions has three FKs to plans (plan_id, next_plan_id,
       // pending_plan_id); the embed must name the one it means, or PostgREST
@@ -217,21 +225,21 @@ export async function fetchTenantBillingData(
       .in("status", ["active", "trialing", "past_due"])
       .order("created_at", { ascending: false })
       .maybeSingle(),
-    supabase
+    db
       .from("payment_methods")
       .select("*")
       .eq("tenant_id", callerTenantId)
       .eq("is_default", true)
       .eq("status", "active")
       .maybeSingle(),
-    supabase
+    db
       .from("memberships")
       .select("role")
       .eq("tenant_id", callerTenantId)
       // Staff only: portal customers have memberships but don't use seats.
       .in("role", [...STAFF_ROLES])
       .eq("status", "active"),
-    supabase
+    db
       .from("invoices")
       .select("*")
       .eq("tenant_id", callerTenantId)
@@ -250,7 +258,7 @@ export async function fetchTenantBillingData(
   const readPlan = async (planId: string | null | undefined) => {
     if (!planId) return null;
 
-    const { data } = await supabase
+    const { data } = await db
       .from("plans")
       .select("name, price_month")
       .eq("id", planId)
@@ -284,9 +292,7 @@ export async function fetchTenantBillingData(
   const members = activeMembers || [];
   const usedSeats = members.length;
 
-  const adminCount = members.filter(
-    (m) => m.role === "tenant_admin" || m.role === "owner",
-  ).length;
+  const adminCount = members.filter((m) => m.role === "tenant_admin").length;
   const regularCount = usedSeats - adminCount;
 
   type PlanFacts = {
@@ -303,7 +309,7 @@ export async function fetchTenantBillingData(
   // actual plan, not fall back to "Free". The assignment on the tenants row
   // is the same source the plans page uses.
   if (!plan && tenant.plan_id) {
-    const { data: tenantPlan } = await supabase
+    const { data: tenantPlan } = await db
       .from("plans")
       .select("name, price_month, seat_limit, description")
       .eq("id", tenant.plan_id)
@@ -401,7 +407,7 @@ export async function fetchTenantBillingData(
   const signedPdfUrls = new Map<string, string>();
 
   if (pdfPaths.length > 0) {
-    const { data: signed } = await supabase.storage
+    const { data: signed } = await db.storage
       .from("invoices")
       .createSignedUrls(pdfPaths, 3600);
 
@@ -500,7 +506,7 @@ export async function fetchTenantBillingData(
   let billingStatus: BillingDashboardData["billingStatus"] = "active";
   if (sub?.status === "trialing") {
     billingStatus = "trialing";
-  } else if (sub?.status === "suspended" || sub?.status === "past_due") {
+  } else if (sub?.status === "past_due") {
     billingStatus = "past_due";
   } else if (sub?.status === "cancelled") {
     billingStatus = "cancelled";

@@ -27,6 +27,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  PlatformInitial,
+  PlatformName,
+} from "@/components/shared/platform-brand";
 import { cn } from "@/lib/utils";
 import { MODAL_BUTTON, MODAL_BUTTON_PRIMARY } from "./modal-buttons";
 import type { BillingDashboardData } from "../services/billing-dashboard.service";
@@ -167,11 +171,11 @@ function InvoicePaper({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex size-5 shrink-0 items-center justify-center rounded-lg bg-brand-accent text-[10px] font-bold leading-none text-white">
-            S
+            <PlatformInitial />
           </span>
           <div>
             <p className="text-[13px] font-bold leading-tight text-slate-900">
-              ServiceDesk
+              <PlatformName />
             </p>
             <p className="text-[9px] text-slate-500">
               Help Desk &amp; Ticket Management Platform

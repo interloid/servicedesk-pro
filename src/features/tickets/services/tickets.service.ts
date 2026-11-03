@@ -1,3 +1,5 @@
+import "server-only";
+
 import { cache } from "react";
 import { getTenantIdBySlug } from "@/features/tenancy/services/tenant-resolver";
 import { createSupabaseServerClient } from "@/lib/supabase/server";

@@ -40,7 +40,7 @@ import {
   isPriorityLowered,
 } from "@/features/tickets/types/tickets.types";
 import { PriorityConfirmDialog } from "@/features/tickets/components/priority-confirm-dialog";
-import { AssignableAgent } from "@/features/tickets/services/tickets.service";
+import type { AssignableAgent } from "@/features/tickets/services/tickets.service";
 import {
   sendTicketMessageAction,
   updateTicketDetailsAction,

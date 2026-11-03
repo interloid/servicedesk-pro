@@ -1,3 +1,4 @@
+import type { Database } from "./database.types";
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -5,7 +6,7 @@ import { env } from "@/config/env";
 import { serverEnv } from "@/config/server-env";
 import { auditForwardHeaders } from "@/lib/request-context";
 
-let cached: SupabaseClient | null = null;
+let cached: SupabaseClient<Database> | null = null;
 
 function adminConfig() {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,14 +28,14 @@ const AUTH_OPTIONS = {
   detectSessionInUrl: false,
 };
 
-export function createSupabaseAdminClient(): SupabaseClient {
+export function createSupabaseAdminClient(): SupabaseClient<Database> {
   const { url, key } = adminConfig();
 
   if (cached) {
     return cached;
   }
 
-  cached = createClient(url, key, { auth: AUTH_OPTIONS });
+  cached = createClient<Database>(url, key, { auth: AUTH_OPTIONS });
 
   return cached;
 }
@@ -51,10 +52,10 @@ export function createSupabaseAdminClient(): SupabaseClient {
  */
 export async function createAuditedAdminClient(
   actorId: string,
-): Promise<SupabaseClient> {
+): Promise<SupabaseClient<Database>> {
   const { url, key } = adminConfig();
 
-  return createClient(url, key, {
+  return createClient<Database>(url, key, {
     auth: AUTH_OPTIONS,
     global: {
       headers: { ...(await auditForwardHeaders()), "x-audit-actor": actorId },

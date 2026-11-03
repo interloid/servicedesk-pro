@@ -138,7 +138,7 @@ export const getAuditTimeZone = cache(async function getAuditTimeZone(
 
 /* ── Reading ────────────────────────────────────────────────────────────── */
 
-type AuditRow = {
+export type AuditRow = {
   id: string;
   created_at: string;
   action: string;
@@ -547,6 +547,13 @@ async function toEvents(rows: AuditRow[], members: Member[]) {
   });
   const actors = await loadActors(ids, members);
   return rows.map((row) => toEvent(row, actors));
+}
+
+/** For the platform console, which reads across workspaces. */
+export const AUDIT_ROW_SELECT = ROW_SELECT;
+
+export function auditRowsToEvents(rows: AuditRow[]): Promise<AuditEvent[]> {
+  return toEvents(rows, []);
 }
 
 /* ── Summary ────────────────────────────────────────────────────────────── */

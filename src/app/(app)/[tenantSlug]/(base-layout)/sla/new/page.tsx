@@ -5,7 +5,7 @@ import {
   countTenantSlaPolicies,
   getSlaEditorData,
   getSlaPolicyQuota,
-} from "@/features/sla-policies/service/sla.service";
+} from "@/features/sla-policies/services/sla.service";
 import { hasPolicyRoom } from "@/features/sla-policies/types/types";
 
 export const metadata = {

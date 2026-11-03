@@ -134,7 +134,7 @@ export const getShellIdentity = cache(async function getShellIdentity(
   if (subscription?.plan_id) {
     const { data: planData, error: planError } = await supabase
       .from("plans")
-      .select("id, name, seat_limit")
+      .select("id, name, seat_limit, features_json")
       .eq("id", subscription.plan_id)
       .single();
 
@@ -152,7 +152,7 @@ export const getShellIdentity = cache(async function getShellIdentity(
   if (!plan && tenantData?.plan_id) {
     const { data: tenantPlan, error: tenantPlanError } = await supabase
       .from("plans")
-      .select("id, name, seat_limit")
+      .select("id, name, seat_limit, features_json")
       .eq("id", tenantData.plan_id)
       .single();
 
@@ -191,6 +191,11 @@ export const getShellIdentity = cache(async function getShellIdentity(
     .map((part: string) => part.charAt(0).toUpperCase())
     .join("");
 
+  // The token's role can lag the live one; see TokenRoleSync.
+  const tokenRoleStale = Boolean(
+    liveMembership?.role && claims.tenantRole !== liveMembership.role,
+  );
+
   return {
     org: {
       id: tenantData.id,
@@ -198,9 +203,13 @@ export const getShellIdentity = cache(async function getShellIdentity(
       initial: tenantData.name.charAt(0).toUpperCase(),
       planSummary,
       planName,
+      auditLogs:
+        (plan?.features_json as Record<string, unknown> | null)?.audit_logs ===
+        true,
     },
 
     user: {
+      tokenRoleStale,
       id: user.id,
       name,
       email: user.email ?? "",

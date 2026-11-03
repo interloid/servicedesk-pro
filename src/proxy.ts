@@ -24,6 +24,7 @@ import {
 } from "@/lib/tenancy";
 
 import { readTenantClaims } from "@/features/auth/claims";
+import { isBillingPath } from "@/features/platform-admin/workspace-status";
 import {
   AUTH_COOKIE_SCOPE,
   REMEMBER_COOKIE,
@@ -32,6 +33,10 @@ import {
 } from "@/lib/supabase/remember";
 
 import { APP_ROUTES } from "@/lib/routes";
+import {
+  getWorkspaceBlock,
+  isMaintenanceMode,
+} from "@/lib/platform-maintenance";
 
 import { env } from "./config/env";
 
@@ -135,6 +140,98 @@ function redirectStaffHome(
   );
 }
 
+/**
+ * The maintenance screen in place of a tenant URL, or null when it may proceed.
+ * Here rather than in the tenant layouts because a layout doesn't stop a server
+ * action, and this also covers actions from tabs left open. A POST gets a 503:
+ * the page can't answer an action, and the write must not run.
+ *
+ * Payment pages stay open: someone returning from PayPal has already been
+ * charged, and that page is what confirms the payment.
+ */
+async function maintenanceGate(
+  tenantRelativePath: string,
+  request: NextRequest,
+  response: NextResponse,
+): Promise<NextResponse | null> {
+  if (
+    tenantRelativePath === "/payment" ||
+    tenantRelativePath.startsWith("/payment/") ||
+    !(await isMaintenanceMode())
+  ) {
+    return null;
+  }
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return withSessionCookies(
+      NextResponse.json(
+        { error: "The platform is down for maintenance." },
+        { status: 503 },
+      ),
+      response,
+    );
+  }
+
+  return withSessionCookies(
+    NextResponse.rewrite(new URL(APP_ROUTES.MAINTENANCE, request.url)),
+    response,
+  );
+}
+
+function isUnder(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
+/**
+ * The blocked screen in place of a blocked workspace's URLs, or null. In the
+ * proxy for the same reason as maintenanceGate. Payment pages always stay open.
+ *
+ * A workspace blocked over failed payments keeps sign-in and its billing pages,
+ * or nobody could ever pay to get it back.
+ */
+async function workspaceGate(
+  slug: string,
+  tenantRelativePath: string,
+  request: NextRequest,
+  response: NextResponse,
+): Promise<NextResponse | null> {
+  if (isUnder(tenantRelativePath, "/payment")) {
+    return null;
+  }
+
+  const block = await getWorkspaceBlock(slug);
+
+  if (!block) {
+    return null;
+  }
+
+  if (
+    block.source === "payment" &&
+    (isTenantPublicPath(tenantRelativePath) ||
+      isBillingPath(tenantRelativePath))
+  ) {
+    return null;
+  }
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return withSessionCookies(
+      NextResponse.json(
+        { error: "This workspace is blocked." },
+        { status: 503 },
+      ),
+      response,
+    );
+  }
+
+  const target = new URL(APP_ROUTES.BLOCKED, request.url);
+
+  target.search = "";
+  target.searchParams.set("slug", slug);
+  if (block.source === "payment") target.searchParams.set("reason", "payment");
+
+  return withSessionCookies(NextResponse.rewrite(target), response);
+}
+
 export async function proxy(request: NextRequest) {
   return routeRequest(request);
 }
@@ -197,6 +294,13 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     return response;
   }
 
+  // The platform console sits outside every workspace and checks its own
+  // access (requirePlatformAdmin), so no tenant redirect may claim it -- the
+  // tenant-hint cookie would otherwise send it to a workspace login.
+  if (pathname === "/platform" || pathname.startsWith("/platform/")) {
+    return response;
+  }
+
   if (isCentralPath(pathname)) {
     if (user) {
       const sessionTenant = await resolveSessionTenant(supabase);
@@ -245,6 +349,18 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
 
   if (pathTenant) {
     const { slug, rest } = pathTenant;
+
+    const maintenance = await maintenanceGate(rest, request, response);
+
+    if (maintenance) {
+      return maintenance;
+    }
+
+    const blocked = await workspaceGate(slug, rest, request, response);
+
+    if (blocked) {
+      return blocked;
+    }
 
     if (isPortalPath(rest)) {
       // The portal runs its own sign-in, so an anonymous visitor is expected
@@ -399,6 +515,24 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
           response,
         );
       }
+
+      const maintenance = await maintenanceGate(pathname, request, response);
+
+      if (maintenance) {
+        return maintenance;
+      }
+
+      const blocked = await workspaceGate(
+        slugFromSubdomain,
+        pathname,
+        request,
+        response,
+      );
+
+      if (blocked) {
+        return blocked;
+      }
+
       if (isPortalPath(pathname)) {
         // The same staff check as the path-prefix branch above, and now the
         // same helper: without it this rewrite hands a staff session the

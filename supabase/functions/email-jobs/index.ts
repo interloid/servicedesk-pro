@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { PermanentEmailError, sendEmail } from "../_shared/gmail.ts";
 
+import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { invitationEmailHtml, roleWithArticle } from "./invitation-template.ts";
 import { customerTicketEmailHtml } from "./customer-ticket-template.ts";
 import { notificationEmailHtml } from "./notification-template.ts";
@@ -209,7 +210,12 @@ async function sendTeamInvitation({
   await sendEmail({
     to: email,
     subject: `You've been invited to ${workspace}`,
-    html: invitationEmailHtml({ workspace, role, link: actionLink }),
+    html: invitationEmailHtml({
+      workspace,
+      role,
+      link: actionLink,
+      platformName: (await getPlatformBrand(admin)).platformName,
+    }),
     text: `You've been invited to join ${workspace} as ${roleWithArticle(
       role,
     )}.\n\nAccept the invitation: ${actionLink}\n\nThis link works once and expires in 1 hour. If it has expired, ask your admin to resend the invite.`,

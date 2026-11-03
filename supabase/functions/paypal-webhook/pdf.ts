@@ -1,3 +1,4 @@
+import type { PlatformBrand } from "../_shared/platform-brand.ts";
 import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib";
 
 interface Invoice {
@@ -136,6 +137,7 @@ function createMoneyFormatter(
 export async function generateInvoicePdf(
   rawInvoice: Invoice,
   rawSubscription: Subscription,
+  rawBrand: PlatformBrand,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
 
@@ -148,6 +150,7 @@ export async function generateInvoicePdf(
   const toWinAnsi = createWinAnsiSanitizer(font);
   const invoice = sanitizeStrings(rawInvoice, toWinAnsi);
   const subscription = sanitizeStrings(rawSubscription, toWinAnsi);
+  const brand = sanitizeStrings(rawBrand, toWinAnsi);
 
   const { width, height } = page.getSize();
 
@@ -362,7 +365,7 @@ export async function generateInvoicePdf(
 
   const brandX = left + logoSize + 10;
 
-  page.drawText("ServiceDesk", {
+  page.drawText(brand.platformName, {
     x: brandX,
     y,
     size: 25,
@@ -788,7 +791,7 @@ export async function generateInvoicePdf(
   footerY -= 17;
 
   // Support email is the primary contact path, so slightly larger.
-  page.drawText("support@servicedesk.com", {
+  page.drawText(brand.supportEmail, {
     x: left,
     y: footerY,
     size: 11,

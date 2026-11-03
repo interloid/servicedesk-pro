@@ -8,9 +8,23 @@ import {
   checkEmailTenant,
   checkSlugAvailability,
 } from "../services/onboarding.service";
+import { getPlatformSettings } from "@/features/platform-admin/services/platform-settings.service";
 
 export async function registerOnboardingAction(payload: RegisterInput) {
   try {
+    // Checked here as well as on /setup: the wizard may have been open since
+    // before the console closed sign-ups.
+    const { settings } = await getPlatformSettings();
+
+    if (settings.maintenanceMode || !settings.allowSignups) {
+      return {
+        success: false,
+        error: settings.maintenanceMode
+          ? `${settings.platformName} is down for maintenance. Try again shortly.`
+          : `${settings.platformName} isn't accepting new workspaces right now.`,
+      };
+    }
+
     // Each sign-up creates an account and a workspace and mails every invitee.
     const { allowed } = await rateLimit(`signup:${await clientKey()}`, {
       limit: 3,
@@ -69,8 +83,8 @@ export async function checkEmailTenantAction(
 ): Promise<{ exists: boolean; rateLimited?: boolean }> {
   try {
     const { allowed } = await rateLimit(`check-email:${await clientKey()}`, {
-      limit: 10,
-      windowMs: 60_000,
+      limit: 20,
+      windowMs: 60 * 60_000,
     });
 
     if (!allowed) {

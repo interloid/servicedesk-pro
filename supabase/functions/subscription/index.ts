@@ -1,3 +1,4 @@
+import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createPayPalTokenProvider } from "../_shared/paypal-auth.ts";
 import { auditHeaders } from "../_shared/audit-headers.ts";
@@ -285,7 +286,7 @@ async function createPaypalOrder(params: {
         },
       ],
       application_context: {
-        brand_name: "ServiceDesk",
+        brand_name: (await getPlatformBrand(createAdminClient())).platformName,
         user_action: "PAY_NOW",
         return_url: params.return_url,
         cancel_url: params.cancel_url,
@@ -413,7 +414,7 @@ async function createPaypalSubscription(params: {
         address: { country_code: "US" },
       },
       application_context: {
-        brand_name: "ServiceDesk",
+        brand_name: (await getPlatformBrand(createAdminClient())).platformName,
         user_action: "SUBSCRIBE_NOW",
         landing_page: "LOGIN",
         return_url: `${FRONTEND_URL}/${params.tenantSlug}/payment/success`,
@@ -838,6 +839,7 @@ Deno.serve(async (req) => {
     // plan without waiting for the webhook.
     const approvalRedirect = {
       returnUrl: `${FRONTEND_URL}/${tenantSlug}/payment/success`,
+      brandName: (await getPlatformBrand(createAdminClient())).platformName,
       cancelUrl: `${FRONTEND_URL}/${tenantSlug}/payment/cancel`,
     };
 
@@ -2436,7 +2438,7 @@ Deno.serve(async (req) => {
       }
 
       const description =
-        `ServiceDesk ${targetPlan.name} upgrade ` +
+        `${(await getPlatformBrand(admin)).platformName} ${targetPlan.name} upgrade ` +
         `($${targetPrice.toFixed(2)} - $${currentPrice.toFixed(2)} ` +
         `${currentPlan?.name ?? "current plan"})`;
 

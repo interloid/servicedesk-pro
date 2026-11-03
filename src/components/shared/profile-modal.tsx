@@ -33,7 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   prepareProfileAvatarUploadAction,
   updateProfileAction,
-} from "@/actions/user-actions";
+} from "@/features/users/actions/user-actions";
 import { uploadAvatar } from "@/features/portal/avatar-upload";
 import { avatarError } from "@/features/portal/portal";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";

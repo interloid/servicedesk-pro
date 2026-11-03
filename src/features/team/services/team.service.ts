@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { MembershipRole } from "@/types/team-members";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { enqueueEmail } from "@/lib/email/email-queue";
@@ -136,7 +138,7 @@ function enableSeatLimitError(limit: number) {
   );
 }
 
-const ROLE_TO_DB: Record<TeamRole, string> = {
+const ROLE_TO_DB: Record<TeamRole, MembershipRole> = {
   "Tenant Admin": "tenant_admin",
   Manager: "manager",
   Agent: "agent",
@@ -150,7 +152,7 @@ const ROLE_FROM_DB: Record<string, TeamRole> = {
   billing_admin: "Billing Admin",
 };
 
-const STATUS_TO_DB: Record<TeamStatus, string> = {
+const STATUS_TO_DB: Record<TeamStatus, "active" | "invited" | "disabled"> = {
   Active: "active",
   Invited: "invited",
   Disabled: "disabled",

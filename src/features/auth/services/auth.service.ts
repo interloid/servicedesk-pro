@@ -12,6 +12,7 @@ import {
   getTenantIdBySlug,
 } from "@/features/tenancy/services/tenant-resolver";
 import {
+  isSafeInternalPath,
   defaultTenantLanding,
   isTrustedHost,
   isTenantRouteAllowed,
@@ -228,10 +229,7 @@ export function safeNext(
   next: string | null | undefined,
   fallback = "/tickets",
 ): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return fallback;
-  }
-  return next;
+  return isSafeInternalPath(next) ? next : fallback;
 }
 
 function isLoopbackHost(host: string | null): host is string {

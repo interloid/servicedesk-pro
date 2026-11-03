@@ -80,7 +80,7 @@ const LIMITS = {
   // so one cannot use up the other.
   setPassword: { limit: 10, windowMs: 10 * MINUTE },
   // "Does this email have an account?" on the signed-out ticket form.
-  emailCheck: { limit: 15, windowMs: 10 * MINUTE },
+  emailCheck: { limit: 30, windowMs: 60 * MINUTE },
   // A signed-out ticket: writes a customer, a ticket and an email each time.
   guestRequest: { limit: 5, windowMs: 10 * MINUTE },
   // Counted per file (guard's `cost`), not per call: one call can ask for up to

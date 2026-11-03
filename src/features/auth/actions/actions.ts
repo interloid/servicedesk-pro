@@ -20,6 +20,9 @@ import type { ActionResult, LoginSuccess } from "@/features/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { getTenantClaims } from "../claims";
+import { isPlatformAdminEmail } from "@/features/platform-admin/services/platform-access";
+
+const PLATFORM_HOME = "/platform";
 import { exchangePkceAuthCode } from "@/lib/supabase/pkce";
 import {
   ForgotPasswordValues,
@@ -77,6 +80,14 @@ export async function loginAction(
 
   try {
     const sessionUser = await login(parsed.data);
+
+    // A platform operator needs no workspace: the console is their landing.
+    if (!sessionUser.tenantId && isPlatformAdminEmail(sessionUser.email)) {
+      return {
+        success: true,
+        data: { ...sessionUser, redirectTo: PLATFORM_HOME },
+      };
+    }
 
     if (!sessionUser.tenantId) {
       return {

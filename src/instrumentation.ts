@@ -1,5 +1,7 @@
 import type { Instrumentation } from "next";
 
+import { SENTRY_DATA_COLLECTION } from "@/config/sentry";
+
 export async function register() {
   if (!process.env.SENTRY_DSN) return;
 
@@ -9,6 +11,7 @@ export async function register() {
       dsn: process.env.SENTRY_DSN,
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
       tracesSampleRate: 0.1,
+      dataCollection: SENTRY_DATA_COLLECTION,
     });
   }
 
@@ -18,6 +21,7 @@ export async function register() {
       dsn: process.env.SENTRY_DSN,
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
       tracesSampleRate: 0.1,
+      dataCollection: SENTRY_DATA_COLLECTION,
     });
   }
 }

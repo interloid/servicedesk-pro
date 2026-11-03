@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 /**
@@ -34,7 +34,34 @@ function remotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   }
 }
 
+function supabaseOrigins(): string {
+  try {
+    const { origin, host } = new URL(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    );
+
+    return `${origin} wss://${host}`;
+  } catch {
+    return "";
+  }
+}
+
+// Report-only for now: the browser logs what this would block and blocks nothing.
+// Switch the key to Content-Security-Policy once the console stays clean.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `img-src 'self' data: blob: ${supabaseOrigins()}`,
+  `connect-src 'self' ${supabaseOrigins()} https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io`,
+  "frame-ancestors 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { WorkspaceStatusWatcher } from "@/features/platform-admin/components/workspace-status-watcher";
 import { PortalShell } from "@/features/portal/components/portal-shell";
 import { portalFaviconDataUrl } from "@/features/portal/portal";
 import {
@@ -76,6 +77,7 @@ export default async function PortalLayout({ children, params }: LayoutProps) {
       customer={identity?.customer}
       supportHours={supportHours}
     >
+      <WorkspaceStatusWatcher slug={tenantSlug} />
       {children}
     </PortalShell>
   );

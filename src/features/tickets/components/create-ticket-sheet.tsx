@@ -39,7 +39,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Customer } from "../services/tickets.service";
+import type { Customer } from "../services/tickets.service";
 import {
   TICKET_ATTACHMENT_ACCEPT,
   TICKET_ATTACHMENT_HINT,

@@ -722,6 +722,39 @@ export type Database = {
           },
         ];
       };
+      platform_settings: {
+        Row: {
+          allow_signups: boolean;
+          block_on_payment_failure: boolean;
+          id: boolean;
+          maintenance_mode: boolean;
+          platform_name: string;
+          support_email: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          allow_signups?: boolean;
+          block_on_payment_failure?: boolean;
+          id?: boolean;
+          maintenance_mode?: boolean;
+          platform_name?: string;
+          support_email?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          allow_signups?: boolean;
+          block_on_payment_failure?: boolean;
+          id?: boolean;
+          maintenance_mode?: boolean;
+          platform_name?: string;
+          support_email?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       plans: {
         Row: {
           code: string;
@@ -1333,6 +1366,9 @@ export type Database = {
       tenants: {
         Row: {
           auto_close_after_days: number;
+          block_reason: string | null;
+          block_source: string | null;
+          blocked_at: string | null;
           branding_json: Json;
           created_at: string;
           id: string;
@@ -1343,6 +1379,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          block_reason?: string | null;
+          block_source?: string | null;
+          blocked_at?: string | null;
           auto_close_after_days?: number;
           branding_json?: Json;
           created_at?: string;
@@ -1354,6 +1393,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          block_reason?: string | null;
+          block_source?: string | null;
+          blocked_at?: string | null;
           auto_close_after_days?: number;
           branding_json?: Json;
           created_at?: string;
@@ -1639,6 +1681,19 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      current_workspace_block: { Args: never; Returns: string | null };
+      platform_analytics: { Args: { p_from: string }; Returns: Json };
+      platform_db_health: { Args: never; Returns: Json };
+      platform_invoice_summary: { Args: never; Returns: Json };
+      platform_last_sign_ins: { Args: never; Returns: Json };
+      rate_limit_hit: {
+        Args: { p_key: string; p_cost: number; p_window_ms: number };
+        Returns: { hits: number; reset_at: string }[];
+      };
+      sla_policy_ticket_counts: {
+        Args: { p_tenant_id: string; p_policy_ids: string[] };
+        Returns: { policy_id: string; ticket_count: number }[];
+      };
       audit_log_summary: {
         Args: { p_from: string; p_to: string };
         Returns: Json;

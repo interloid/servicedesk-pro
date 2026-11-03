@@ -339,3 +339,15 @@
 .exporting [data-pdf-stack] {
   grid-template-columns: minmax(0, 1fr) !important;
 }
+
+/* Scrolls without showing a bar. Important because the base layer sets a thin
+   scrollbar on everything, and browsers ignore the WebKit rule when
+   scrollbar-width is set. */
+@utility scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

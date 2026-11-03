@@ -39,7 +39,11 @@ export const TEAM_MODAL_BUTTON =
 
 /** The affirmative action in a dialog footer. */
 export const TEAM_MODAL_BUTTON_PRIMARY =
-  "bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90";
+  // TEAM_MODAL_BUTTON's hover border and text are for outline buttons, and the
+  // fill has to reach under the border, or a filled button reads 1px smaller
+  // than the outline one beside it. Important for the same reason as the danger
+  // button's: globals.css sets border-border on everything, outside any layer.
+  "border-brand-accent! bg-brand-accent bg-clip-border text-brand-accent-foreground hover:border-brand-accent/90! hover:bg-brand-accent/90 hover:text-brand-accent-foreground";
 
 /**
  * The destructive action: red on white behind a pale red border, matching the

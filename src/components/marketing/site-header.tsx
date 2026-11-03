@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
+import { usePlatformBrand } from "@/components/shared/platform-brand";
 import { APP_ROUTES } from "@/lib/routes";
 
 export function SiteHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { platformName } = usePlatformBrand();
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -19,9 +21,9 @@ export function SiteHeader() {
           className="flex items-center gap-2.5 font-bold text-base sm:text-lg text-foreground hover:opacity-90 transition-opacity shrink-0"
         >
           <span className="w-8 h-8 rounded-lg bg-brand-accent text-primary-foreground flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-            S
+            {platformName.charAt(0).toUpperCase()}
           </span>
-          <span className="tracking-tight">ServiceDeskPro</span>
+          <span className="tracking-tight">{platformName}</span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-sm font-medium text-muted-foreground">

@@ -5,7 +5,7 @@ import { LoginForm } from "@/features/auth/components/login-form";
 
 export const metadata: Metadata = {
   title: "Log in",
-  description: "Sign in to your ServiceDesk Pro workspace.",
+  description: "Sign in to your workspace.",
   alternates: { canonical: "/login" },
   robots: { index: false, follow: false },
 };

@@ -99,7 +99,7 @@ import {
   createSlaPolicyAction,
   removeHolidayAction,
   updateSlaPolicyAction,
-} from "../action/sla.actions";
+} from "../actions/sla.actions";
 import { BADGE, BADGE_TONES, StatusBadge } from "./status-badge";
 
 import { CustomerPicker } from "./customer-picker";

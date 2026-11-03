@@ -1,3 +1,4 @@
+import type { Json } from "@/lib/supabase/database.types";
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -22,7 +23,7 @@ export async function createNotification(params: {
     tenant_id: params.tenantId,
     user_id: params.userId,
     type: params.type,
-    payload_json: (params.payload || {}) as Record<string, unknown>,
+    payload_json: (params.payload || {}) as Json,
   });
 
   if (error) {
@@ -49,7 +50,7 @@ export async function createNotifications(
       tenant_id: r.tenantId,
       user_id: r.userId,
       type: r.type,
-      payload_json: (r.payload || {}) as Record<string, unknown>,
+      payload_json: (r.payload || {}) as Json,
     })),
   );
 

@@ -1,15 +1,23 @@
+import type { Metadata } from "next";
 import { AppFooter } from "@/components/shared/layout/app-footer";
 import { AppHeader } from "@/components/shared/layout/app-header";
 import { AppSidebar } from "@/components/shared/layout/app-sidebar";
 import { GlobalShortcuts } from "@/components/shared/layout/global-shortcuts";
 import { RoleRouteGuard } from "@/components/shared/layout/role-route-guard";
+import { TokenRoleSync } from "@/components/shared/layout/token-role-sync";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { NotificationsProvider } from "@/features/notifications/components/notifications-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { WorkspaceStatusWatcher } from "@/features/platform-admin/components/workspace-status-watcher";
 import { getShellIdentity } from "@/lib/identity";
 import { APP_ROUTES } from "@/lib/routes";
 import { isStaffRole } from "@/lib/tenancy";
 import { notFound, redirect } from "next/navigation";
+
+// Signed-in screens have nothing for a search engine.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardLayout({
   children,
@@ -52,6 +60,11 @@ export default async function DashboardLayout({
       <TooltipProvider delayDuration={0}>
         <NotificationsProvider userId={identity.user.id}>
           <RoleRouteGuard role={identity.user.role} />
+          <WorkspaceStatusWatcher slug={tenantSlug} />
+          <TokenRoleSync
+            stale={identity.user.tokenRoleStale}
+            role={identity.user.role}
+          />
           <GlobalShortcuts role={identity.user.role} />
           <div className="flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
             <AppSidebar identity={identity} />

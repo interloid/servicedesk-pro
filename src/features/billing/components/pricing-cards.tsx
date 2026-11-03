@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { changeTenantPlanAction } from "../billing-actions";
 import { usePaymentRedirect } from "../hooks/use-payment-redirect";
 import type { BillingDashboardData } from "../services/billing-dashboard.service";
+import { usePlatformBrand } from "@/components/shared/platform-brand";
 import { cn } from "@/lib/utils";
 
 import { CancelSubscriptionDialog } from "./cancel-subscription";
@@ -62,6 +63,7 @@ export function PricingCards({
   billingData,
 }: PricingCardsProps) {
   const router = useRouter();
+  const { supportEmail } = usePlatformBrand();
 
   const [isTransitionPending, startTransition] = useTransition();
   const { redirecting, redirect } = usePaymentRedirect();
@@ -608,7 +610,7 @@ export function PricingCards({
                             className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs text-white shadow-md dark:bg-zinc-100 dark:text-zinc-900"
                           >
                             To change or update your plan, please contact our
-                            support team at support@servicedesk.com.
+                            support team at {supportEmail}.
                           </TooltipContent>
                         )}
                       </Tooltip>

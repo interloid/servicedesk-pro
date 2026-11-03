@@ -21,11 +21,14 @@ export function invitationEmailHtml({
   workspace,
   role,
   link,
+  platformName,
 }: {
   workspace: string;
   role: string;
   link: string;
+  platformName: string;
 }): string {
+  const safePlatform = escapeHtml(platformName);
   const safeWorkspace = escapeHtml(workspace);
   const safeRole = escapeHtml(roleWithArticle(role));
   const safeLink = escapeHtml(link);
@@ -113,7 +116,7 @@ export function invitationEmailHtml({
                   color: #0f172a;
                 "
               >
-                ServiceDesk Pro
+                ${safePlatform}
               </div>
             </td>
           </tr>
@@ -243,7 +246,7 @@ export function invitationEmailHtml({
                   color: #94a3b8;
                 "
               >
-                © 2026 ServiceDesk Pro. All rights reserved.
+                © ${new Date().getFullYear()} ${safePlatform}. All rights reserved.
               </p>
 
               <p

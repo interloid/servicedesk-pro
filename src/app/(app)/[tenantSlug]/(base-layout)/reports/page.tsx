@@ -4,7 +4,7 @@ import { ReportsLocked } from "@/features/reports/components/reports-locked";
 import {
   fetchReportsData,
   hasReportsAccess,
-} from "@/features/reports/service/reports.service";
+} from "@/features/reports/services/reports.service";
 import { parseReportRange } from "@/features/reports/types/types";
 import { getActorOrNull } from "@/features/team/services/team.service";
 

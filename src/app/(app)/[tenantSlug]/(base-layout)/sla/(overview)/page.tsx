@@ -3,7 +3,7 @@ import {
   canManageSla,
   fetchTenantSlaPolicies,
   getSlaPolicyQuota,
-} from "@/features/sla-policies/service/sla.service";
+} from "@/features/sla-policies/services/sla.service";
 
 export const metadata = {
   title: "SLA policies",

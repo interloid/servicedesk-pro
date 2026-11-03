@@ -837,7 +837,7 @@ export async function linkPortalSession(
   const { data, error } = await admin.rpc("portal_link_user", {
     p_user_id: userId,
     p_tenant_slug: slug,
-    p_full_name: fullName ?? null,
+    p_full_name: fullName ?? undefined,
   });
 
   let link: LinkResult | null = null;
@@ -1434,8 +1434,8 @@ export async function createPortalRequest({
     // Mention markup is the team's, not the customer's: typed by hand it would
     // render as a staff chip on the agent side, so it is flattened to "@Name".
     p_description: stripAllMentions(description),
-    p_full_name: fullName ?? null,
-    p_user_id: userId ?? null,
+    p_full_name: fullName ?? undefined,
+    p_user_id: userId ?? undefined,
     // Never the customer's choice -- see PORTAL_REQUEST_PRIORITY.
     p_priority: PORTAL_REQUEST_PRIORITY,
   });

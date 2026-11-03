@@ -45,7 +45,7 @@ import {
   addHolidayAction,
   updateBusinessHoursScheduleAction,
   updateHolidayAction,
-} from "../action/sla.actions";
+} from "../actions/sla.actions";
 import {
   BusinessHoursOption,
   HOLIDAY_DESCRIPTION_MAX,
