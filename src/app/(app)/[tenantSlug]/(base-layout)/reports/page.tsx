@@ -42,7 +42,7 @@ export default async function ReportsPage({
   // Free plan: show the locked view and never read the real figures.
   if (!(await hasReportsAccess(actor.tenantId))) {
     return (
-      <main className="w-full">
+      <main className="h-full w-full">
         <ReportsLocked
           tenantSlug={tenantSlug}
           canUpgrade={actor.role === "Tenant Admin"}

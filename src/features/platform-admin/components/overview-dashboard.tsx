@@ -27,9 +27,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { DataTable, PLATFORM_BUTTON, PlatformPageHeader } from "./platform-ui";
+import { PLATFORM_BUTTON, PlatformPageHeader } from "./platform-ui";
 import { StatCard } from "./stat-card";
-import { TenantStatusBadge } from "./status-badge";
 import { formatCurrency } from "../format";
 import type { PlatformOverview } from "../types";
 
@@ -45,9 +44,6 @@ export function OverviewDashboard({
     planDistribution: PLAN_DISTRIBUTION,
   } = overview;
   const planTotal = PLAN_DISTRIBUTION.reduce((s, p) => s + p.value, 0);
-  const recentSignups = [...tenants]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 6);
   const topTenants = [...tenants]
     .filter((t) => t.mrr > 0)
     .sort((a, b) => b.mrr - a.mrr)
@@ -211,6 +207,8 @@ export function OverviewDashboard({
                 </Pie>
                 <Tooltip
                   formatter={(value, name) => [`${value} tenants`, name]}
+                  // Otherwise the text takes the slice's colour; Free's is too pale.
+                  itemStyle={{ color: "#0f172a" }}
                   contentStyle={{
                     borderRadius: 8,
                     border: "1px solid #e2e8f0",
@@ -279,6 +277,7 @@ export function OverviewDashboard({
                   width={28}
                 />
                 <Tooltip
+                  itemStyle={{ color: "#0f172a" }}
                   contentStyle={{
                     borderRadius: 8,
                     border: "1px solid #e2e8f0",
@@ -350,67 +349,6 @@ export function OverviewDashboard({
           </div>
         </Card>
       </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold text-foreground">Recent signups</h2>
-        <DataTable
-          rows={recentSignups}
-          rowKey={(tenant) => tenant.id}
-          empty="No workspaces yet."
-          columns={[
-            {
-              key: "workspace",
-              header: "Workspace",
-              primary: true,
-              cell: (tenant) => (
-                <div className="flex min-w-0 items-center gap-3">
-                  <Avatar className="size-9 rounded-md">
-                    <AvatarFallback className="rounded-md bg-muted text-xs font-bold text-foreground">
-                      {tenant.initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-semibold">
-                      {tenant.name}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      /{tenant.slug}
-                    </span>
-                  </div>
-                </div>
-              ),
-            },
-            { key: "plan", header: "Plan", cell: (tenant) => tenant.plan },
-            {
-              key: "owner",
-              header: "Owner",
-              cell: (tenant) => (
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{tenant.owner}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {tenant.ownerEmail}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              key: "status",
-              header: "Status",
-              cell: (tenant) => <TenantStatusBadge status={tenant.status} />,
-            },
-            {
-              key: "created",
-              header: "Created",
-              align: "right",
-              cell: (tenant) => (
-                <span className="text-muted-foreground">
-                  {tenant.createdAt}
-                </span>
-              ),
-            },
-          ]}
-        />
-      </section>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { trustedTenantLogoUrl } from "@/features/portal/avatar-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import type {
@@ -41,6 +42,7 @@ type PlanRow = {
 };
 
 type TenantRow = {
+  logo_url: string | null;
   id: string;
   name: string;
   slug: string;
@@ -142,7 +144,8 @@ function displayStatus(
   return "active";
 }
 
-const TENANT_COLUMNS = "id, name, slug, status, plan_id, created_at";
+const TENANT_COLUMNS =
+  "id, name, slug, status, plan_id, created_at, logo_url:branding_json->>logo_url";
 
 /** The block columns arrive with migration 20261103140000, which may be pending. */
 async function loadTenants(admin: SupabaseClient): Promise<TenantRow[]> {
@@ -269,6 +272,7 @@ function buildTenants(
       name: tenant.name,
       slug: tenant.slug,
       initials: initialsOf(tenant.name),
+      logoUrl: trustedTenantLogoUrl(tenant.logo_url?.trim() || null),
       plan: planEntry?.plan.name ?? "Unknown",
       planRank: planEntry?.index ?? 0,
       seatsUsed: seatsUsed.get(tenant.id) ?? 0,

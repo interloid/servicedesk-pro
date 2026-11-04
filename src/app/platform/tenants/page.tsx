@@ -19,7 +19,8 @@ export default async function PlatformTenantsPage() {
   const tenants = await getPlatformTenants();
 
   return (
-    <div className="flex flex-col gap-6">
+    // Exactly the height the shell leaves, so only the table's rows scroll.
+    <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
         title="Tenants"
         description="Every workspace on the platform, with its plan, seats and owner."

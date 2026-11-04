@@ -157,11 +157,11 @@ export function LogsTable({
     <div
       className={cn(
         PLATFORM_CARD,
-        "flex flex-col overflow-hidden md:min-h-48 md:flex-1",
+        "flex min-h-72 flex-1 flex-col overflow-hidden",
       )}
     >
       {entries.length === 0 ? (
-        <p className="px-5 py-12 text-center text-sm text-muted-foreground md:flex-1">
+        <p className="flex-1 px-5 py-12 text-center text-sm text-muted-foreground">
           No log entries match these filters.
         </p>
       ) : (
@@ -170,7 +170,7 @@ export function LogsTable({
           // still. Focusable so the keyboard can scroll it too.
           tabIndex={0}
           aria-label="Log entries"
-          className="divide-y divide-muted scrollbar-none md:min-h-0 md:flex-1 md:overflow-y-auto"
+          className="min-h-0 flex-1 divide-y divide-muted overflow-auto xl:scrollbar-none"
         >
           {entries.map((entry, index) => {
             const key = `${entry.id}-${index}`;
@@ -183,7 +183,7 @@ export function LogsTable({
                     type="button"
                     aria-expanded={open}
                     onClick={() => setOpenId(open ? null : key)}
-                    className="flex w-full flex-wrap items-start gap-x-3 gap-y-1 px-4 py-2.5 text-left transition-colors hover:bg-muted/40 md:flex-nowrap"
+                    className="flex w-full min-w-3xl items-start gap-x-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
                   >
                     <ChevronRight
                       className={cn(
@@ -200,12 +200,12 @@ export function LogsTable({
                         {LEVELS[entry.level].label}
                       </ToneBadge>
                     </span>
-                    <span className="hidden w-28 shrink-0 truncate text-xs text-muted-foreground md:block">
+                    <span className="w-28 shrink-0 truncate text-xs text-muted-foreground">
                       {SOURCE_LABELS[entry.source] ?? entry.source}
                     </span>
                     <span
                       className={cn(
-                        "min-w-0 basis-full pl-7 font-mono text-xs text-foreground md:flex-1 md:basis-0 md:pl-0",
+                        "min-w-0 flex-1 font-mono text-xs text-foreground",
                         open ? "break-words whitespace-pre-wrap" : "truncate",
                       )}
                     >
@@ -214,7 +214,7 @@ export function LogsTable({
                   </button>
 
                   {open && (
-                    <dl className="grid grid-cols-1 gap-x-4 gap-y-1 border-t border-muted bg-muted/30 px-11 py-3 text-xs sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+                    <dl className="grid min-w-3xl grid-cols-1 gap-x-4 gap-y-1 border-t border-muted bg-muted/30 px-11 py-3 text-xs sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
                       <dt className="text-muted-foreground">source</dt>
                       <dd className="font-mono break-words text-foreground">
                         {entry.source}

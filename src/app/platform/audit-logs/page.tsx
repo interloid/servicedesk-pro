@@ -24,7 +24,8 @@ export default async function PlatformAuditLogsPage(props: {
   const data = await getPlatformAuditPage(filters);
 
   return (
-    <div className="flex flex-col gap-6">
+    // Exactly the height the shell leaves, so only the table's rows scroll.
+    <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
         title="Audit Logs"
         description="What happened in every workspace, whatever its plan."

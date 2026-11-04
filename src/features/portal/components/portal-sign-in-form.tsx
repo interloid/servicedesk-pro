@@ -184,6 +184,7 @@ function MagicLinkForm({
   return (
     <Form {...form}>
       <form
+        method="post"
         noValidate
         onSubmit={form.handleSubmit(onSubmit)}
         className="mt-5 flex flex-col gap-4"
@@ -286,6 +287,7 @@ function PasswordForm({
   return (
     <Form {...form}>
       <form
+        method="post"
         noValidate
         onSubmit={form.handleSubmit(onSubmit)}
         className="mt-5 flex flex-col gap-4"

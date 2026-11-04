@@ -16,7 +16,7 @@ import {
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { cn } from "@/lib/utils";
 
-import { formatCurrency, formatDate, formatNumber } from "../format";
+import { formatCurrency, formatNumber } from "../format";
 import {
   ANALYTICS_RANGES,
   type AnalyticsRange,
@@ -31,20 +31,14 @@ import {
   PLATFORM_CARD,
   PLATFORM_STAT_GRID,
   PlatformPageHeader,
+  TablePaginationFooter,
 } from "./platform-ui";
 import { StatCard } from "./stat-card";
+import { useTablePagination } from "./use-table-pagination";
 
 // Passed the palette validator against the card surface (light mode).
 const TEAL = "#0d9488";
 const RED = "#dc2626";
-const VIOLET = "#7c3aed";
-
-function monthLabel(key: string): string {
-  return new Date(`${key}-01T00:00:00Z`).toLocaleString("en-US", {
-    month: "short",
-    timeZone: "UTC",
-  });
-}
 
 function formatDuration(minutes: number | null | undefined): string {
   if (minutes === null || minutes === undefined) return "—";
@@ -88,6 +82,7 @@ export function AnalyticsDashboard({
   range: AnalyticsRange;
 }) {
   const router = useRouter();
+  const { pageRows: planRows, footer: plansFooter } = useTablePagination(plans);
   const { metrics, revenueSeries } = overview;
   const data = analytics.available ? analytics.data : null;
 
@@ -222,34 +217,20 @@ export function AnalyticsDashboard({
             ]}
           />
         </ChartCard>
-
-        {data && (
-          <div className="xl:col-span-2">
-            <ChartCard
-              title="Ticket volume"
-              description="Across every workspace, last 12 months."
-            >
-              <MonthlyBarChart
-                data={data.tickets_by_month.map((point) => ({
-                  ...point,
-                  month: monthLabel(point.month),
-                }))}
-                series={[
-                  { key: "created", name: "Created", color: TEAL },
-                  { key: "resolved", name: "Resolved", color: VIOLET },
-                ]}
-              />
-            </ChartCard>
-          </div>
-        )}
       </div>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold text-foreground">Revenue by plan</h2>
         <DataTable
-          rows={plans}
+          rows={planRows}
           rowKey={(plan) => plan.id}
           empty="No plans found."
+          footer={
+            <TablePaginationFooter
+              {...plansFooter}
+              noun={{ one: "plan", other: "plans" }}
+            />
+          }
           columns={[
             {
               key: "plan",
@@ -278,57 +259,6 @@ export function AnalyticsDashboard({
           ]}
         />
       </section>
-
-      {data && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-base font-bold text-foreground">
-            Workspace usage
-          </h2>
-          <DataTable
-            rows={data.workspaces}
-            rowKey={(workspace) => workspace.id}
-            empty="No workspaces yet."
-            columns={[
-              {
-                key: "workspace",
-                header: "Workspace",
-                primary: true,
-                cell: (workspace) => (
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-semibold">
-                      {workspace.name}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      /{workspace.slug}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                key: "tickets",
-                header: "Tickets in range",
-                cell: (workspace) => formatNumber(workspace.tickets),
-              },
-              {
-                key: "open",
-                header: "Open now",
-                cell: (workspace) => formatNumber(workspace.open_tickets),
-              },
-              {
-                key: "customers",
-                header: "Customers",
-                cell: (workspace) => formatNumber(workspace.customers),
-              },
-              {
-                key: "last",
-                header: "Last ticket",
-                align: "right",
-                cell: (workspace) => formatDate(workspace.last_ticket_at),
-              },
-            ]}
-          />
-        </section>
-      )}
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
   SidebarTrigger,
   SidebarFooter,
 } from "@/components/ui/sidebar";
@@ -140,6 +141,7 @@ export function PlatformSidebar({
   const pathname = usePathname();
   const { logout, isPending } = useLogout({ redirectTo: "/login" });
   const { platformName } = usePlatformBrand();
+  const { isMobile, setOpenMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" className="select-none border-r">
@@ -226,6 +228,11 @@ export function PlatformSidebar({
                         <Link
                           href={item.href}
                           className="flex min-w-0 items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
+                          onClick={() => {
+                            if (isMobile) {
+                              setOpenMobile(false);
+                            }
+                          }}
                         >
                           <Icon className="size-4 shrink-0" />
                           <span className="truncate group-data-[collapsible=icon]:hidden">

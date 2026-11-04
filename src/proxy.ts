@@ -111,6 +111,7 @@ function isStaffSession(
 function rememberTenant(response: NextResponse, slug: string): NextResponse {
   response.cookies.set(TENANT_HINT_COOKIE, slug, {
     ...AUTH_COOKIE_SCOPE,
+    httpOnly: true,
     maxAge: TENANT_HINT_MAX_AGE,
   });
 

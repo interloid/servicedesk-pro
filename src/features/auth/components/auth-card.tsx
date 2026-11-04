@@ -32,7 +32,10 @@ export function AuthCard({
   ...props
 }: React.ComponentProps<"form">) {
   return (
+    // method="post": before hydration there is no submit handler, and the browser's
+    // default GET would put the password in the URL, history and request logs.
     <form
+      method="post"
       noValidate
       className={cn(
         "flex w-full max-w-110 flex-col gap-4.5 rounded-2xl border bg-card px-5 py-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] md:p-8",

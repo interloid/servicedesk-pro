@@ -42,3 +42,15 @@ next-env.d.ts
 
 # local design previews (not shipped)
 /design-previews/
+
+# Claude Code local settings and installed third-party agent skills
+.claude/
+
+# Internal security assessment and findings tracker, not for the public repo
+docs/security
+
+# Lock file written by `npx skills add`
+skills-lock.json
+
+# Test folders at any level, including supabase/tests
+tests

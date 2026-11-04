@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { MAX_PLAN_LIMIT, PLAN_LIMIT_TOO_BIG } from "../plan-limits";
 import { requirePlatformAdmin } from "../services/platform-access";
 import { updatePlatformPlan } from "../services/platform-plans.service";
-import { PLAN_FEATURES, type PlanFeatureKey } from "../types";
+import { PLAN_FEATURES, UNLIMITED_SEATS, type PlanFeatureKey } from "../types";
 
 const planSchema = z.object({
   id: z.string().uuid(),
@@ -17,11 +18,13 @@ const planSchema = z.object({
     .number()
     .int("Enter a whole number.")
     .min(1, "A plan needs at least 1 seat.")
-    .max(999999),
+    // UNLIMITED_SEATS itself is how the form saves "No limit".
+    .max(UNLIMITED_SEATS, PLAN_LIMIT_TOO_BIG),
   slaPolicies: z
     .number()
     .int("Enter a whole number.")
-    .refine((value) => value === -1 || value >= 1, "Enter at least 1."),
+    .refine((value) => value === -1 || value >= 1, "Enter at least 1.")
+    .refine((value) => value <= MAX_PLAN_LIMIT, PLAN_LIMIT_TOO_BIG),
   features: z.object(
     Object.fromEntries(
       PLAN_FEATURES.map(({ key }) => [key, z.boolean()]),

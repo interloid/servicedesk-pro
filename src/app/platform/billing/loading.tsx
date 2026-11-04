@@ -1,5 +1,5 @@
-import { PlatformListSkeleton } from "@/features/platform-admin/components/platform-skeletons";
+import { PlatformBillingSkeleton } from "@/features/platform-admin/components/platform-skeletons";
 
 export default function Loading() {
-  return <PlatformListSkeleton label="Loading subscriptions…" stats={4} />;
+  return <PlatformBillingSkeleton />;
 }

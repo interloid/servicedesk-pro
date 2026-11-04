@@ -18,15 +18,21 @@ import {
 import { cn } from "@/lib/utils";
 
 import { formatCurrency, formatDate } from "../format";
-import type { PlatformSubscription, SubscriptionStage } from "../types";
+import {
+  UNLIMITED_SEATS,
+  type PlatformSubscription,
+  type SubscriptionStage,
+} from "../types";
 import {
   DataTable,
   FilterTabs,
   PLATFORM_ICON_BUTTON,
-  PLATFORM_SEARCH,
+  PlatformFilterBar,
   SearchField,
+  TablePaginationFooter,
 } from "./platform-ui";
 import { ToneBadge, type BadgeTone } from "./status-badge";
+import { useTablePagination } from "./use-table-pagination";
 
 type Filter =
   "all" | "active" | "trialing" | "past_due" | "cancelling" | "ended";
@@ -101,7 +107,10 @@ function SubscriptionDetails({ row }: { row: PlatformSubscription }) {
                 row.ownerEmail ? `${row.owner} (${row.ownerEmail})` : row.owner
               }
             />
-            <Detail label="Seats" value={row.seats} />
+            <Detail
+              label="Seats"
+              value={row.seats >= UNLIMITED_SEATS ? "Unlimited" : row.seats}
+            />
             <Detail label="MRR" value={formatCurrency(row.mrr)} />
             <Detail
               label="Total paid"
@@ -231,33 +240,50 @@ export function SubscriptionsTable({
 
   const rows = searched.filter((row) => matches(row, filter));
   const selected = subscriptions.find((row) => row.id === selectedId);
+  const { pageRows, resetPage, footer } = useTablePagination(rows);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className={PLATFORM_SEARCH}>
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          label="Search subscriptions"
-          placeholder="Search workspace or owner…"
-        />
-      </div>
-
-      <FilterTabs
-        label="Subscription status"
-        value={filter}
-        onChange={setFilter}
-        options={FILTERS.map((item) => ({
-          ...item,
-          count: searched.filter((row) => matches(row, item.value)).length,
-        }))}
+    <div className="flex flex-col gap-4 min-h-0 flex-1">
+      <PlatformFilterBar
+        tabs={
+          <FilterTabs
+            label="Subscription status"
+            value={filter}
+            onChange={(value) => {
+              setFilter(value);
+              resetPage();
+            }}
+            options={FILTERS.map((item) => ({
+              ...item,
+              count: searched.filter((row) => matches(row, item.value)).length,
+            }))}
+          />
+        }
+        search={
+          <SearchField
+            value={query}
+            onChange={(value) => {
+              setQuery(value);
+              resetPage();
+            }}
+            label="Search subscriptions"
+            placeholder="Search workspace, owner…"
+          />
+        }
       />
 
       <DataTable
-        rows={rows}
+        rows={pageRows}
         rowKey={(row) => row.id}
         empty="No subscriptions match."
+        scrollLabel="Subscriptions"
         summary={`${rows.length} subscription${rows.length === 1 ? "" : "s"}`}
+        footer={
+          <TablePaginationFooter
+            {...footer}
+            noun={{ one: "subscription", other: "subscriptions" }}
+          />
+        }
         columns={[
           {
             key: "workspace",
@@ -312,7 +338,6 @@ export function SubscriptionsTable({
           {
             key: "details",
             header: <span className="sr-only">Details</span>,
-            action: true,
             align: "right",
             cell: (row) => (
               <Button

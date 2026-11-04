@@ -1,398 +1,689 @@
-import { Card } from "@/components/ui/card";
+import Image from "next/image";
+import type { ReactNode } from "react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// Loading states for the platform console. Each mirrors its page's layout --
-// same grid, card padding and row heights -- so nothing jumps when the data
-// streams in.
+import {
+  PLATFORM_CARD,
+  PLATFORM_SEARCH,
+  PLATFORM_STAT_GRID,
+  PLATFORM_TOOLBAR,
+  PlatformFilterBar,
+} from "./platform-ui";
 
-function PageHeaderSkeleton({ action = false }: { action?: boolean }) {
+// Loading states for the platform console. Each mirrors its page -- same grids,
+// breakpoints, card padding and row heights -- so nothing jumps when the data
+// arrives. Change a screen's layout, change its skeleton here.
+
+function repeat(count: number, render: (index: number) => ReactNode) {
+  return Array.from({ length: count }, (_, index) => render(index));
+}
+
+function SkeletonPage({
+  label,
+  className,
+  children,
+  noPageScrollbar,
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+  noPageScrollbar?: boolean;
+}) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-7 w-48" />
-        <Skeleton className="h-4 w-72 max-w-full" />
+    <div
+      className={cn("flex flex-col gap-6", className)}
+      aria-busy="true"
+      aria-live="polite"
+      data-no-page-scrollbar={noPageScrollbar || undefined}
+    >
+      <span className="sr-only">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function PageHeaderSkeleton({ action }: { action?: string }) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Skeleton className="h-7 w-48 sm:h-8" />
+        <Skeleton className="h-5 w-96 max-w-full" />
       </div>
-      {action && <Skeleton className="h-10 w-36 rounded-lg" />}
+      {action && (
+        <Skeleton className={cn("h-10 shrink-0 rounded-lg", action)} />
+      )}
     </div>
   );
 }
 
 function StatCardSkeleton() {
   return (
-    <Card className="rounded-xl border-border bg-card p-5 ring-0 shadow-none">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-2">
-          <Skeleton className="h-2.5 w-20" />
-          <Skeleton className="h-7 w-16" />
-        </div>
-        <Skeleton className="size-9 shrink-0 rounded-lg" />
-      </div>
-      <Skeleton className="mt-3 h-3 w-24" />
-    </Card>
-  );
-}
-
-function ChartCardSkeleton({
-  className,
-  chartClassName,
-}: {
-  className?: string;
-  chartClassName: string;
-}) {
-  return (
-    <Card
-      className={cn(
-        "rounded-xl border-border bg-card p-5 ring-0 shadow-none",
-        className,
-      )}
-    >
-      <div className="mb-4 flex flex-col gap-1.5">
-        <Skeleton className="h-2.5 w-36" />
-        <Skeleton className="h-3 w-48" />
-      </div>
-      <Skeleton className={cn("w-full rounded-lg", chartClassName)} />
-    </Card>
-  );
-}
-
-function EntityCellSkeleton({ rounded = "rounded-md" }: { rounded?: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-3">
-      <Skeleton className={cn("size-9 shrink-0", rounded)} />
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Skeleton className="h-3.5 w-32" />
-        <Skeleton className="h-3 w-44" />
+    <div className={cn(PLATFORM_CARD, "flex items-center gap-4 p-4 sm:p-5")}>
+      <Skeleton className="size-12 shrink-0 rounded-xl" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Skeleton className="h-7 w-20" />
+        <Skeleton className="h-4 w-32 max-w-full" />
+        <Skeleton className="h-3 w-24 max-w-full" />
       </div>
     </div>
   );
 }
 
-/**
- * A table card: the summary strip, the header row, then `rows` body rows.
- * `columns` lists each non-first column's skeleton width; the last one is
- * right-aligned like the real tables.
- */
-function TableCardSkeleton({
-  columns,
-  rows = 8,
-  avatarRounded,
-}: {
-  columns: string[];
-  rows?: number;
-  avatarRounded?: string;
-}) {
-  const gridTemplate = {
-    gridTemplateColumns: `minmax(220px, 2fr) repeat(${columns.length}, minmax(90px, 1fr))`,
-  };
-
+function StatGridSkeleton({ count }: { count: number }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-[14px] border border-border bg-card">
-      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-3 w-28" />
-      </div>
+    <div className={PLATFORM_STAT_GRID}>
+      {repeat(count, (index) => (
+        <StatCardSkeleton key={index} />
+      ))}
+    </div>
+  );
+}
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[640px]">
-          <div
-            className="grid items-center gap-4 border-b border-muted bg-muted/40 px-5 py-3"
-            style={gridTemplate}
-          >
-            <Skeleton className="h-3 w-20" />
-            {columns.map((_, index) => (
-              <Skeleton
-                key={index}
-                className={cn(
-                  "h-3 w-14",
-                  index === columns.length - 1 && "ml-auto",
-                )}
-              />
-            ))}
-          </div>
+function CardHeadingSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex flex-col gap-1", className)}>
+      <Skeleton className="h-5 w-40 max-w-full" />
+      <Skeleton className="h-4 w-56 max-w-full" />
+    </div>
+  );
+}
 
-          {Array.from({ length: rows }, (_, row) => (
-            <div
-              key={row}
-              className="grid items-center gap-4 border-b border-muted px-5 py-3.5 last:border-b-0"
-              style={gridTemplate}
-            >
-              <EntityCellSkeleton rounded={avatarRounded} />
-              {columns.map((width, index) => (
-                <Skeleton
-                  key={index}
-                  className={cn(
-                    "h-4",
-                    width,
-                    index === columns.length - 1 && "ml-auto",
-                  )}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+function SectionHeadingSkeleton() {
+  return <Skeleton className="h-6 w-44" />;
+}
+
+function ChartLegendSkeleton() {
+  return (
+    <div className="flex flex-wrap gap-3">
+      <Skeleton className="h-4 w-20" />
+      <Skeleton className="h-4 w-20" />
     </div>
   );
 }
 
 function FilterPillsSkeleton({ count }: { count: number }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {Array.from({ length: count }, (_, index) => (
-        <Skeleton key={index} className="h-10 w-24 rounded-full" />
+    <div className="flex shrink-0 gap-2 overflow-hidden">
+      {repeat(count, (index) => (
+        <Skeleton key={index} className="h-10 w-24 shrink-0 rounded-full" />
       ))}
     </div>
   );
 }
 
+const SEARCH_SKELETON = <Skeleton className="h-10 w-full rounded-lg" />;
+
+function ToolbarSkeleton({
+  selects,
+  children,
+}: {
+  selects: number;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={PLATFORM_TOOLBAR}>
+      <div className={PLATFORM_SEARCH}>{SEARCH_SKELETON}</div>
+      {repeat(selects, (index) => (
+        <Skeleton key={index} className="h-10 w-full rounded-lg xl:w-44" />
+      ))}
+      {children}
+    </div>
+  );
+}
+
+/** TablePaginationFooter: range on the left, pages and page size on the right. */
+function TableFooterSkeleton() {
+  return (
+    <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
+      <Skeleton className="h-5 w-44" />
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <div className="flex items-center gap-1.5">
+          {repeat(5, (index) => (
+            <Skeleton key={index} className="size-9 rounded-lg" />
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-10" />
+          <Skeleton className="h-10 w-20 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type ColumnSkeleton = {
+  /** The cell's skeleton size and shape, such as "h-5 w-16 rounded-full". */
+  cell: string;
+  right?: boolean;
+};
+
+function LeadCellSkeleton({
+  avatar,
+  lines,
+}: {
+  avatar?: string;
+  lines: 1 | 2;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      {avatar && <Skeleton className={cn("size-9 shrink-0", avatar)} />}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Skeleton className="h-5 w-36 max-w-full" />
+        {lines === 2 && <Skeleton className="h-4 w-48 max-w-full" />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * DataTable's shape: an optional summary strip and footer around a table that
+ * scrolls sideways when the card is narrow, like the real one.
+ * `columns` leaves out the first column, which is `avatar` and `leadLines`.
+ */
+function TableCardSkeleton({
+  columns,
+  rows = 10,
+  avatar,
+  leadLines = 2,
+  summary = false,
+  footer = true,
+  fill = false,
+}: {
+  columns: ColumnSkeleton[];
+  rows?: number;
+  avatar?: string;
+  leadLines?: 1 | 2;
+  summary?: boolean;
+  footer?: boolean;
+  /** For a DataTable with `scrollLabel`: capped at the page, rows clipped inside. */
+  fill?: boolean;
+}) {
+  const gridTemplate = {
+    gridTemplateColumns: `minmax(12rem, 2fr) repeat(${columns.length}, minmax(0, 1fr))`,
+  };
+
+  return (
+    <div
+      className={cn(PLATFORM_CARD, "overflow-hidden", fill && "flex flex-col")}
+    >
+      {summary && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+      )}
+
+      <div
+        className={cn(
+          "overflow-x-auto scrollbar-none",
+          fill && "min-h-60 overflow-y-hidden",
+        )}
+      >
+        <div
+          className="grid h-11 min-w-3xl items-center gap-4 bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] px-4 shadow-[inset_0_-1px_0_var(--border)]"
+          style={gridTemplate}
+        >
+          <Skeleton className="h-3 w-20" />
+          {columns.map((column, index) => (
+            <Skeleton
+              key={index}
+              className={cn("h-3 w-14", column.right && "ml-auto")}
+            />
+          ))}
+        </div>
+
+        {repeat(rows, (row) => (
+          <div
+            key={row}
+            className="grid min-w-3xl items-center gap-4 border-b border-border px-4 py-3 last:border-b-0"
+            style={gridTemplate}
+          >
+            <LeadCellSkeleton avatar={avatar} lines={leadLines} />
+            {columns.map((column, index) => (
+              <Skeleton
+                key={index}
+                className={cn(column.cell, column.right && "ml-auto")}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {footer && <TableFooterSkeleton />}
+    </div>
+  );
+}
+
+const ICON_ACTION: ColumnSkeleton = {
+  cell: "size-9 rounded-lg",
+  right: true,
+};
+const TEXT = "h-5 w-16";
+const WIDE_TEXT = "h-5 w-24";
+const BADGE = "h-6 w-20 rounded-full";
+
 export function PlatformOverviewSkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading platform overview…</span>
-      <PageHeaderSkeleton action />
+    <SkeletonPage label="Loading platform overview…">
+      <PageHeaderSkeleton action="w-full sm:w-40" />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }, (_, index) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {repeat(6, (index) => (
           <StatCardSkeleton key={index} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <ChartCardSkeleton className="lg:col-span-2" chartClassName="h-60" />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className={cn(PLATFORM_CARD, "p-4 sm:p-5 xl:col-span-2")}>
+          <CardHeadingSkeleton className="mb-4" />
+          <Skeleton className="h-60 w-full rounded-lg" />
+        </div>
 
-        <Card className="rounded-xl border-border bg-card p-5 ring-0 shadow-none">
-          <div className="mb-4 flex flex-col gap-1.5">
-            <Skeleton className="h-2.5 w-28" />
-            <Skeleton className="h-3 w-36" />
-          </div>
+        <div className={cn(PLATFORM_CARD, "p-4 sm:p-5")}>
+          <CardHeadingSkeleton className="mb-4" />
           <div className="flex h-48 items-center justify-center">
             <Skeleton className="size-36 rounded-full" />
           </div>
           <div className="mt-2 space-y-2.5">
-            {Array.from({ length: 3 }, (_, index) => (
+            {repeat(3, (index) => (
               <div key={index} className="flex items-center justify-between">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-12" />
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <ChartCardSkeleton className="lg:col-span-2" chartClassName="h-56" />
-
-        <Card className="rounded-xl border-border bg-card p-5 ring-0 shadow-none">
-          <Skeleton className="mb-2 h-2.5 w-32" />
-          <div className="flex flex-col divide-y divide-muted">
-            {Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className="flex items-center gap-3 py-2.5">
-                <Skeleton className="size-8 shrink-0 rounded-md" />
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <Skeleton className="h-3.5 w-28" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
+                <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-12" />
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       </div>
 
-      <Card className="overflow-hidden rounded-xl border-border bg-card ring-0 shadow-none">
-        <div className="border-b border-border px-5 py-4">
-          <Skeleton className="h-4 w-28" />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className={cn(PLATFORM_CARD, "p-4 sm:p-5 xl:col-span-2")}>
+          <CardHeadingSkeleton className="mb-4" />
+          <Skeleton className="h-56 w-full rounded-lg" />
         </div>
-        <div className="flex flex-col divide-y divide-muted">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="flex items-center gap-4 px-5 py-3.5">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
+
+        <div className={cn(PLATFORM_CARD, "p-4 sm:p-5")}>
+          <Skeleton className="mb-2 h-5 w-36" />
+          <div className="flex flex-col divide-y divide-muted">
+            {repeat(5, (index) => (
+              <div key={index} className="flex items-center gap-3 py-2.5">
                 <Skeleton className="size-8 shrink-0 rounded-md" />
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <Skeleton className="h-3.5 w-32" />
-                  <Skeleton className="h-3 w-20" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <Skeleton className="h-5 w-28 max-w-full" />
+                  <Skeleton className="h-4 w-20 max-w-full" />
                 </div>
+                <Skeleton className="h-5 w-12" />
               </div>
-              <Skeleton className="hidden h-4 w-16 sm:block" />
-              <Skeleton className="hidden h-4 w-36 md:block" />
-              <Skeleton className="h-5 w-16 rounded-full" />
-              <Skeleton className="h-3 w-20" />
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </SkeletonPage>
   );
 }
 
 export function PlatformTenantsSkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading tenants…</span>
+    <SkeletonPage
+      label="Loading tenants…"
+      noPageScrollbar
+      className="h-full min-h-0"
+    >
       <PageHeaderSkeleton />
 
-      <div className="flex h-full flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Skeleton className="h-10 w-full max-w-xs" />
-          <FilterPillsSkeleton count={6} />
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <PlatformFilterBar
+          tabs={<FilterPillsSkeleton count={6} />}
+          search={SEARCH_SKELETON}
+        />
 
-        {/* Plan, Seats, MRR, Status, Created */}
         <TableCardSkeleton
+          summary
+          fill
+          avatar="rounded-md"
           columns={[
-            "w-16 rounded-full",
-            "w-14",
-            "w-14",
-            "w-16 rounded-full",
-            "w-20",
+            { cell: BADGE },
+            { cell: TEXT },
+            { cell: TEXT },
+            { cell: BADGE },
+            { cell: WIDE_TEXT, right: true },
+            { cell: "h-9 w-20 rounded-lg", right: true },
           ]}
         />
       </div>
-    </div>
+    </SkeletonPage>
   );
 }
 
 export function PlatformUsersSkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading users…</span>
+    <SkeletonPage
+      label="Loading users…"
+      noPageScrollbar
+      className="h-full min-h-0"
+    >
       <PageHeaderSkeleton />
 
-      <div className="flex h-full flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Skeleton className="h-10 w-full max-w-xs" />
-          <Skeleton className="h-8 w-52" />
-          <div className="ml-auto">
-            <FilterPillsSkeleton count={4} />
-          </div>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <PlatformFilterBar
+          tabs={<FilterPillsSkeleton count={4} />}
+          search={SEARCH_SKELETON}
+        >
+          {SEARCH_SKELETON}
+        </PlatformFilterBar>
 
-        {/* Workspace, Role, Status, Last active */}
         <TableCardSkeleton
-          avatarRounded="rounded-full"
-          columns={["w-28", "w-20", "w-16 rounded-full", "w-14"]}
+          summary
+          fill
+          avatar="rounded-full"
+          columns={[
+            { cell: WIDE_TEXT },
+            { cell: WIDE_TEXT },
+            { cell: BADGE },
+            { cell: TEXT, right: true },
+          ]}
         />
+      </div>
+    </SkeletonPage>
+  );
+}
+
+export function PlatformBillingSkeleton() {
+  return (
+    <SkeletonPage
+      label="Loading subscriptions…"
+      noPageScrollbar
+      className="h-full min-h-0"
+    >
+      <PageHeaderSkeleton />
+      <StatGridSkeleton count={4} />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <PlatformFilterBar
+          tabs={<FilterPillsSkeleton count={6} />}
+          search={SEARCH_SKELETON}
+        />
+
+        <TableCardSkeleton
+          summary
+          fill
+          columns={[
+            { cell: TEXT },
+            { cell: BADGE },
+            { cell: TEXT },
+            { cell: WIDE_TEXT },
+            { cell: WIDE_TEXT },
+            ICON_ACTION,
+          ]}
+        />
+      </div>
+    </SkeletonPage>
+  );
+}
+
+function PlanCardSkeleton() {
+  return (
+    <div className={cn(PLATFORM_CARD, "flex flex-col gap-4 p-4 sm:p-5")}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-5 w-48 max-w-full" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <Skeleton className="h-10 w-20 shrink-0 rounded-lg" />
+      </div>
+
+      <div className="flex flex-col gap-2 border-t border-border pt-4">
+        {repeat(5, (index) => (
+          <div key={index} className="flex items-center justify-between gap-3">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function SettingsCardSkeleton({ children }: { children: React.ReactNode }) {
+const COMPARISON_GRID =
+  "grid grid-cols-[minmax(5.5rem,1fr)_repeat(3,4rem)] @lg:grid-cols-[34%_repeat(3,minmax(0,1fr))]";
+
+function PlanComparisonSkeleton() {
   return (
-    <Card className="rounded-[14px]">
-      <div className="flex flex-col gap-1.5 border-b border-border px-4 py-4 sm:px-5">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-64 max-w-full" />
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <Skeleton className="h-6 w-44" />
+        <Skeleton className="h-5 w-full max-w-2xl" />
       </div>
-      <div className="px-5">{children}</div>
-    </Card>
+
+      <div className={cn(PLATFORM_CARD, "@container overflow-hidden")}>
+        <div className={cn(COMPARISON_GRID, "border-b border-border")}>
+          <div className="flex items-end p-3 @3xl:px-4">
+            <Skeleton className="h-4 w-16 @3xl:h-6" />
+          </div>
+          {repeat(3, (plan) => (
+            <div
+              key={plan}
+              className="flex flex-col items-center gap-1 border-l border-border px-1 py-2 @3xl:p-4"
+            >
+              <Skeleton className="h-4 w-10 @3xl:h-6 @3xl:w-20" />
+              <Skeleton className="hidden h-4 w-40 max-w-full @3xl:block" />
+            </div>
+          ))}
+        </div>
+
+        {/* Ten features and the SLA policy limit. */}
+        {repeat(11, (row) => (
+          <div
+            key={row}
+            className={cn(
+              COMPARISON_GRID,
+              "border-b border-border last:border-b-0",
+            )}
+          >
+            <div className="p-3 @3xl:px-4">
+              <Skeleton className="h-5 w-40 max-w-full" />
+            </div>
+            {repeat(3, (plan) => (
+              <div
+                key={plan}
+                className="flex items-center justify-center border-l border-border px-1 py-2"
+              >
+                <Skeleton className="size-6 rounded-full" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function PlatformPlansSkeleton() {
+  return (
+    <SkeletonPage label="Loading plans…">
+      <PageHeaderSkeleton />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        {repeat(3, (index) => (
+          <PlanCardSkeleton key={index} />
+        ))}
+      </div>
+
+      <PlanComparisonSkeleton />
+    </SkeletonPage>
+  );
+}
+
+export function PlatformAnalyticsSkeleton() {
+  return (
+    <SkeletonPage label="Loading analytics…">
+      <PageHeaderSkeleton action="w-full sm:w-44" />
+      <StatGridSkeleton count={8} />
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className={cn(PLATFORM_CARD, "flex flex-col gap-4 p-4 sm:p-5")}>
+          <CardHeadingSkeleton />
+          <Skeleton className="h-56 w-full rounded-lg" />
+        </div>
+        <div className={cn(PLATFORM_CARD, "flex flex-col gap-4 p-4 sm:p-5")}>
+          <CardHeadingSkeleton />
+          <ChartLegendSkeleton />
+          <Skeleton className="h-56 w-full rounded-lg" />
+        </div>
+      </div>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeadingSkeleton />
+        <TableCardSkeleton
+          rows={3}
+          leadLines={1}
+          columns={[
+            { cell: TEXT },
+            { cell: TEXT },
+            { cell: TEXT, right: true },
+          ]}
+        />
+      </section>
+    </SkeletonPage>
+  );
+}
+
+export function PlatformAuditSkeleton() {
+  return (
+    <SkeletonPage
+      label="Loading audit logs…"
+      noPageScrollbar
+      className="h-full min-h-0"
+    >
+      <PageHeaderSkeleton />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <ToolbarSkeleton selects={5} />
+
+        <TableCardSkeleton
+          fill
+          columns={[
+            { cell: WIDE_TEXT },
+            { cell: BADGE },
+            { cell: WIDE_TEXT },
+            ICON_ACTION,
+          ]}
+        />
+      </div>
+    </SkeletonPage>
+  );
+}
+
+/** For the screens that wait on Supabase's Management API, which can take a while. */
+function SupabaseServicesLoader({ caption }: { caption: string }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8 md:min-h-0">
+      <Image
+        src="/supabase-services-loader-light.gif"
+        alt=""
+        width={711}
+        height={300}
+        unoptimized
+        loading="eager"
+        className="h-auto w-full max-w-2xl"
+      />
+      <p aria-hidden className="text-sm text-muted-foreground">
+        {caption}
+      </p>
+    </div>
+  );
+}
+
+export function PlatformLogsSkeleton() {
+  return (
+    <SkeletonPage
+      label="Loading logs…"
+      noPageScrollbar
+      className="h-full min-h-0"
+    >
+      <PageHeaderSkeleton action="w-full sm:w-28" />
+
+      <ToolbarSkeleton selects={2}>
+        <div className="flex h-10 items-center gap-2 sm:col-span-2 xl:px-2">
+          <Skeleton className="h-[1.15rem] w-8 rounded-full" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+      </ToolbarSkeleton>
+
+      <SupabaseServicesLoader caption="Fetching logs from Supabase…" />
+    </SkeletonPage>
+  );
+}
+
+export function PlatformHealthSkeleton() {
+  return (
+    <SkeletonPage label="Loading system health…" className="min-h-full">
+      <PageHeaderSkeleton action="w-full sm:w-28" />
+      <SupabaseServicesLoader caption="Checking services…" />
+    </SkeletonPage>
+  );
+}
+
+function SettingsCardSkeleton({ children }: { children: ReactNode }) {
+  return (
+    <div className={cn(PLATFORM_CARD, "p-4 sm:p-5")}>
+      <div className="flex items-center gap-3">
+        <Skeleton className="size-10 shrink-0 rounded-lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <Skeleton className="h-6 w-44 max-w-full" />
+          <Skeleton className="h-5 w-64 max-w-full" />
+        </div>
+      </div>
+      {children}
+    </div>
   );
 }
 
 function ToggleRowSkeleton() {
   return (
-    <div className="flex items-start justify-between gap-4 py-3.5">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <Skeleton className="h-3.5 w-36" />
-        <Skeleton className="h-3 w-60 max-w-full" />
+    <div className="mt-4 flex items-center justify-between gap-4 border-t border-border pt-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Skeleton className="h-5 w-40 max-w-full" />
+        <Skeleton className="h-5 w-80 max-w-full" />
       </div>
       <Skeleton className="h-[1.15rem] w-8 shrink-0 rounded-full" />
     </div>
   );
 }
 
-function ToggleRowsSkeleton({ count }: { count: number }) {
-  return (
-    <div className="flex flex-col divide-y divide-muted">
-      {Array.from({ length: count }, (_, index) => (
-        <ToggleRowSkeleton key={index} />
-      ))}
-    </div>
-  );
-}
-
 export function PlatformSettingsSkeleton() {
   return (
-    <div
-      className="flex w-full max-w-5xl flex-col gap-6"
-      aria-busy="true"
-      aria-live="polite"
+    <SkeletonPage
+      label="Loading platform settings…"
+      className="w-full max-w-5xl"
     >
-      <span className="sr-only">Loading platform settings…</span>
       <PageHeaderSkeleton />
 
       <SettingsCardSkeleton>
-        <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2 sm:gap-6">
-          {Array.from({ length: 2 }, (_, index) => (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+          {repeat(2, (index) => (
             <div key={index} className="flex flex-col gap-1.5">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full rounded-lg" />
             </div>
           ))}
         </div>
       </SettingsCardSkeleton>
 
       <SettingsCardSkeleton>
-        <ToggleRowsSkeleton count={1} />
+        <ToggleRowSkeleton />
+        <ToggleRowSkeleton />
       </SettingsCardSkeleton>
 
       <SettingsCardSkeleton>
-        <ToggleRowsSkeleton count={1} />
+        <ToggleRowSkeleton />
       </SettingsCardSkeleton>
 
       <div className="flex justify-end border-t border-border pt-5">
-        <Skeleton className="h-10 w-36" />
+        <Skeleton className="h-10 w-full rounded-lg sm:w-36" />
       </div>
-    </div>
-  );
-}
-
-/** A filter row and a table card, for the console's list pages. */
-export function PlatformListSkeleton({
-  label,
-  stats = 0,
-}: {
-  label: string;
-  stats?: number;
-}) {
-  return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
-      <span className="sr-only">{label}</span>
-      <PageHeaderSkeleton />
-
-      {stats > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-          {Array.from({ length: stats }, (_, index) => (
-            <StatCardSkeleton key={index} />
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Skeleton className="h-10 w-full max-w-xs" />
-        <FilterPillsSkeleton count={4} />
-      </div>
-
-      <TableCardSkeleton columns={["w-16", "w-20", "w-24", "w-20", "w-16"]} />
-    </div>
-  );
-}
-
-export function PlatformHealthSkeleton() {
-  return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading system health…</span>
-      <PageHeaderSkeleton action />
-      <Skeleton className="h-16 w-full rounded-[14px]" />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-        {Array.from({ length: 8 }, (_, index) => (
-          <StatCardSkeleton key={index} />
-        ))}
-      </div>
-
-      <Skeleton className="h-72 w-full rounded-[14px]" />
-    </div>
+    </SkeletonPage>
   );
 }

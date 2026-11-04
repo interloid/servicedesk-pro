@@ -96,6 +96,7 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
     <div className="w-full space-y-6">
       <Form {...form}>
         <form
+          method="post"
           onSubmit={form.handleSubmit(handleAccountSubmit)}
           className="space-y-5 text-left"
         >

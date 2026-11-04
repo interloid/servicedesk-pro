@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
 
+import { LockedBackdrop } from "@/components/shared/locked-backdrop";
 import { Button } from "@/components/ui/button";
 import { tenantPath } from "@/lib/tenancy";
 import {
@@ -115,14 +116,10 @@ interface ReportsLockedProps {
 /** What a Free tenant sees at /reports: the dashboard's shape, blurred, under a lock. */
 export function ReportsLocked({ tenantSlug, canUpgrade }: ReportsLockedProps) {
   return (
-    <div className="relative h-full min-h-[calc(100svh-4rem)] overflow-hidden">
-      <div
-        aria-hidden
-        inert
-        className="pointer-events-none select-none opacity-60 blur-[6px]"
-      >
+    <div className="relative h-full min-h-120 overflow-hidden">
+      <LockedBackdrop>
         <ReportsDashboard data={SAMPLE_DATA} />
-      </div>
+      </LockedBackdrop>
 
       <div className="absolute inset-0 flex items-center justify-center bg-background/30 px-4">
         {/* Frosted card over the blur: tinted lock badge, headline, and the

@@ -58,10 +58,7 @@ export default async function PlatformLogsPage(props: {
 
   return (
     // Exactly the height the shell leaves, so the page has nothing to scroll.
-    <div
-      data-no-page-scrollbar
-      className="flex flex-col gap-6 md:h-full md:min-h-0"
-    >
+    <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
         title="Application Logs"
         description="API, database, auth, Edge Function and storage logs from Supabase. Times are in UTC. Passwords and tokens are hidden."

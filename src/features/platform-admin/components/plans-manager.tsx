@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Info, Loader2, Minus, Pencil } from "lucide-react";
+import { Info, Loader2, Pencil } from "lucide-react";
 
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { Button } from "@/components/ui/button";
@@ -30,9 +30,10 @@ import { cn } from "@/lib/utils";
 
 import { savePlatformPlanAction } from "../actions/platform-plans.actions";
 import { formatCurrency, formatNumber } from "../format";
-import { PLAN_FEATURES, type PlatformPlan } from "../types";
+import { planLimitError } from "../plan-limits";
+import { PLAN_FEATURES, UNLIMITED_SEATS, type PlatformPlan } from "../types";
+import { PlanComparison } from "./plan-comparison";
 import {
-  DataTable,
   PLATFORM_BUTTON,
   PLATFORM_CARD,
   PlatformPageHeader,
@@ -40,7 +41,7 @@ import {
 import { ToneBadge } from "./status-badge";
 
 function limitText(value: number | null, suffix = ""): string {
-  return value === null || value >= 999999
+  return value === null || value >= UNLIMITED_SEATS
     ? "Unlimited"
     : `${formatNumber(value)}${suffix}`;
 }
@@ -109,7 +110,12 @@ function EditPlanDialog({
 }) {
   const router = useRouter();
   const [description, setDescription] = useState(plan.description);
-  const [seatLimit, setSeatLimit] = useState(String(plan.seatLimit));
+  const [unlimitedSeats, setUnlimitedSeats] = useState(
+    plan.seatLimit >= UNLIMITED_SEATS,
+  );
+  const [seatLimit, setSeatLimit] = useState(
+    plan.seatLimit >= UNLIMITED_SEATS ? "1" : String(plan.seatLimit),
+  );
   const [unlimitedSla, setUnlimitedSla] = useState(plan.slaPolicies === -1);
   const [slaLimit, setSlaLimit] = useState(
     plan.slaPolicies === -1 ? "1" : String(plan.slaPolicies),
@@ -120,12 +126,33 @@ function EditPlanDialog({
   );
   const [isSaving, startSaving] = useTransition();
 
+  function checkLimit(field: "seatLimit" | "slaPolicies", text: string) {
+    const error = planLimitError(text);
+
+    setErrors((current) => ({
+      ...current,
+      [field]: error ? [error] : undefined,
+    }));
+
+    return !error;
+  }
+
+  function clearError(field: "seatLimit" | "slaPolicies") {
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
   function save() {
+    // Not short-circuited, so both fields show their error at once.
+    const seatsOk = unlimitedSeats || checkLimit("seatLimit", seatLimit);
+    const slaOk = unlimitedSla || checkLimit("slaPolicies", slaLimit);
+
+    if (!seatsOk || !slaOk) return;
+
     startSaving(async () => {
       const result = await savePlatformPlanAction({
         id: plan.id,
         description,
-        seatLimit: Number(seatLimit),
+        seatLimit: unlimitedSeats ? UNLIMITED_SEATS : Number(seatLimit),
         slaPolicies: unlimitedSla ? -1 : Number(slaLimit),
         features,
       });
@@ -189,17 +216,40 @@ function EditPlanDialog({
 
           <div className="grid min-w-0 grid-cols-2 gap-3 md:gap-4">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="plan-seats" className="h-5">
-                Seat limit
-              </Label>
+              <div className="flex h-5 items-center justify-between gap-1">
+                <Label htmlFor="plan-seats" className="truncate">
+                  Seat limit
+                </Label>
+                <label className="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground">
+                  No limit
+                  <Switch
+                    size="sm"
+                    aria-label="No limit on seats"
+                    checked={unlimitedSeats}
+                    onCheckedChange={(checked) => {
+                      setUnlimitedSeats(checked);
+                      clearError("seatLimit");
+                    }}
+                  />
+                </label>
+              </div>
               <Input
                 id="plan-seats"
-                type="number"
+                type={unlimitedSeats ? "text" : "number"}
                 min={1}
                 className="h-10 rounded-lg"
+                disabled={unlimitedSeats}
                 aria-invalid={Boolean(errors.seatLimit)}
-                value={seatLimit}
-                onChange={(event) => setSeatLimit(event.target.value)}
+                value={unlimitedSeats ? "Unlimited" : seatLimit}
+                onChange={(event) => {
+                  setSeatLimit(event.target.value);
+                  clearError("seatLimit");
+                }}
+                onBlur={(event) => {
+                  if (!unlimitedSeats) {
+                    checkLimit("seatLimit", event.target.value);
+                  }
+                }}
               />
               {errors.seatLimit && (
                 <p className="text-xs text-destructive">
@@ -219,7 +269,10 @@ function EditPlanDialog({
                     size="sm"
                     aria-label="No limit on SLA policies"
                     checked={unlimitedSla}
-                    onCheckedChange={setUnlimitedSla}
+                    onCheckedChange={(checked) => {
+                      setUnlimitedSla(checked);
+                      clearError("slaPolicies");
+                    }}
                   />
                 </label>
               </div>
@@ -231,7 +284,15 @@ function EditPlanDialog({
                 disabled={unlimitedSla}
                 aria-invalid={Boolean(errors.slaPolicies)}
                 value={unlimitedSla ? "Unlimited" : slaLimit}
-                onChange={(event) => setSlaLimit(event.target.value)}
+                onChange={(event) => {
+                  setSlaLimit(event.target.value);
+                  clearError("slaPolicies");
+                }}
+                onBlur={(event) => {
+                  if (!unlimitedSla) {
+                    checkLimit("slaPolicies", event.target.value);
+                  }
+                }}
               />
               {errors.slaPolicies && (
                 <p className="text-xs text-destructive">
@@ -282,48 +343,9 @@ function EditPlanDialog({
   );
 }
 
-function Included({ value }: { value: boolean }) {
-  return value ? (
-    <span className="inline-flex items-center gap-1 text-emerald-700">
-      <Check className="size-4" aria-hidden />
-      <span className="text-sm">Included</span>
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 text-muted-foreground">
-      <Minus className="size-4" aria-hidden />
-      <span className="text-sm">Not included</span>
-    </span>
-  );
-}
-
 export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = plans.find((plan) => plan.id === editingId);
-
-  type Row = {
-    key: string;
-    label: string;
-    enforced: boolean;
-    value: (plan: PlatformPlan) => React.ReactNode;
-  };
-
-  const rows: Row[] = [
-    {
-      key: "sla_policies",
-      label: "SLA policies",
-      enforced: true,
-      value: (plan) =>
-        plan.slaPolicies === -1 ? "Unlimited" : formatNumber(plan.slaPolicies),
-    },
-    ...PLAN_FEATURES.map((feature) => ({
-      key: feature.key,
-      label: feature.label,
-      enforced: feature.enforced,
-      value: (plan: PlatformPlan) => (
-        <Included value={plan.features[feature.key]} />
-      ),
-    })),
-  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -346,6 +368,11 @@ export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
                   </h2>
                   {!plan.isActive && <ToneBadge tone="muted">Hidden</ToneBadge>}
                 </div>
+                {plan.description && (
+                  <p className="text-sm text-muted-foreground">
+                    {plan.description}
+                  </p>
+                )}
                 <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   {formatCurrency(plan.price)}
                   <span className="text-sm font-normal text-muted-foreground">
@@ -365,12 +392,6 @@ export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
               </Button>
             </div>
 
-            {plan.description && (
-              <p className="text-sm text-muted-foreground">
-                {plan.description}
-              </p>
-            )}
-
             <div className="flex flex-col gap-2 border-t border-border pt-4">
               <Fact
                 label="Live workspaces"
@@ -385,44 +406,7 @@ export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
         ))}
       </div>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-base font-bold text-foreground">
-            Feature comparison
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            &quot;Label only&quot; features appear on the pricing page, but the
-            app doesn&apos;t check them, so switching one changes no behaviour.
-            Branding and reports are locked by plan name, not by a switch here.
-            Ticket and storage limits are shown to customers but not enforced.
-          </p>
-        </div>
-        <DataTable
-          rows={rows}
-          rowKey={(row) => row.key}
-          empty="No features found."
-          columns={[
-            {
-              key: "feature",
-              header: "Feature",
-              primary: true,
-              cell: (row) => (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{row.label}</span>
-                  {!row.enforced && (
-                    <ToneBadge tone="muted">Label only</ToneBadge>
-                  )}
-                </div>
-              ),
-            },
-            ...plans.map((plan) => ({
-              key: plan.id,
-              header: plan.name,
-              cell: (row: Row) => row.value(plan),
-            })),
-          ]}
-        />
-      </section>
+      <PlanComparison plans={plans} />
 
       <Dialog
         open={Boolean(editing)}

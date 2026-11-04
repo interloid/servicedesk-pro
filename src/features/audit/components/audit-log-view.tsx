@@ -465,8 +465,8 @@ export function AuditLogView({
               aria-busy={navigating}
             >
               <Table className="min-w-270">
-                <TableHeader>
-                  <TableRow className="border-b-0 hover:bg-transparent">
+                <TableHeader className="[&_tr]:border-b-0">
+                  <TableRow className="hover:bg-transparent">
                     <TableHead className={TH}>
                       <span className="flex items-center gap-1">
                         Date &amp; time

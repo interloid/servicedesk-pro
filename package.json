@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "audit": "npm audit --omit=dev",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:authz": "bash supabase/tests/authz/run.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

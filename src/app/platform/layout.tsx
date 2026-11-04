@@ -19,7 +19,10 @@ export default async function PlatformLayout({
       style={{ "--sidebar-width": "17rem" } as React.CSSProperties}
     >
       <TooltipProvider delayDuration={0}>
-        <div className="flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
+        {/* relative: a screen-reader-only label is absolutely positioned, and
+            without this it escapes every scroll area below and makes the whole
+            document scroll, past the shell into blank space. */}
+        <div className="relative flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
           <PlatformSidebar adminName={admin.name} adminEmail={admin.email} />
 
           <div className="flex flex-1 flex-col min-w-0 h-full w-full">

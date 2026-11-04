@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
 
+import { LockedBackdrop } from "@/components/shared/locked-backdrop";
 import { Button } from "@/components/ui/button";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 
@@ -41,17 +42,13 @@ export function BrandingLocked({
 }: BrandingLockedProps) {
   return (
     <div className="relative h-full overflow-hidden">
-      <div
-        aria-hidden
-        inert
-        className="pointer-events-none h-full select-none opacity-60 blur-[6px]"
-      >
+      <LockedBackdrop className="h-full">
         <BrandingEditor
           branding={SAMPLE_BRANDING}
           canEdit={false}
           portalOrigin={portalOrigin}
         />
-      </div>
+      </LockedBackdrop>
 
       <div className="absolute inset-0 flex items-center justify-center bg-background/30 px-4">
         <div className="flex w-full max-w-lg flex-col items-center rounded-2xl bg-white/80 px-6 py-10 text-center shadow-lg ring-1 ring-black/5 backdrop-blur-md sm:px-10">

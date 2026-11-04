@@ -86,7 +86,7 @@ export function PlatformAuditTable({
     router.push(hrefWith({ [key]: value === ALL ? null : value, page: 1 }));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 min-h-0 flex-1">
       <div className={PLATFORM_TOOLBAR}>
         <form
           className={PLATFORM_SEARCH}
@@ -164,6 +164,7 @@ export function PlatformAuditTable({
         rows={events}
         rowKey={(event) => event.id}
         empty="No audit events match these filters."
+        scrollLabel="Audit events"
         footer={
           <TablePaginationFooter
             page={page}
@@ -232,7 +233,6 @@ export function PlatformAuditTable({
           {
             key: "details",
             header: <span className="sr-only">Details</span>,
-            action: true,
             align: "right",
             cell: (event) => (
               <Button

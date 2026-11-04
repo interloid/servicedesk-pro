@@ -95,6 +95,32 @@ export function SearchField({
   );
 }
 
+/**
+ * Status tabs on the left, search on the far right, any selects just before it.
+ * Stacks when narrow. Sized by the content area, as the sidebar can collapse.
+ */
+export function PlatformFilterBar({
+  tabs,
+  search,
+  children,
+}: {
+  tabs: ReactNode;
+  search: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="@container">
+      <div className="flex flex-col gap-3 @[58rem]:flex-row @[58rem]:items-center @[58rem]:justify-between">
+        <div className="min-w-0">{tabs}</div>
+        <div className="flex min-w-48 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end @[58rem]:flex-1">
+          {children && <div className="shrink-0 sm:w-44">{children}</div>}
+          <div className="min-w-48 sm:flex-1 @[58rem]:max-w-72">{search}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FilterSelect({
   label,
   value,
@@ -196,6 +222,7 @@ export function TablePaginationFooter({
   total,
   noun,
   hrefFor,
+  onPageChange,
   onPageSizeChange,
 }: {
   page: number;
@@ -204,11 +231,14 @@ export function TablePaginationFooter({
   pageSizes: readonly number[];
   total: number;
   noun: { one: string; other: string };
-  hrefFor: (page: number) => string;
   onPageSizeChange: (size: number) => void;
-}) {
+} & (
+  | { hrefFor: (page: number) => string; onPageChange?: never }
+  | { onPageChange: (page: number) => void; hrefFor?: never }
+)) {
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
+  const pager = { page, pageCount, label: `${noun.one} pages` };
 
   return (
     <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
@@ -218,13 +248,10 @@ export function TablePaginationFooter({
           : `Showing ${first} - ${last} of ${total.toLocaleString("en-US")} ${total === 1 ? noun.one : noun.other}`}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-4">
-        {pageCount > 1 && (
-          <Pagination
-            page={page}
-            pageCount={pageCount}
-            hrefFor={hrefFor}
-            label={`${noun.one} pages`}
-          />
+        {hrefFor ? (
+          <Pagination {...pager} hrefFor={hrefFor} />
+        ) : (
+          <Pagination {...pager} onChange={onPageChange!} />
         )}
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Show
@@ -265,10 +292,8 @@ export type DataColumn<T> = {
   key: string;
   header: ReactNode;
   cell: (row: T) => ReactNode;
-  /** The row's heading on a phone; the rest become label and value lines. */
+  /** The row's main column: wraps, with a minimum width. */
   primary?: boolean;
-  /** A row action: top right on a phone, with no label. */
-  action?: boolean;
   align?: "right";
   /** Long text that should wrap instead of widening the table. */
   wrap?: boolean;
@@ -278,9 +303,8 @@ const TH =
   "h-11 bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] px-4 text-xs font-semibold whitespace-nowrap text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]";
 
 /**
- * A table when the card itself has room, stacked rows when it doesn't. Measured on
- * the card, not the screen: with the sidebar open, a 768px screen leaves only a
- * phone's width for content.
+ * A table at every width: when the card is too narrow, the table scrolls sideways
+ * inside it rather than changing shape.
  */
 export function DataTable<T>({
   columns,
@@ -289,6 +313,7 @@ export function DataTable<T>({
   empty,
   summary,
   footer,
+  scrollLabel,
 }: {
   columns: DataColumn<T>[];
   rows: T[];
@@ -296,15 +321,30 @@ export function DataTable<T>({
   empty: string;
   summary?: ReactNode;
   footer?: ReactNode;
+  /**
+   * Names the rows' own scroll area. Set it to cap the card at the page's
+   * remaining height, with the rows scrolling between a fixed header
+   * and footer; a short list keeps its natural height. The page needs the same
+   * height setup as the logs page.
+   */
+  scrollLabel?: string;
 }) {
-  const primary = columns.filter((column) => column.primary);
-  const actions = columns.filter((column) => column.action);
-  const details = columns.filter((column) => !column.primary && !column.action);
+  const scrolls = scrollLabel !== undefined;
+  const scrollArea = scrolls
+    ? { tabIndex: 0, "aria-label": scrollLabel }
+    : undefined;
 
   return (
-    <div className={cn(PLATFORM_CARD, "@container overflow-hidden")}>
+    <div
+      className={cn(
+        PLATFORM_CARD,
+        "overflow-hidden",
+        scrolls && "flex flex-col",
+        scrolls && rows.length <= 3 && "shrink-0",
+      )}
+    >
       {summary && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
           {summary}
         </div>
       )}
@@ -314,87 +354,60 @@ export function DataTable<T>({
           {empty}
         </p>
       ) : (
-        <>
-          <div className="hidden @3xl:block">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b-0 hover:bg-transparent">
+        <div
+          {...scrollArea}
+          className={cn(
+            scrolls &&
+              // Both axes scroll here, so the table's own wrapper must not
+              // catch the sticky header. The bar stays where a mouse may need
+              // it to reach the columns off to the side.
+              "min-h-0 overflow-auto xl:scrollbar-none [&_[data-slot=table-container]]:overflow-visible",
+            // Keeps a few rows in view on a short window, without padding out
+            // a list too short to reach this height.
+            scrolls && rows.length > 3 && "min-h-60",
+          )}
+        >
+          <Table>
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className="hover:bg-transparent">
+                {columns.map((column) => (
+                  <TableHead
+                    key={column.key}
+                    className={cn(
+                      TH,
+                      scrolls && "sticky top-0 z-10",
+                      column.align === "right" && "text-right",
+                    )}
+                  >
+                    {column.header}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, index) => (
+                <TableRow
+                  key={rowKey(row, index)}
+                  className="hover:bg-muted/40"
+                >
                   {columns.map((column) => (
-                    <TableHead
+                    <TableCell
                       key={column.key}
                       className={cn(
-                        TH,
+                        "px-4 py-3 text-sm text-foreground",
                         column.align === "right" && "text-right",
+                        (column.wrap || column.primary) &&
+                          "min-w-48 break-words whitespace-normal [&_.truncate]:whitespace-normal",
                       )}
                     >
-                      {column.header}
-                    </TableHead>
+                      {column.cell(row)}
+                    </TableCell>
                   ))}
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row, index) => (
-                  <TableRow
-                    key={rowKey(row, index)}
-                    className="hover:bg-muted/40"
-                  >
-                    {columns.map((column) => (
-                      <TableCell
-                        key={column.key}
-                        className={cn(
-                          "px-4 py-3 text-sm text-foreground",
-                          column.align === "right" && "text-right",
-                          (column.wrap || column.primary) &&
-                            "min-w-48 break-words whitespace-normal [&_.truncate]:whitespace-normal",
-                        )}
-                      >
-                        {column.cell(row)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          <ul className="divide-y divide-border @3xl:hidden">
-            {rows.map((row, index) => (
-              <li key={rowKey(row, index)} className="flex flex-col gap-3 p-4">
-                {(primary.length > 0 || actions.length > 0) && (
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1 text-sm break-words text-foreground">
-                      {primary.map((column) => (
-                        <div key={column.key}>{column.cell(row)}</div>
-                      ))}
-                    </div>
-                    {actions.map((column) => (
-                      <div key={column.key} className="shrink-0">
-                        {column.cell(row)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {details.length > 0 && (
-                  <dl className="flex flex-col gap-2">
-                    {details.map((column) => (
-                      <div
-                        key={column.key}
-                        className="flex items-start justify-between gap-4 text-sm"
-                      >
-                        <dt className="shrink-0 text-muted-foreground">
-                          {column.header}
-                        </dt>
-                        <dd className="min-w-0 text-right break-words text-foreground">
-                          {column.cell(row)}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
       {footer}
     </div>

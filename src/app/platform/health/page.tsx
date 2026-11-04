@@ -32,7 +32,7 @@ export default async function PlatformHealthPage() {
     <div className="flex flex-col gap-6">
       <PlatformPageHeader
         title="System Health"
-        description="Services, database, API traffic and background jobs."
+        description="Services, database and API traffic."
         action={<RefreshButton />}
       />
 

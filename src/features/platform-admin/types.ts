@@ -8,6 +8,7 @@ export type PlatformTenant = {
   name: string;
   slug: string;
   initials: string;
+  logoUrl: string | null;
   plan: string;
   // plans.sort_order, so the plan badge and chart colour follow the catalog.
   planRank: number;
@@ -277,18 +278,62 @@ export type PlatformAuditRange = keyof typeof PLATFORM_AUDIT_RANGES;
 // enforced: the app reads this flag to allow or block the feature. Otherwise it
 // only appears as a line on the pricing page. Branding and reports are locked by
 // plan NAME (anything but "Free"), so their flags don't decide access either.
+// Listed basics first, then in the order plans unlock them.
 export const PLAN_FEATURES = [
-  { key: "saved_shared_views", label: "Saved shared views", enforced: true },
-  { key: "business_hours", label: "Business hours", enforced: false },
-  { key: "branding", label: "Branding", enforced: false },
-  { key: "audit_logs", label: "Audit logs", enforced: true },
-  { key: "advanced_roles", label: "Advanced roles", enforced: false },
-  { key: "core_ticketing", label: "Core ticketing", enforced: false },
-  { key: "customer_portal", label: "Customer portal", enforced: false },
-  { key: "email_notifications", label: "Email notifications", enforced: false },
-  { key: "priority_support", label: "Priority support", enforced: false },
-  { key: "ai_automation", label: "AI automation", enforced: false },
+  {
+    key: "core_ticketing",
+    label: "Core ticketing",
+    enforced: false,
+    group: "essentials",
+  },
+  {
+    key: "customer_portal",
+    label: "Customer portal",
+    enforced: false,
+    group: "essentials",
+  },
+  {
+    key: "email_notifications",
+    label: "Email notifications",
+    enforced: false,
+    group: "essentials",
+  },
+  {
+    key: "business_hours",
+    label: "Business hours",
+    enforced: false,
+    group: "service",
+  },
+  {
+    key: "saved_shared_views",
+    label: "Saved shared views",
+    enforced: true,
+    group: "service",
+  },
+  {
+    key: "priority_support",
+    label: "Priority support",
+    enforced: false,
+    group: "service",
+  },
+  { key: "branding", label: "Branding", enforced: false, group: "advanced" },
+  {
+    key: "advanced_roles",
+    label: "Advanced roles",
+    enforced: false,
+    group: "advanced",
+  },
+  { key: "audit_logs", label: "Audit logs", enforced: true, group: "advanced" },
+  {
+    key: "ai_automation",
+    label: "AI automation",
+    enforced: false,
+    group: "advanced",
+  },
 ] as const;
+
+// plans.seat_limit has no null: this value is what the app reads as "Unlimited".
+export const UNLIMITED_SEATS = 999_999;
 
 export type PlanFeatureKey = (typeof PLAN_FEATURES)[number]["key"];
 

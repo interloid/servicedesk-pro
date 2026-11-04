@@ -1686,7 +1686,7 @@ function HolidaysTable({
   return (
     <div className={cn(INSET_TABLE, HOLIDAY_TABLE_SCROLL)}>
       <Table className="min-w-120">
-        <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--color-slate-200)]">
+        <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--color-slate-200)] [&_tr]:border-b-0">
           <TableRow className={TABLE_HEAD_ROW}>
             <TableHead className={cn(TH, "px-4")}>Holiday name</TableHead>
             <TableHead className={cn(TH, "px-4")}>Date</TableHead>

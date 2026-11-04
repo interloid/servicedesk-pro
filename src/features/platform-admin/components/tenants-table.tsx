@@ -2,21 +2,27 @@
 
 import { useMemo, useState } from "react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { TEAM_DIALOG_CONTENT } from "@/features/team/components/modal-buttons";
 import { cn } from "@/lib/utils";
 
 import { formatCurrency } from "../format";
-import type { PlatformTenant, TenantStatus } from "../types";
+import {
+  UNLIMITED_SEATS,
+  type PlatformTenant,
+  type TenantStatus,
+} from "../types";
 import {
   DataTable,
   FilterTabs,
-  PLATFORM_SEARCH,
+  PlatformFilterBar,
   SearchField,
+  TablePaginationFooter,
 } from "./platform-ui";
 import { TenantStatusBadge, ToneBadge, type BadgeTone } from "./status-badge";
+import { useTablePagination } from "./use-table-pagination";
 import { WorkspaceBlockDialog } from "./workspace-block-dialog";
 
 const FILTERS: Array<{ label: string; value: TenantStatus | "all" }> = [
@@ -59,43 +65,60 @@ export function TenantsTable({ tenants }: { tenants: PlatformTenant[] }) {
     (tenant) => filter === "all" || tenant.status === filter,
   );
   const totalMrr = rows.reduce((sum, tenant) => sum + tenant.mrr, 0);
+  const { pageRows, resetPage, footer } = useTablePagination(rows);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className={PLATFORM_SEARCH}>
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          label="Search tenants"
-          placeholder="Search name, slug, or owner…"
-        />
-      </div>
-
-      <FilterTabs
-        label="Tenant status"
-        value={filter}
-        onChange={setFilter}
-        options={FILTERS.map((item) => ({
-          ...item,
-          count:
-            item.value === "all"
-              ? searched.length
-              : searched.filter((tenant) => tenant.status === item.value)
-                  .length,
-        }))}
+    <div className="flex flex-col gap-4 min-h-0 flex-1">
+      <PlatformFilterBar
+        tabs={
+          <FilterTabs
+            label="Tenant status"
+            value={filter}
+            onChange={(value) => {
+              setFilter(value);
+              resetPage();
+            }}
+            options={FILTERS.map((item) => ({
+              ...item,
+              count:
+                item.value === "all"
+                  ? searched.length
+                  : searched.filter((tenant) => tenant.status === item.value)
+                      .length,
+            }))}
+          />
+        }
+        search={
+          <SearchField
+            value={query}
+            onChange={(value) => {
+              setQuery(value);
+              resetPage();
+            }}
+            label="Search tenants"
+            placeholder="Search name, slug, owner…"
+          />
+        }
       />
 
       <DataTable
-        rows={rows}
+        rows={pageRows}
         rowKey={(tenant) => tenant.id}
         empty="No tenants match your search."
+        scrollLabel="Tenants"
         summary={
           <>
             {rows.length} tenant{rows.length === 1 ? "" : "s"}
             <span className="text-xs font-normal text-muted-foreground">
-              {formatCurrency(totalMrr)} / mo shown
+              {formatCurrency(totalMrr)} / mo in total
             </span>
           </>
+        }
+        footer={
+          <TablePaginationFooter
+            {...footer}
+            noun={{ one: "tenant", other: "tenants" }}
+          />
         }
         columns={[
           {
@@ -104,7 +127,14 @@ export function TenantsTable({ tenants }: { tenants: PlatformTenant[] }) {
             primary: true,
             cell: (tenant) => (
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar className="size-9 rounded-md">
+                <Avatar className="size-9 rounded-md after:rounded-md">
+                  {tenant.logoUrl && (
+                    <AvatarImage
+                      src={tenant.logoUrl}
+                      alt=""
+                      className="rounded-md object-contain"
+                    />
+                  )}
                   <AvatarFallback className="rounded-md bg-muted text-xs font-bold text-foreground">
                     {tenant.initials}
                   </AvatarFallback>
@@ -129,7 +159,12 @@ export function TenantsTable({ tenants }: { tenants: PlatformTenant[] }) {
           {
             key: "seats",
             header: "Seats",
-            cell: (tenant) => `${tenant.seatsUsed} / ${tenant.seatsLimit}`,
+            cell: (tenant) =>
+              `${tenant.seatsUsed} / ${
+                tenant.seatsLimit >= UNLIMITED_SEATS
+                  ? "Unlimited"
+                  : tenant.seatsLimit
+              }`,
           },
           {
             key: "mrr",
@@ -144,7 +179,7 @@ export function TenantsTable({ tenants }: { tenants: PlatformTenant[] }) {
             key: "status",
             header: "Status",
             cell: (tenant) => (
-              <div className="flex flex-col items-end gap-1 @3xl:items-start">
+              <div className="flex flex-col items-start gap-1">
                 <TenantStatusBadge status={tenant.status} />
                 {tenant.status === "suspended" && (
                   <span className="text-xs text-muted-foreground">
@@ -167,7 +202,6 @@ export function TenantsTable({ tenants }: { tenants: PlatformTenant[] }) {
           {
             key: "actions",
             header: <span className="sr-only">Actions</span>,
-            action: true,
             align: "right",
             cell: (tenant) =>
               tenant.status === "active" ||

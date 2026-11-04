@@ -279,6 +279,7 @@ export function PortalNewRequestForm({
 
         <Form {...form}>
           <form
+            method="post"
             noValidate
             onSubmit={form.handleSubmit(onSubmit)}
             className="rounded-2xl border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.05)] sm:p-7"

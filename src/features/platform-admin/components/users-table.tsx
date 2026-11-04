@@ -10,11 +10,12 @@ import {
   DataTable,
   FilterSelect,
   FilterTabs,
-  PLATFORM_SEARCH,
-  PLATFORM_TOOLBAR,
+  PlatformFilterBar,
   SearchField,
+  TablePaginationFooter,
 } from "./platform-ui";
 import { UserStatusBadge } from "./status-badge";
+import { useTablePagination } from "./use-table-pagination";
 
 const STATUS_FILTERS: Array<{ label: string; value: UserStatus | "all" }> = [
   { label: "All", value: "all" },
@@ -61,46 +62,60 @@ export function UsersTable({ users }: { users: PlatformUser[] }) {
   const rows = searched.filter(
     (user) => statusFilter === "all" || user.status === statusFilter,
   );
+  const { pageRows, resetPage, footer } = useTablePagination(rows);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className={PLATFORM_TOOLBAR}>
-        <div className={PLATFORM_SEARCH}>
+    <div className="flex flex-col gap-4 min-h-0 flex-1">
+      <PlatformFilterBar
+        tabs={
+          <FilterTabs
+            label="User status"
+            value={statusFilter}
+            onChange={(value) => {
+              setStatusFilter(value);
+              resetPage();
+            }}
+            options={STATUS_FILTERS.map((item) => ({
+              ...item,
+              count:
+                item.value === "all"
+                  ? searched.length
+                  : searched.filter((user) => user.status === item.value)
+                      .length,
+            }))}
+          />
+        }
+        search={
           <SearchField
             value={query}
-            onChange={setQuery}
+            onChange={(value) => {
+              setQuery(value);
+              resetPage();
+            }}
             label="Search users"
             placeholder="Search name or email…"
           />
-        </div>
+        }
+      >
         <FilterSelect
           label="Filter by workspace"
           value={tenantFilter}
-          onChange={setTenantFilter}
+          onChange={(value) => {
+            setTenantFilter(value);
+            resetPage();
+          }}
           options={[
             { value: "all", label: "All workspaces" },
             ...tenants.map((tenant) => ({ value: tenant, label: tenant })),
           ]}
         />
-      </div>
-
-      <FilterTabs
-        label="User status"
-        value={statusFilter}
-        onChange={setStatusFilter}
-        options={STATUS_FILTERS.map((item) => ({
-          ...item,
-          count:
-            item.value === "all"
-              ? searched.length
-              : searched.filter((user) => user.status === item.value).length,
-        }))}
-      />
+      </PlatformFilterBar>
 
       <DataTable
-        rows={rows}
+        rows={pageRows}
         rowKey={(user) => user.id}
         empty="No users match your search."
+        scrollLabel="Users"
         summary={
           <>
             {rows.length} user{rows.length === 1 ? "" : "s"}
@@ -108,6 +123,12 @@ export function UsersTable({ users }: { users: PlatformUser[] }) {
               of {users.length} on the platform
             </span>
           </>
+        }
+        footer={
+          <TablePaginationFooter
+            {...footer}
+            noun={{ one: "user", other: "users" }}
+          />
         }
         columns={[
           {

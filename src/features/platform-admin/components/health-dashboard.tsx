@@ -16,21 +16,20 @@ import {
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { cn } from "@/lib/utils";
 
-import { formatBytes, formatDateTime, formatNumber } from "../format";
+import { formatBytes, formatNumber } from "../format";
 import type {
   ApiTraffic,
   DbHealth,
   InfraMetrics,
   ManagementFailure,
-  QueueHealth,
   ServiceHealth,
   ServiceState,
 } from "../types";
 import { ApiTrafficChart } from "./api-traffic-chart";
 import { ManagementNotice } from "./management-notice";
-import { DataTable, PLATFORM_CARD, PLATFORM_STAT_GRID } from "./platform-ui";
+import { PLATFORM_CARD, PLATFORM_STAT_GRID } from "./platform-ui";
+import { SimpleTable } from "./simple-table";
 import { StatCard } from "./stat-card";
-import { ToneBadge } from "./status-badge";
 
 const STATES: Record<
   ServiceState,
@@ -68,31 +67,6 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-
-function SimpleTable({
-  headers,
-  rows,
-  empty,
-}: {
-  headers: string[];
-  rows: React.ReactNode[][];
-  empty: string;
-}) {
-  return (
-    <DataTable
-      rows={rows}
-      rowKey={(_, index) => String(index)}
-      empty={empty}
-      columns={headers.map((header, index) => ({
-        key: header,
-        header,
-        primary: index === 0,
-        wrap: index === 0,
-        cell: (row: React.ReactNode[]) => row[index],
-      }))}
-    />
   );
 }
 
@@ -158,25 +132,6 @@ function percent(
   return used !== null && total
     ? `${Math.round((used / total) * 100)}% used`
     : undefined;
-}
-
-function queueRow(name: string, queue: QueueHealth | null): React.ReactNode[] {
-  if (!queue) {
-    return [name, "—", "—", "Not set up"];
-  }
-
-  return [
-    name,
-    formatNumber(queue.pending),
-    queue.failed > 0 ? (
-      <ToneBadge key="failed" tone="red">
-        {formatNumber(queue.failed)} failed
-      </ToneBadge>
-    ) : (
-      "0"
-    ),
-    queue.oldest_pending_at ? formatDateTime(queue.oldest_pending_at) : "—",
-  ];
 }
 
 export function HealthDashboard({
@@ -336,6 +291,7 @@ export function HealthDashboard({
             <SimpleTable
               headers={["Failing path", "Status", "Count"]}
               empty="No server errors in the last 24 hours."
+              noun={{ one: "failing path", other: "failing paths" }}
               rows={traffic.data.failingPaths.map((row) => [
                 <span key="path" className="font-mono text-xs break-all">
                   {row.method} {row.path}
@@ -344,108 +300,25 @@ export function HealthDashboard({
                 formatNumber(row.count),
               ])}
             />
-
-            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
-              <SimpleTable
-                headers={["Edge Function", "Calls", "Errors", "p95"]}
-                empty="No Edge Function calls in the last 24 hours."
-                rows={traffic.data.functions.map((row) => [
-                  <span key="path" className="font-mono text-xs break-all">
-                    {row.path}
-                  </span>,
-                  formatNumber(row.calls),
-                  formatNumber(row.errors),
-                  row.p95Ms !== null ? `${row.p95Ms} ms` : "—",
-                ])}
-              />
-              <SimpleTable
-                headers={["Log source", "Events", "Errors"]}
-                empty="No log events in the last 24 hours."
-                rows={traffic.data.sources.map((row) => [
-                  <span key="source" className="font-mono text-xs">
-                    {row.source}
-                  </span>,
-                  formatNumber(row.events),
-                  formatNumber(row.errors),
-                ])}
-              />
-            </div>
           </>
         )}
       </Section>
 
       {database && (
-        <>
-          <Section
-            title="Background work"
-            description="Mail queues and scheduled jobs."
-          >
-            <SimpleTable
-              headers={["Queue", "Pending", "Failed", "Oldest pending"]}
-              empty="No queues found."
-              rows={[
-                queueRow("Emails", database.email_queue),
-                queueRow("SLA alerts", database.sla_alert_queue),
-              ]}
-            />
-            <SimpleTable
-              headers={[
-                "Scheduled job",
-                "Schedule",
-                "Last run",
-                "Last result",
-                "Failed (24 h)",
-              ]}
-              empty="No scheduled jobs found."
-              rows={database.cron_jobs.map((job) => [
-                <span key="name" className="font-medium">
-                  {job.name}
-                  {!job.active && " (paused)"}
-                </span>,
-                <span key="schedule" className="font-mono text-xs">
-                  {job.schedule}
-                </span>,
-                formatDateTime(job.last_run_at),
-                <span
-                  key="status"
-                  title={job.last_message ?? undefined}
-                  className={cn(
-                    job.last_status === "failed" && "font-medium text-red-600",
-                  )}
-                >
-                  {job.last_status ?? "—"}
-                </span>,
-                formatNumber(job.failures_24h),
-              ])}
-            />
-          </Section>
-
-          <Section title="Database performance">
-            <SimpleTable
-              headers={["Query", "Calls", "Mean", "Total"]}
-              empty="No query statistics available."
-              rows={database.slow_queries.map((query) => [
-                <code key="query" className="font-mono text-xs break-all">
-                  {query.query}
-                </code>,
-                formatNumber(query.calls),
-                `${query.mean_ms} ms`,
-                `${formatNumber(Math.round(query.total_ms))} ms`,
-              ])}
-            />
-            <SimpleTable
-              headers={["Largest table", "Rows (est.)", "Size"]}
-              empty="No tables found."
-              rows={database.largest_tables.map((table) => [
-                <span key="name" className="font-mono text-xs">
-                  {table.name}
-                </span>,
-                formatNumber(table.rows),
-                formatBytes(table.bytes),
-              ])}
-            />
-          </Section>
-        </>
+        <Section title="Database performance">
+          <SimpleTable
+            headers={["Largest table", "Rows (est.)", "Size"]}
+            empty="No tables found."
+            noun={{ one: "table", other: "tables" }}
+            rows={database.largest_tables.map((table) => [
+              <span key="name" className="font-mono text-xs">
+                {table.name}
+              </span>,
+              formatNumber(table.rows),
+              formatBytes(table.bytes),
+            ])}
+          />
+        </Section>
       )}
     </div>
   );
