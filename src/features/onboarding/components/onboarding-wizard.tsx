@@ -11,7 +11,7 @@ import { StepBusinessHours } from "./business-hours";
 import { DEFAULT_SLA_TARGETS, StepSlaPolicy } from "./sla-policy";
 import { StepInviteTeam } from "./invite-team";
 import { Button } from "@/components/ui/button";
-import { Timezone } from "../services/onboarding.service";
+import type { Timezone } from "../services/onboarding.service";
 import { OnboardingLoader } from "./onboarding-loader";
 import { landingUrlForSlug } from "@/lib/tenancy";
 import { APP_ROUTES } from "@/lib/routes";

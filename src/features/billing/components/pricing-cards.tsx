@@ -18,7 +18,9 @@ import {
 import { FormattedPlan } from "../types";
 import { toast } from "sonner";
 import { changeTenantPlanAction } from "../billing-actions";
+import { usePaymentRedirect } from "../hooks/use-payment-redirect";
 import type { BillingDashboardData } from "../services/billing-dashboard.service";
+import { usePlatformBrand } from "@/components/shared/platform-brand";
 import { cn } from "@/lib/utils";
 
 import { CancelSubscriptionDialog } from "./cancel-subscription";
@@ -61,8 +63,11 @@ export function PricingCards({
   billingData,
 }: PricingCardsProps) {
   const router = useRouter();
+  const { supportEmail } = usePlatformBrand();
 
-  const [isPending, startTransition] = useTransition();
+  const [isTransitionPending, startTransition] = useTransition();
+  const { redirecting, redirect } = usePaymentRedirect();
+  const isPending = isTransitionPending || redirecting;
   const [loadingPlanCode, setLoadingPlanCode] = useState<string | null>(null);
   const [selectedPlanForSwitch, setSelectedPlanForSwitch] =
     useState<FormattedPlan | null>(null);
@@ -91,7 +96,7 @@ export function PricingCards({
     billingData?.billingStatus === "cancelled" &&
     cancellation?.canReactivate === false;
   // A cancelled PayPal checkout is announced by /payment/cancel, which the
-  // cancel_url points at: it calls `abort`, says what was restored and sends
+  // cancel_url points at: it drops that checkout, says so and sends
   // the buyer here. Nothing in the app has ever set ?status=cancelled, so the
   // effect that watched for it could not fire -- and its three state resets
   // were dead twice over, since arriving here from PayPal is a full page load
@@ -126,6 +131,8 @@ export function PricingCards({
     setLoadingPlanCode(plan.id);
 
     startTransition(async () => {
+      let leaving = false;
+
       try {
         const res = await changeTenantPlanAction(tenantSlug, plan.id);
 
@@ -136,7 +143,8 @@ export function PricingCards({
 
         if (res.approvalUrl) {
           // Redirecting to PayPal
-          window.location.assign(res.approvalUrl);
+          leaving = true;
+          redirect(res.approvalUrl);
           return;
         }
 
@@ -157,7 +165,7 @@ export function PricingCards({
             : "Something went wrong while switching the plan.",
         );
       } finally {
-        setLoadingPlanCode(null);
+        if (!leaving) setLoadingPlanCode(null);
       }
     });
   };
@@ -387,7 +395,7 @@ export function PricingCards({
                   ? "border-2! border-brand-accent! bg-brand-accent/5 shadow-sm"
                   : isScheduledTarget
                     ? "border-2! border-amber-500! bg-amber-500/5 shadow-sm"
-                    : "bg-white hover:border-gray-300! hover:shadow-md dark:hover:border-neutral-700!",
+                    : "bg-white hover:border-slate-300! hover:shadow-md dark:hover:border-neutral-700!",
               )}
             >
               {isCurrent && (
@@ -602,7 +610,7 @@ export function PricingCards({
                             className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs text-white shadow-md dark:bg-zinc-100 dark:text-zinc-900"
                           >
                             To change or update your plan, please contact our
-                            support team at support@servicedesk.com.
+                            support team at {supportEmail}.
                           </TooltipContent>
                         )}
                       </Tooltip>

@@ -1,5 +1,7 @@
+import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createPayPalTokenProvider } from "../_shared/paypal-auth.ts";
+import { auditHeaders } from "../_shared/audit-headers.ts";
 import {
   storePayPalPaymentMethod,
   type AdminClient,
@@ -90,9 +92,12 @@ const UPGRADE_STUCK_MESSAGE =
   "Your payment was received, but your subscription could not be moved to the new plan. Please contact support — we can either apply it or refund you.";
 
 // The exact client the request builds, so helpers below accept it without a
-// generic mismatch against supabase-js's default type parameters.
-const createAdminClient = () =>
-  createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+// generic mismatch against supabase-js's default type parameters. `headers`
+// name the signed-in person for the audit log (see _shared/audit-headers.ts).
+const createAdminClient = (headers: Record<string, string> = {}) =>
+  createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    global: { headers },
+  });
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -281,7 +286,7 @@ async function createPaypalOrder(params: {
         },
       ],
       application_context: {
-        brand_name: "ServiceDesk",
+        brand_name: (await getPlatformBrand(createAdminClient())).platformName,
         user_action: "PAY_NOW",
         return_url: params.return_url,
         cancel_url: params.cancel_url,
@@ -409,7 +414,7 @@ async function createPaypalSubscription(params: {
         address: { country_code: "US" },
       },
       application_context: {
-        brand_name: "ServiceDesk",
+        brand_name: (await getPlatformBrand(createAdminClient())).platformName,
         user_action: "SUBSCRIBE_NOW",
         landing_page: "LOGIN",
         return_url: `${FRONTEND_URL}/${params.tenantSlug}/payment/success`,
@@ -834,14 +839,13 @@ Deno.serve(async (req) => {
     // plan without waiting for the webhook.
     const approvalRedirect = {
       returnUrl: `${FRONTEND_URL}/${tenantSlug}/payment/success`,
+      brandName: (await getPlatformBrand(createAdminClient())).platformName,
       cancelUrl: `${FRONTEND_URL}/${tenantSlug}/payment/cancel`,
     };
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-
-    const admin = createAdminClient();
 
     const {
       data: { user },
@@ -855,6 +859,10 @@ Deno.serve(async (req) => {
         { status: 401 },
       );
     }
+
+    // Every write below is this Tenant Admin's or Billing Admin's: named so
+    // the audit log and subscriptions.billing_actor_id record who it was.
+    const admin = createAdminClient(auditHeaders(req, user.id));
 
     const { data: tenant, error: tenantError } = await admin
       .from("tenants")
@@ -928,6 +936,116 @@ Deno.serve(async (req) => {
     // =================================================================
     if (action === "abort") {
       const sub = existing;
+
+      // /payment/cancel -- the buyer backed out of a PayPal approval page.
+      //
+      // That page is also reached from a stale tab, a bookmark or the browser
+      // history long after the checkout it was for, so it may only drop the
+      // pending checkout the visit came back from -- matched on the ids PayPal
+      // appends to the cancel URL -- and it NEVER touches a scheduled change.
+      // Running the full abort from there resumed the suspended agreement of a
+      // customer who had cancelled. No legitimate back-out needs that branch:
+      // choosing a paid plan supersedes next_plan_* before any checkout is
+      // opened, and "Reactivate" / "Cancel change" call plain `abort`.
+      if (body?.checkoutOnly === true) {
+        const returned = [
+          body?.token,
+          body?.baToken,
+          body?.paypalSubscriptionId,
+        ].filter((id): id is string => typeof id === "string" && id !== "");
+        const returnedAgreementId =
+          typeof body?.paypalSubscriptionId === "string" &&
+          body.paypalSubscriptionId !== ""
+            ? body.paypalSubscriptionId
+            : null;
+        let matched = false;
+
+        if (sub.pending_plan_id && returned.length > 0) {
+          if (sub.pending_order_id) {
+            // Orders append their id as `token`. A COMPLETED order is paid for
+            // and stays tracked so the upgrade is still finished.
+            if (returned.includes(sub.pending_order_id)) {
+              const order = await fetchPaypalOrder(sub.pending_order_id);
+              matched =
+                String(order.status ?? "").toUpperCase() !== "COMPLETED";
+            }
+          } else if (sub.pending_paypal_subscription_id) {
+            const lookup = await paypal.get(sub.pending_paypal_subscription_id);
+            const approveUrl = (
+              lookup.data?.links as
+                Array<{ rel: string; href: string }> | undefined
+            )?.find((link) => link.rel === "approve")?.href;
+            let approvalToken: string | null = null;
+
+            try {
+              approvalToken = approveUrl
+                ? new URL(approveUrl).searchParams.get("ba_token")
+                : null;
+            } catch {
+              approvalToken = null;
+            }
+
+            const sameCheckout =
+              returned.includes(sub.pending_paypal_subscription_id) ||
+              (approvalToken !== null && returned.includes(approvalToken));
+
+            // An agreement the buyer DID approve (another tab) is left for
+            // reconcile to activate.
+            if (
+              sameCheckout &&
+              lookup.ok &&
+              lookup.status !== "ACTIVE" &&
+              lookup.status !== "APPROVED"
+            ) {
+              if (canCancel(lookup.status)) {
+                await paypal.cancel(
+                  sub.pending_paypal_subscription_id,
+                  "Plan change cancelled by customer",
+                );
+              }
+
+              matched = true;
+            }
+          } else {
+            // A revise of the tenant's own agreement waiting on approval.
+            // Nothing stored identifies that approval, so an agreement id in
+            // the URL must be this tenant's; otherwise any PayPal return
+            // counts. Dropping it only drops an unapproved intent.
+            matched =
+              returnedAgreementId === null ||
+              returnedAgreementId === sub.paypal_subscription_id;
+          }
+        }
+
+        if (!matched) {
+          logBilling("checkout.cancel-ignored", {
+            tenant_id: tenantId,
+            order_id: sub.pending_order_id,
+            paypal_subscription_id: sub.pending_paypal_subscription_id,
+            has_return_ids: returned.length > 0,
+          });
+
+          return Response.json({
+            success: true,
+            restored: false,
+            message: "No matching pending plan change was found.",
+          });
+        }
+
+        await clearPendingCheckout(admin, tenantId);
+
+        logBilling("checkout.aborted", {
+          tenant_id: tenantId,
+          order_id: sub.pending_order_id,
+          paypal_subscription_id: sub.pending_paypal_subscription_id,
+        });
+
+        return Response.json({
+          success: true,
+          restored: false,
+          message: "The pending plan change was cancelled.",
+        });
+      }
 
       if (sub.next_plan_id) {
         const agreementId = sub.paypal_subscription_id;
@@ -2320,7 +2438,7 @@ Deno.serve(async (req) => {
       }
 
       const description =
-        `ServiceDesk ${targetPlan.name} upgrade ` +
+        `${(await getPlatformBrand(admin)).platformName} ${targetPlan.name} upgrade ` +
         `($${targetPrice.toFixed(2)} - $${currentPrice.toFixed(2)} ` +
         `${currentPlan?.name ?? "current plan"})`;
 

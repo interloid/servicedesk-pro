@@ -5,17 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { env } from "@/config/env";
 import type { LoginValues } from "@/features/auth/schemas/login";
-import type {
-  ActiveMembership,
-  AuthFailureCode,
-  SessionUser,
-} from "@/features/auth/types";
+import type { AuthFailureCode, SessionUser } from "@/features/auth/types";
 import {
   getTenantContext,
   getTenantSlugById,
   getTenantIdBySlug,
 } from "@/features/tenancy/services/tenant-resolver";
 import {
+  isSafeInternalPath,
   defaultTenantLanding,
   isTrustedHost,
   isTenantRouteAllowed,
@@ -36,6 +33,7 @@ import {
   type UpdatePasswordValues,
 } from "../schemas/reset-password";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requestClientInfo } from "@/lib/request-context";
 import { enqueueEmail } from "@/lib/email/email-queue";
 
 export class AuthError extends Error {
@@ -82,6 +80,10 @@ export async function login({
   });
 
   if (error || !data.user) {
+    if (error?.code === "invalid_credentials") {
+      await recordFailedLogin(email);
+    }
+
     throw new AuthError(error?.message ?? "Invalid login credentials", {
       status: error?.status ?? 400,
       code: toFailureCode(error?.code),
@@ -227,10 +229,7 @@ export function safeNext(
   next: string | null | undefined,
   fallback = "/tickets",
 ): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return fallback;
-  }
-  return next;
+  return isSafeInternalPath(next) ? next : fallback;
 }
 
 function isLoopbackHost(host: string | null): host is string {
@@ -332,6 +331,13 @@ export async function sendPasswordResetLink(
       return { success: true };
     }
 
+    // Same rule as the tenant flow below: a revoked invitee or removed member
+    // keeps their login, so without this they could still mail themselves a
+    // link and set a password. Same silent success as an unknown address.
+    if (!(await hasUsableMembership(user.id))) {
+      return { success: true };
+    }
+
     const redirectTo = `${
       process.env.NEXT_PUBLIC_SITE_URL || ""
     }/reset-password`;
@@ -422,6 +428,18 @@ export async function updatePassword(values: UpdatePasswordValues) {
     };
   }
 
+  const access = await checkPasswordAccess().catch((error) => {
+    console.error("[auth] checkPasswordAccess failed", error);
+    return {
+      success: false as const,
+      error: "We couldn't update your password. Try again in a moment.",
+    };
+  });
+
+  if (!access.success) {
+    return { success: false, error: access.error };
+  }
+
   const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.auth.updateUser({
@@ -472,6 +490,28 @@ async function getTenantMembershipAccess(
   }
 
   return data.status === "disabled" ? "disabled" : "allowed";
+}
+
+/**
+ * Whether this user still belongs to any workspace (invited or active). The
+ * central reset page has no workspace in its URL, so this is its version of
+ * getTenantMembershipAccess. Fails closed, like that one.
+ */
+async function hasUsableMembership(userId: string): Promise<boolean> {
+  const admin = createSupabaseAdminClient();
+
+  const { count, error } = await admin
+    .from("memberships")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .neq("status", "disabled");
+
+  if (error) {
+    console.error("[auth] membership lookup failed:", error.message);
+    throw error;
+  }
+
+  return Boolean(count);
 }
 
 const EXPIRED_LINK_MESSAGE =
@@ -528,6 +568,35 @@ export async function checkTenantPasswordAccess(
     return {
       success: false,
       error: TENANT_ACCESS_MESSAGES[access],
+      reason: "no-access",
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * The central reset page's version of checkTenantPasswordAccess: the link's
+ * session must belong to someone who still has a workspace. A denied session
+ * is signed out on the way.
+ */
+export async function checkPasswordAccess(): Promise<TenantPasswordAccessResult> {
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return { success: false, error: EXPIRED_LINK_MESSAGE, reason: "expired" };
+  }
+
+  if (!(await hasUsableMembership(user.id))) {
+    await supabase.auth.signOut();
+    return {
+      success: false,
+      error: TENANT_ACCESS_MESSAGES["no-membership"],
       reason: "no-access",
     };
   }
@@ -603,15 +672,18 @@ async function recordLogoutAttempt(supabase: SupabaseClient) {
     return;
   }
 
-  const membership = await findActiveMembership(supabase, data.user.id);
+  // The workspace this session is signed in to, as login records it. The
+  // insert policy only accepts current_tenant_id(), so any other membership
+  // would be refused.
+  const claims = await getTenantClaims(supabase);
 
-  if (!membership) {
+  if (!claims?.tenantId) {
     return;
   }
 
   await recordAuthEvent(supabase, {
     action: "logout",
-    tenantId: membership.tenant_id,
+    tenantId: claims.tenantId,
     userId: data.user.id,
     email: data.user.email ?? "",
   });
@@ -646,40 +718,81 @@ async function recordAuthEvent(
   }
 }
 
-async function clientIp(): Promise<string | null> {
-  const requestHeaders = await headers();
-  const forwarded = requestHeaders.get("x-forwarded-for");
+/**
+ * A wrong password for a real team member, written to the workspace the
+ * sign-in was for (the host's, else the member's first active one) so the
+ * audit log's Security tab shows it.
+ *
+ * Only for an account that exists and is an active member there: an unknown
+ * address writes nothing, so the log cannot be filled by guessing emails, and
+ * no tenant ever sees attempts against somebody else's address. Customers sign
+ * in through the portal and are not recorded here. Best effort -- a failure is
+ * logged and the sign-in error is still returned as normal.
+ */
+async function recordFailedLogin(email: string) {
+  try {
+    const admin = createSupabaseAdminClient();
 
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || null;
+    const { data: user } = await admin
+      .from("users")
+      .select("id")
+      .eq("email", email.trim().toLowerCase())
+      .maybeSingle<{ id: string }>();
+
+    if (!user) {
+      return;
+    }
+
+    const host = await getTenantContext();
+    let membershipQuery = admin
+      .from("memberships")
+      .select("tenant_id, role")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .neq("role", "customer");
+
+    if (host) {
+      membershipQuery = membershipQuery.eq("tenant_id", host.id);
+    }
+
+    const { data: membership } = await membershipQuery
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ tenant_id: string; role: string }>();
+
+    if (!membership) {
+      return;
+    }
+
+    const requestHeaders = await headers();
+    const { error } = await admin.from("audit_logs").insert({
+      tenant_id: membership.tenant_id,
+      actor_id: user.id,
+      action: "login_failed",
+      entity: "user",
+      entity_id: user.id,
+      meta_json: {
+        email,
+        summary: "Failed login attempt (invalid password)",
+        user_agent: requestHeaders.get("user-agent")?.slice(0, 512) ?? null,
+      },
+      ip: await clientIp(),
+    });
+
+    if (error) {
+      warn(`failed-login audit not written: ${error.message}`);
+    }
+  } catch (err) {
+    warn(`failed-login audit not written: ${String(err)}`);
   }
+}
 
-  return requestHeaders.get("x-real-ip");
+async function clientIp(): Promise<string | null> {
+  return (await requestClientInfo()).ip;
 }
 
 function warn(message: string) {
   if (process.env.NODE_ENV !== "production") {
     console.warn(`[auth] ${message}`);
   }
-}
-
-export async function findActiveMembership(
-  supabase: SupabaseClient,
-  userId: string,
-): Promise<ActiveMembership | null> {
-  const { data, error } = await supabase
-    .from("memberships")
-    .select("tenant_id, role")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Failed to find active membership:", error);
-    return null;
-  }
-
-  return data;
 }

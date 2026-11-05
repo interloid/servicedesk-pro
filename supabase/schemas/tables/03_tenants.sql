@@ -18,6 +18,17 @@ create table if not exists public.tenants
         not null
         default 'active',
 
+    -- Set with status = 'suspended'. 'admin': from the /platform console, lifted
+    -- only there. 'payment': functions/29_tenant_blocking.sql, lifted when the
+    -- workspace subscribes again. The reason is for platform admins only.
+    block_reason text,
+
+    block_source text
+        constraint chk_tenants_block_source
+            check (block_source is null or block_source in ('admin', 'payment')),
+
+    blocked_at timestamptz,
+
     plan_id uuid
         not null
         references public.plans(id),
@@ -117,7 +128,10 @@ alter table public.tenants
             'kb',
             'macros',
             'unauthorized',
-            'portal'
+            'portal',
+            'platform',
+            'maintenance',
+            'blocked'
         ])
     ) not valid;
 

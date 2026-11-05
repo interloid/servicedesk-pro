@@ -1,16 +1,55 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/shared/coming-soon";
+import { notFound } from "next/navigation";
+
+import { requestOrigin } from "@/features/auth/services/auth.service";
+import { BrandingEditor } from "@/features/branding/components/branding-editor";
+import { BrandingLocked } from "@/features/branding/components/branding-locked";
+import {
+  canEditBranding,
+  getBranding,
+  hasBrandingAccess,
+} from "@/features/branding/services/branding.service";
+import { getActorOrNull } from "@/features/team/services/team.service";
 
 export const metadata: Metadata = {
   title: "Branding",
-  description: "Customize your customer experience",
 };
 
-export default function BrandingPage() {
+export default async function BrandingPage({
+  params,
+}: {
+  params: Promise<{ tenantSlug: string }>;
+}) {
+  const [{ tenantSlug }, actor, branding, canEdit, origin] = await Promise.all([
+    params,
+    getActorOrNull(),
+    getBranding(),
+    canEditBranding(),
+    requestOrigin(),
+  ]);
+
+  if (!branding || !actor) {
+    notFound();
+  }
+
+  // Free plan: a blurred, read-only editor filled with sample values sits
+  // under the lock, so removing the overlay in dev tools shows nothing real.
+  // The save and upload actions refuse on their own as well.
+  if (!(await hasBrandingAccess(actor.tenantId))) {
+    return (
+      <BrandingLocked
+        tenantSlug={tenantSlug}
+        portalOrigin={origin}
+        canUpgrade={actor.role === "Tenant Admin"}
+      />
+    );
+  }
+
   return (
-    <ComingSoon
-      title="Branding"
-      description="Apply your logo, colors, and domain so every customer touchpoint feels like you. Coming soon."
+    <BrandingEditor
+      branding={branding}
+      canEdit={canEdit}
+      portalOrigin={origin}
     />
   );
 }

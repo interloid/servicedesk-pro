@@ -1,6 +1,13 @@
 "use client";
 
-import { useTransition, useState, useEffect, useRef, ReactNode } from "react";
+import {
+  Suspense,
+  useTransition,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -33,12 +40,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Search,
+  BrushCleaning,
+  Check,
   ChevronLeft,
   ChevronRight,
+  CircleCheck,
   Columns,
+  Flag,
   Loader2,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import CreateTicketSheet from "./create-ticket-sheet";
 import {
   NO_SLA_TEXT,
@@ -51,7 +64,7 @@ import {
   TicketStatus,
   isPriorityLowered,
 } from "../types/tickets.types";
-import { PriorityReasonDialog } from "./priority-reason-dialog";
+import { PriorityConfirmDialog } from "./priority-confirm-dialog";
 import { toast } from "sonner";
 import {
   bulkAssignToMeAction,
@@ -63,6 +76,8 @@ import { TicketsEmptyState } from "./ticket-empty";
 import { useRealtimeTicketsRefresh } from "@/hooks/use-realtime-tickets-refresh";
 import { LiveSla, computeLiveSla } from "../lib/sla";
 import { TICKET_PAGE_SIZES } from "../lib/list";
+import type { SavedViewTab } from "@/features/saved-view/filters";
+import { TicketViewTabs, TicketViewTabsSkeleton } from "./ticket-view-tabs";
 import { useNow } from "@/hooks/use-now";
 import { useMounted } from "@/hooks/use-mounted";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
@@ -70,7 +85,12 @@ import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 interface TicketsTableProps {
   initialTickets: Ticket[];
   totalCount: number;
-  statusCounts?: Partial<Record<TicketStatus, number>>;
+  /**
+   * The viewer's saved views, in their Views page order, still loading: the
+   * tab bar streams in on its own. Empty when they couldn't be loaded: an
+   * "All tickets" tab shows instead.
+   */
+  viewTabs?: Promise<SavedViewTab[]>;
   tenant: string;
   /** False for tenant admins: tickets go to agents and managers. */
   canAssignToSelf?: boolean;
@@ -79,14 +99,14 @@ interface TicketsTableProps {
   limit?: number;
 }
 
+const NO_VIEW_TABS: Promise<SavedViewTab[]> = Promise.resolve([]);
+
+/** The bulk bar's white action buttons; each adds its own hover tint. */
+const BULK_ACTION_BUTTON =
+  "h-10 gap-2 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-xs transition-colors dark:border-border dark:bg-card dark:text-foreground";
+
 type ColumnKey =
   "id" | "subject" | "requester" | "priority" | "assignee" | "status" | "sla";
-
-interface TabButtonProps {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}
 
 const PRIORITY_STYLES: Record<string, { badge: string; dot: string }> = {
   urgent: { badge: "bg-red-100 text-red-800", dot: "bg-red-500" },
@@ -146,27 +166,10 @@ function SlaBadge({ ticket }: { ticket: Ticket }) {
   );
 }
 
-function TabButton({ active, onClick, children }: TabButtonProps) {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      className={`h-8 whitespace-nowrap border ${
-        active
-          ? "border-transparent bg-brand-accent font-semibold text-primary-foreground hover:bg-brand-hover hover:text-primary-foreground"
-          : "border-transparent bg-white text-slate-500 hover:text-slate-800"
-      }`}
-    >
-      {children}
-    </Button>
-  );
-}
-
 export default function TicketsTable({
   initialTickets,
   totalCount,
-  statusCounts = {},
+  viewTabs = NO_VIEW_TABS,
   tenant,
   canAssignToSelf = true,
   page,
@@ -176,7 +179,10 @@ export default function TicketsTable({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  // ?new=1 is the N shortcut pressed on another page (GlobalShortcuts).
+  const [isSheetOpen, setIsSheetOpen] = useState(
+    () => searchParams.get("new") === "1",
+  );
   useRealtimeTicketsRefresh(tenant, initialTickets[0]?.tenant_id);
   const [pickedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
   // Only rows still on screen count: a realtime refresh can drop a picked
@@ -215,7 +221,7 @@ export default function TicketsTable({
     "assign" | "priority" | "solved" | null
   >(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
-  // A bulk priority that lowers at least one ticket, waiting for its reason.
+  // A bulk priority that lowers at least one ticket, waiting for confirmation.
   const [bulkLowerTo, setBulkLowerTo] = useState<TicketPriority | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<
     Record<ColumnKey, boolean>
@@ -255,7 +261,6 @@ export default function TicketsTable({
   const runBulkAction = async (
     action: "assign" | "priority" | "solved",
     priority?: TicketPriority,
-    reason?: string,
   ) => {
     if (selectedTicketIds.length === 0) return;
     setBulkAction(action);
@@ -272,7 +277,6 @@ export default function TicketsTable({
               tenantSlug: tenant,
               ticketIds: selectedTicketIds,
               priority: priority!,
-              reason,
             })
           : bulkMarkSolvedAction({
               tenantSlug: tenant,
@@ -295,14 +299,16 @@ export default function TicketsTable({
         // The bulk actions' revalidatePath refreshes the list.
       } else {
         setBulkError(res.error || "Failed to update tickets.");
-        // The reason dialog covers the inline error; say it there too.
-        if (reason) toast.error(res.error || "Failed to update tickets.");
+        // The confirm dialog covers the inline error; say it there too.
+        if (action === "priority")
+          toast.error(res.error || "Failed to update tickets.");
       }
     } catch {
       // Thrown inside a transition this would reach error.tsx and replace
       // the whole list; keep it inline like any other failure.
       setBulkError("Couldn't reach the server. Try again.");
-      if (reason) toast.error("Couldn't reach the server. Try again.");
+      if (action === "priority")
+        toast.error("Couldn't reach the server. Try again.");
     } finally {
       setBulkAction(null);
     }
@@ -312,8 +318,7 @@ export default function TicketsTable({
     startTransition(() => runBulkAction("assign"));
   };
 
-  // Lowering any selected ticket asks why first; the reason goes on each
-  // lowered ticket's audit entry.
+  // Lowering any selected ticket asks for confirmation first.
   const handleSetPriority = (value: string) => {
     const priority = value as TicketPriority;
     const lowersAny = initialTickets.some(
@@ -331,6 +336,23 @@ export default function TicketsTable({
   const handleMarkSolved = () => {
     startTransition(() => runBulkAction("solved"));
   };
+
+  // Drop ?new=1 once read, so a refresh or Back doesn't reopen the sheet.
+  // history.replaceState keeps it client-side: no server round trip.
+  const opensFromUrl = searchParams.get("new") === "1";
+  useEffect(() => {
+    if (!opensFromUrl) return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete("new");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
+  }, [opensFromUrl, pathname]);
+
+  const canRunBulk =
+    selectedTicketIds.length > 0 && bulkAction === null && !isPending;
+  useKeyboardShortcut("n", () => setIsSheetOpen(true));
+  useKeyboardShortcut("a", handleAssignToMe, canAssignToSelf && canRunBulk);
+  useKeyboardShortcut("e", handleMarkSolved, canRunBulk);
 
   const getStatusBadge = (status: string) => {
     const key = status?.toLowerCase() as TicketStatus;
@@ -391,6 +413,14 @@ export default function TicketsTable({
     });
   };
 
+  // "All tickets" is the queue with no view, so it is active when ?view= is
+  // missing; every other tab when ?view= is its id.
+  const activeViewId = searchParams.get("view");
+  // The tab replaces the view only; search, priority and status stay and
+  // narrow it further, as "Search this view" says.
+  const openViewTab = (tab: SavedViewTab) =>
+    updateQueryParam("view", tab.isAll ? "all" : tab.id);
+
   // Same defaults as the page: subject A→Z.
   const currentSort = searchParams.get("sort") || "subject";
   const currentSortOrder =
@@ -432,11 +462,6 @@ export default function TicketsTable({
     router.replace(`${pathname}?${params.toString()}`);
   }, [pastEnd, lastPage, pathname, router]);
 
-  const allCount = Object.values(statusCounts).reduce(
-    (sum, n) => sum + (n || 0),
-    0,
-  );
-
   // The column that carries the row's link: the subject, else the first
   // column still shown.
   const linkColumn = (
@@ -450,6 +475,14 @@ export default function TicketsTable({
       "sla",
     ] as ColumnKey[]
   ).find((c) => visibleColumns[c]);
+
+  // No tickets at all (not just none matching a search or filter): the
+  // tabs, columns, search and filters show but are disabled, as there is
+  // nothing to narrow. With a filter on they stay usable so it can be cleared.
+  const isFiltered = ["search", "priority", "status", "view"].some((key) =>
+    searchParams.get(key),
+  );
+  const queueEmpty = totalCount === 0 && !isFiltered;
 
   const isAllSelected =
     initialTickets.length > 0 &&
@@ -477,6 +510,7 @@ export default function TicketsTable({
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={queueEmpty}
                   className="h-10 gap-1.5 px-3 text-sm font-semibold"
                 >
                   <Columns className="w-3.5 h-3.5" />
@@ -550,69 +584,14 @@ export default function TicketsTable({
           </div>
         </div>
 
-        <div className="flex items-center space-x-1 border-b border-slate-200 pb-3 text-xs font-medium overflow-x-auto scrollbar-none">
-          <TabButton
-            active={!searchParams?.get("status")}
-            onClick={() => updateQueryParam("status", "all")}
-          >
-            {/* Every status: the tab clears the status filter. */}
-            All
-            <Badge
-              className={`ml-1 rounded-full text-[10px] px-1.5 py-0 ${
-                !searchParams?.get("status")
-                  ? "bg-primary-foreground/20 text-primary-foreground border-0"
-                  : "bg-brand-accent text-brand-accent-foreground border-0"
-              }`}
-            >
-              {allCount}
-            </Badge>
-          </TabButton>
-          <TabButton
-            active={searchParams?.get("status") === "new"}
-            onClick={() => updateQueryParam("status", "new")}
-          >
-            New
-            <Badge
-              className={`ml-1 rounded-full text-[10px] px-1.5 py-0 ${
-                searchParams?.get("status") === "new"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-brand-accent text-brand-accent-foreground border-0"
-              }`}
-            >
-              {statusCounts.new ?? 0}
-            </Badge>
-          </TabButton>
-          <TabButton
-            active={searchParams?.get("status") === "open"}
-            onClick={() => updateQueryParam("status", "open")}
-          >
-            Open
-            <Badge
-              className={`ml-1 rounded-full text-[10px] px-1.5 py-0 ${
-                searchParams?.get("status") === "open"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-brand-accent text-brand-accent-foreground border-0"
-              }`}
-            >
-              {statusCounts.open ?? 0}
-            </Badge>
-          </TabButton>
-          <TabButton
-            active={searchParams?.get("status") === "resolved"}
-            onClick={() => updateQueryParam("status", "resolved")}
-          >
-            Resolved
-            <Badge
-              className={`ml-1 rounded-full text-[10px] px-1.5 py-0 ${
-                searchParams?.get("status") === "resolved"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-brand-accent text-brand-accent-foreground border-0"
-              }`}
-            >
-              {statusCounts.resolved ?? 0}
-            </Badge>
-          </TabButton>
-        </div>
+        <Suspense fallback={<TicketViewTabsSkeleton />}>
+          <TicketViewTabs
+            tabs={viewTabs}
+            activeViewId={activeViewId}
+            onOpen={openViewTab}
+            disabled={queueEmpty}
+          />
+        </Suspense>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4">
           <div className="w-full sm:w-64 md:w-80 space-y-1">
@@ -624,6 +603,7 @@ export default function TicketsTable({
               <Input
                 type="text"
                 value={searchQuery}
+                disabled={queueEmpty}
                 placeholder="Search this view"
                 onChange={(e) => {
                   // One navigation once typing stops, replacing the entry,
@@ -657,6 +637,7 @@ export default function TicketsTable({
               <Select
                 value={searchParams?.get("priority") || "all"}
                 onValueChange={(val) => updateQueryParam("priority", val)}
+                disabled={queueEmpty}
               >
                 <SelectTrigger className="h-10 min-h-10 w-full bg-white border-slate-200">
                   <SelectValue placeholder="All priorities" />
@@ -690,6 +671,7 @@ export default function TicketsTable({
               <Select
                 value={searchParams?.get("status") || "all"}
                 onValueChange={(val) => updateQueryParam("status", val)}
+                disabled={queueEmpty}
               >
                 <SelectTrigger className="h-10 min-h-10 w-full bg-white border-slate-200">
                   <SelectValue placeholder="All statuses" />
@@ -719,24 +701,48 @@ export default function TicketsTable({
         </div>
 
         {selectedTicketIds.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 justify-between rounded-lg border border-teal-600/30 bg-teal-50/60 px-4 py-2.5 text-xs font-semibold text-teal-900 transition-all">
-            <span>{selectedTicketIds.length} selected</span>
-            <div className="flex flex-wrap items-center gap-2">
-              {bulkError && (
-                <span className="text-red-600 font-medium mr-1">
-                  {bulkError}
-                </span>
-              )}
+          <div className="flex flex-col gap-4 rounded-xl border border-teal-100 bg-linear-to-r from-teal-50/80 to-emerald-50/40 px-4 py-4 shadow-sm sm:px-5 xl:flex-row xl:items-center xl:justify-between dark:border-teal-900/60 dark:from-teal-950/40 dark:to-teal-950/20">
+            <div className="flex min-w-0 items-center gap-4">
+              <span
+                aria-hidden
+                className="flex size-8 shrink-0 items-center justify-center rounded-md bg-teal-700 text-white shadow-xs"
+              >
+                <Check className="size-5" strokeWidth={3} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-slate-900 dark:text-foreground">
+                  {selectedTicketIds.length}{" "}
+                  {selectedTicketIds.length === 1 ? "item" : "items"} selected
+                </p>
+                <p
+                  className={cn(
+                    "text-sm",
+                    bulkError
+                      ? "font-medium text-red-600"
+                      : "text-slate-500 dark:text-muted-foreground",
+                  )}
+                >
+                  {bulkError ||
+                    "Choose an action to manage the selected tickets"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               {canAssignToSelf && (
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleAssignToMe}
                   disabled={bulkAction !== null || isPending}
-                  className="h-9 px-3 border-teal-600/40 bg-white text-teal-800 hover:bg-teal-50 text-xs font-semibold"
+                  className={cn(
+                    BULK_ACTION_BUTTON,
+                    "hover:border-teal-100 hover:bg-teal-50 hover:text-slate-900 dark:hover:bg-teal-950/50",
+                  )}
                 >
-                  {bulkAction === "assign" && (
-                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  {bulkAction === "assign" ? (
+                    <Loader2 className="size-4 animate-spin text-teal-700" />
+                  ) : (
+                    <UserRound className="size-4.5 fill-teal-700 text-teal-700" />
                   )}
                   Assign to me
                 </Button>
@@ -747,8 +753,15 @@ export default function TicketsTable({
                 onValueChange={handleSetPriority}
                 disabled={bulkAction !== null || isPending}
               >
-                <SelectTrigger className="h-9 min-h-9 w-32 border-teal-600/40 bg-white text-xs font-semibold text-teal-800">
-                  <SelectValue placeholder="Set priority" />
+                <SelectTrigger
+                  aria-label="Set priority"
+                  className={cn(
+                    BULK_ACTION_BUTTON,
+                    "gap-2.5 font-medium text-slate-500 hover:border-amber-100 hover:bg-amber-50 hover:text-amber-700 data-[size=default]:h-10 dark:hover:bg-amber-950/40 [&>svg:last-child]:text-slate-500 hover:[&>svg:last-child]:text-amber-700",
+                  )}
+                >
+                  <Flag className="size-4.5 fill-amber-400 text-amber-500" />
+                  Set priority
                 </SelectTrigger>
                 <SelectContent
                   side="bottom"
@@ -770,25 +783,33 @@ export default function TicketsTable({
 
               <Button
                 variant="outline"
-                size="sm"
                 onClick={handleMarkSolved}
                 disabled={bulkAction !== null || isPending}
-                className="h-9 px-3 border-teal-600/40 bg-white text-teal-800 hover:bg-teal-50 text-xs font-semibold"
+                className={cn(
+                  BULK_ACTION_BUTTON,
+                  "hover:border-emerald-100 hover:bg-emerald-50 hover:text-slate-900 dark:hover:bg-emerald-950/40",
+                )}
               >
-                {bulkAction === "solved" && (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                {bulkAction === "solved" ? (
+                  <Loader2 className="size-4 animate-spin text-teal-700" />
+                ) : (
+                  <CircleCheck className="size-4.5 fill-teal-700 text-white" />
                 )}
                 Mark resolved
               </Button>
 
+              <span
+                aria-hidden
+                className="mx-1 hidden h-8 w-px bg-slate-300 sm:block dark:bg-border"
+              />
+
               <Button
-                variant="ghost"
-                size="sm"
                 onClick={() => setSelectedTicketIds([])}
                 disabled={bulkAction !== null || isPending}
-                className="h-9 px-3 text-xs font-medium bg-brand-accent text-white hover:text-white hover:bg-brand-accent/90"
+                className="h-10 gap-2 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white shadow-xs hover:bg-teal-900"
               >
-                Clear
+                <BrushCleaning className="size-4.5" />
+                Clear selection
               </Button>
             </div>
           </div>
@@ -797,7 +818,14 @@ export default function TicketsTable({
         <Card className=" border-slate-200/80 overflow-hidden p-0 ring-0">
           <CardContent className="p-0">
             {initialTickets.length === 0 ? (
-              <TicketsEmptyState onAction={() => setIsSheetOpen(true)} />
+              <TicketsEmptyState
+                {...(queueEmpty && {
+                  title: "No tickets yet",
+                  description:
+                    "Tickets your customers raise will show up here. You can also raise one on a customer's behalf.",
+                })}
+                onAction={() => setIsSheetOpen(true)}
+              />
             ) : (
               <div className="overflow-x-auto rounded-[14px] border border-border bg-card">
                 <Table>
@@ -810,7 +838,7 @@ export default function TicketsTable({
                             handleSelectAll(Boolean(checked))
                           }
                           aria-label="Select all tickets on this page"
-                          className="h-4 w-4 rounded-xl border-slate-300 data-[state=checked]:bg-brand-accent data-[state=checked]:text-white"
+                          className="h-4 w-4 rounded-xl border-[1.5px] border-slate-400 dark:border-slate-500 data-[state=checked]:bg-brand-accent data-[state=checked]:text-white"
                         />
                       </TableHead>
 
@@ -923,7 +951,7 @@ export default function TicketsTable({
                                 handleSelectRow(ticket.id, Boolean(checked))
                               }
                               aria-label={`Select ticket #${ticket.number ?? ticket.id}`}
-                              className="h-4 w-4 rounded-md border-slate-300 data-[state=checked]:bg-brand-accent data-[state=checked]:text-white"
+                              className="h-4 w-4 rounded-md border-[1.5px] border-slate-400 dark:border-slate-500 data-[state=checked]:bg-brand-accent data-[state=checked]:text-white"
                             />
                           </TableCell>
 
@@ -1130,17 +1158,15 @@ export default function TicketsTable({
           tenant={tenant}
         />
 
-        <PriorityReasonDialog
+        <PriorityConfirmDialog
           open={bulkLowerTo !== null}
           to={bulkLowerTo}
           ticketCount={selectedTicketIds.length}
           pending={bulkAction === "priority"}
           onCancel={() => setBulkLowerTo(null)}
-          onConfirm={(reason) =>
+          onConfirm={() =>
             bulkLowerTo &&
-            startTransition(() =>
-              runBulkAction("priority", bulkLowerTo, reason),
-            )
+            startTransition(() => runBulkAction("priority", bulkLowerTo))
           }
         />
       </div>

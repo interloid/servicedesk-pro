@@ -111,6 +111,7 @@ export function PortalSetPasswordForm({
 
       <Form {...form}>
         <form
+          method="post"
           noValidate
           onSubmit={form.handleSubmit(onSubmit)}
           className="mt-5 flex flex-col gap-4"

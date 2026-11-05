@@ -14,20 +14,29 @@ import {
 } from "lucide-react";
 import { APP_ROUTES } from "@/lib/routes";
 import { SiteHeader } from "@/components/marketing/site-header";
+import {
+  PlatformInitial,
+  PlatformName,
+} from "@/components/shared/platform-brand";
 import { siteConfig } from "@/config/site";
+import { getCachedPlatformSettings } from "@/features/platform-admin/services/platform-settings.service";
 
-export const metadata: Metadata = {
-  title: "Help desk built for teams that outgrew a shared inbox",
-  description: siteConfig.description,
-  alternates: { canonical: "/" },
-  openGraph: {
-    type: "website",
-    url: "/",
-    siteName: siteConfig.name,
-    title: `${siteConfig.name} — help desk for growing support teams`,
+export async function generateMetadata(): Promise<Metadata> {
+  const { platformName } = await getCachedPlatformSettings();
+
+  return {
+    title: "Help desk built for teams that outgrew a shared inbox",
     description: siteConfig.description,
-  },
-};
+    alternates: { canonical: "/" },
+    openGraph: {
+      type: "website",
+      url: "/",
+      siteName: platformName,
+      title: `${platformName} — help desk for growing support teams`,
+      description: siteConfig.description,
+    },
+  };
+}
 
 export default function Home() {
   return (
@@ -46,7 +55,7 @@ export default function Home() {
           <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground max-w-4xl leading-[1.12]">
             Supercharge your support with
             <span className="text-brand-accent inline-block">
-              ServiceDeskPro
+              <PlatformName />
             </span>
           </h1>
 
@@ -87,8 +96,8 @@ export default function Home() {
                 Stay Ahead with 2026 Helpdesk Trends
               </h2>
               <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-3">
-                ServiceDeskPro comes pre-configured with modern AI and proactive
-                ticket resolution standards.
+                <PlatformName /> comes pre-configured with modern AI and
+                proactive ticket resolution standards.
               </p>
             </div>
 
@@ -352,12 +361,14 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground text-center sm:text-left">
           <div className="flex items-center gap-2 font-medium text-foreground">
             <span className="w-5 h-5 rounded bg-brand-accent text-primary-foreground flex items-center justify-center font-bold text-[10px] shrink-0">
-              S
+              <PlatformInitial />
             </span>
-            <span className="tracking-tight">ServiceDeskPro Platform</span>
+            <span className="tracking-tight">
+              <PlatformName /> Platform
+            </span>
           </div>
           <p>
-            © {new Date().getFullYear()} ServiceDeskPro. All rights reserved.
+            © {new Date().getFullYear()} <PlatformName />. All rights reserved.
           </p>
         </div>
       </footer>

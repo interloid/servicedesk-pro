@@ -12,6 +12,7 @@ import {
   sendTenantPasswordResetLink,
   updatePassword,
   updatePasswordForTenant,
+  checkPasswordAccess,
   checkTenantPasswordAccess,
   type TenantPasswordAccessResult,
 } from "@/features/auth/services/auth.service";
@@ -19,6 +20,9 @@ import type { ActionResult, LoginSuccess } from "@/features/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { getTenantClaims } from "../claims";
+import { isPlatformAdminEmail } from "@/features/platform-admin/services/platform-access";
+
+const PLATFORM_HOME = "/platform";
 import { exchangePkceAuthCode } from "@/lib/supabase/pkce";
 import {
   ForgotPasswordValues,
@@ -47,7 +51,7 @@ export async function loginAction(
   values: LoginValues,
   next?: string | null,
 ): Promise<ActionResult<LoginSuccess>> {
-  const { allowed } = rateLimit(
+  const { allowed } = await rateLimit(
     `login:${await clientKey()}`,
     LOGIN_ATTEMPT_LIMIT,
   );
@@ -76,6 +80,14 @@ export async function loginAction(
 
   try {
     const sessionUser = await login(parsed.data);
+
+    // A platform operator needs no workspace: the console is their landing.
+    if (!sessionUser.tenantId && isPlatformAdminEmail(sessionUser.email)) {
+      return {
+        success: true,
+        data: { ...sessionUser, redirectTo: PLATFORM_HOME },
+      };
+    }
 
     if (!sessionUser.tenantId) {
       return {
@@ -162,7 +174,7 @@ export async function logoutAction(): Promise<ActionResult<null>> {
 }
 
 export async function resetPasswordAction(values: ForgotPasswordValues) {
-  const { allowed } = rateLimit(
+  const { allowed } = await rateLimit(
     `password-reset:${await clientKey()}`,
     RESET_REQUEST_LIMIT,
   );
@@ -201,7 +213,7 @@ export async function resetTenantPasswordAction(
   values: ForgotPasswordValues,
   slug: string,
 ) {
-  const { allowed } = rateLimit(
+  const { allowed } = await rateLimit(
     `password-reset:${await clientKey()}`,
     RESET_REQUEST_LIMIT,
   );
@@ -272,6 +284,19 @@ export async function updateTenantPasswordAction(
   }
 
   return await updatePasswordForTenant(validatedFields.data, tenantSlug);
+}
+
+export async function checkPasswordAccessAction(): Promise<TenantPasswordAccessResult> {
+  try {
+    return await checkPasswordAccess();
+  } catch (error) {
+    console.error("[auth] checkPasswordAccess failed", error);
+    return {
+      success: false,
+      error: "We couldn't check your access right now. Try again in a moment.",
+      reason: "retry",
+    };
+  }
 }
 
 export async function checkTenantPasswordAccessAction(

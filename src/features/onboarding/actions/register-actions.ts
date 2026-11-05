@@ -8,9 +8,36 @@ import {
   checkEmailTenant,
   checkSlugAvailability,
 } from "../services/onboarding.service";
+import { getPlatformSettings } from "@/features/platform-admin/services/platform-settings.service";
 
 export async function registerOnboardingAction(payload: RegisterInput) {
   try {
+    // Checked here as well as on /setup: the wizard may have been open since
+    // before the console closed sign-ups.
+    const { settings } = await getPlatformSettings();
+
+    if (settings.maintenanceMode || !settings.allowSignups) {
+      return {
+        success: false,
+        error: settings.maintenanceMode
+          ? `${settings.platformName} is down for maintenance. Try again shortly.`
+          : `${settings.platformName} isn't accepting new workspaces right now.`,
+      };
+    }
+
+    // Each sign-up creates an account and a workspace and mails every invitee.
+    const { allowed } = await rateLimit(`signup:${await clientKey()}`, {
+      limit: 3,
+      windowMs: 60 * 60_000,
+    });
+
+    if (!allowed) {
+      return {
+        success: false,
+        error: "Too many sign-ups from this network. Try again later.",
+      };
+    }
+
     const result = await registerTenant(payload);
 
     return {
@@ -55,9 +82,9 @@ export async function checkEmailTenantAction(
   email: string,
 ): Promise<{ exists: boolean; rateLimited?: boolean }> {
   try {
-    const { allowed } = rateLimit(`check-email:${await clientKey()}`, {
-      limit: 10,
-      windowMs: 60_000,
+    const { allowed } = await rateLimit(`check-email:${await clientKey()}`, {
+      limit: 20,
+      windowMs: 60 * 60_000,
     });
 
     if (!allowed) {
@@ -76,7 +103,7 @@ export async function checkEmailTenantAction(
 
 export async function checkSlugAvailabilityAction(slug: string) {
   try {
-    const { allowed } = rateLimit(`check-slug:${await clientKey()}`, {
+    const { allowed } = await rateLimit(`check-slug:${await clientKey()}`, {
       limit: 20,
       windowMs: 60_000,
     });

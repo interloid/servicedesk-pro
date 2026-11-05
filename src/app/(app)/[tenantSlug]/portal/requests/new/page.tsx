@@ -28,16 +28,17 @@ export default async function PortalNewRequestPage({
     : query.subject;
   const initialSubject = rawSubject?.trim().slice(0, 200) ?? "";
 
-  // Deliberately reachable signed out: this is the "First time here? You don't
-  // need an account to reach us" path from the sign-in screen.
+  // Reachable signed out: a first-time customer files the ticket here and is
+  // emailed a link to set a password. See PortalNewRequestForm.
   const identity = await getPortalIdentity(tenantSlug);
   const tenant = identity?.tenant ?? (await getPortalTenant(tenantSlug));
 
+  // The signed-in customer's own policy, as their ticket will get.
+  const customerId = identity?.customer.id ?? null;
   const [firstResponseTarget, supportClosed] = tenant
     ? await Promise.all([
-        getFirstResponseTarget(tenant.id),
-        // The signed-in customer's own policy, as their ticket will get.
-        getPortalSupportClosed(tenant.id, identity?.customer.id ?? null),
+        getFirstResponseTarget(tenant.id, customerId),
+        getPortalSupportClosed(tenant.id, customerId),
       ])
     : ["one business day", null];
 

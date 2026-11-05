@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import SlaEditor from "@/features/sla-policies/components/sla-editor";
-import { getSlaEditorData } from "@/features/sla-policies/service/sla.service";
+import { getSlaEditorData } from "@/features/sla-policies/services/sla.service";
 
 export const metadata = {
   title: "Edit SLA policy",

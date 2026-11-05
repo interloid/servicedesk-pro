@@ -50,7 +50,6 @@ WITH CHECK (
 -- =====================================================
 -- UPDATE
 -- Users can update their own profile
--- Tenant Admin can update users in current tenant
 -- =====================================================
 
 CREATE POLICY "users_update"
@@ -59,54 +58,14 @@ FOR UPDATE
 TO authenticated
 USING (
     id = auth.uid()
-
-    OR (
-        public.current_tenant_role() = 'tenant_admin'
-        AND public.is_active_membership()
-        AND EXISTS (
-            SELECT 1
-            FROM public.memberships m
-            WHERE m.user_id = public.users.id
-              AND m.tenant_id = public.current_tenant_id()
-              AND m.status = 'active'
-        )
-    )
 )
 WITH CHECK (
     id = auth.uid()
-
-    OR (
-        public.current_tenant_role() = 'tenant_admin'
-        AND public.is_active_membership()
-        AND EXISTS (
-            SELECT 1
-            FROM public.memberships m
-            WHERE m.user_id = public.users.id
-              AND m.tenant_id = public.current_tenant_id()
-              AND m.status = 'active'
-        )
-    )
 );
 
 
 -- =====================================================
 -- DELETE
--- Only Tenant Admin can delete users
--- belonging to the current tenant
+-- No client policy: this table is global, and deleting a
+-- row removes the person from every workspace.
 -- =====================================================
-
-CREATE POLICY "users_delete"
-ON public.users
-FOR DELETE
-TO authenticated
-USING (
-    public.current_tenant_role() = 'tenant_admin'
-    AND public.is_active_membership()
-    AND EXISTS (
-        SELECT 1
-        FROM public.memberships m
-        WHERE m.user_id = public.users.id
-          AND m.tenant_id = public.current_tenant_id()
-          AND m.status = 'active'
-    )
-);

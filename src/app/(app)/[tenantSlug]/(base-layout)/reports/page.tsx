@@ -1,16 +1,67 @@
-import type { Metadata } from "next";
-import { ComingSoon } from "@/components/shared/coming-soon";
+import { notFound } from "next/navigation";
+import ReportsDashboard from "@/features/reports/components/reports-dashboard";
+import { ReportsLocked } from "@/features/reports/components/reports-locked";
+import {
+  fetchReportsData,
+  hasReportsAccess,
+} from "@/features/reports/services/reports.service";
+import { parseReportRange } from "@/features/reports/types/types";
+import { getActorOrNull } from "@/features/team/services/team.service";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Reports",
-  description: "Track your support performance",
+  description: "Performance metrics, SLA attainment, and agent workload.",
 };
 
-export default function ReportsPage() {
+interface ReportsPageProps {
+  params: Promise<{ tenantSlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function ReportsPage({
+  params,
+  searchParams,
+}: ReportsPageProps) {
+  // Gate on the server, before anything is read. Tenant Admins, Managers and
+  // Agents all see the same workspace-wide report.
+  // The actor's tenant also scopes the data below, so the gate and the figures
+  // always name the same tenant.
+  const actor = await getActorOrNull();
+
+  if (
+    !actor ||
+    (actor.role !== "Tenant Admin" &&
+      actor.role !== "Manager" &&
+      actor.role !== "Agent")
+  ) {
+    notFound();
+  }
+
+  const [{ tenantSlug }, query] = await Promise.all([params, searchParams]);
+
+  // Free plan: show the locked view and never read the real figures.
+  if (!(await hasReportsAccess(actor.tenantId))) {
+    return (
+      <main className="h-full w-full">
+        <ReportsLocked
+          tenantSlug={tenantSlug}
+          canUpgrade={actor.role === "Tenant Admin"}
+        />
+      </main>
+    );
+  }
+
+  // The range lives in the URL so a chosen period survives a reload and a
+  // shared link.
+  const rangeParam = Array.isArray(query.range) ? query.range[0] : query.range;
+  const data = await fetchReportsData(
+    actor.tenantId,
+    parseReportRange(rangeParam),
+  );
+
   return (
-    <ComingSoon
-      title="Reports"
-      description="Understand your team's performance with volume, satisfaction, and resolution analytics. Coming soon."
-    />
+    <main className="w-full">
+      <ReportsDashboard data={data} />
+    </main>
   );
 }

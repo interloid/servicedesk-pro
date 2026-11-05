@@ -119,7 +119,8 @@ CREATE TYPE public.notification_type AS ENUM (
     'billing',
     'system',
     'sla_breach',
-    'sla_warning'
+    'sla_warning',
+    'ticket_reopened'
 );
 
 
@@ -154,5 +155,8 @@ CREATE TYPE public.audit_action AS ENUM (
     'login',
     'logout',
     'invite',
-    'assign'
+    'assign',
+    'role_change',
+    'export',
+    'login_failed'
 );

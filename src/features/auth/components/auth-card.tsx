@@ -1,4 +1,8 @@
 import type { ReactNode } from "react";
+import {
+  PlatformInitial,
+  PlatformName,
+} from "@/components/shared/platform-brand";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -10,11 +14,11 @@ export function AuthShell({ children }: { children: ReactNode }) {
           aria-hidden
           className="flex size-8.5 shrink-0 items-center justify-center rounded-md bg-brand-accent text-base font-extrabold text-brand-accent-foreground"
         >
-          {"test".charAt(0).toUpperCase()}
+          <PlatformInitial />
         </span>
 
         <span className="text-lg font-bold tracking-tight text-foreground">
-          ServiceDesk Pro
+          <PlatformName />
         </span>
       </Link>
 
@@ -28,7 +32,10 @@ export function AuthCard({
   ...props
 }: React.ComponentProps<"form">) {
   return (
+    // method="post": before hydration there is no submit handler, and the browser's
+    // default GET would put the password in the URL, history and request logs.
     <form
+      method="post"
       noValidate
       className={cn(
         "flex w-full max-w-110 flex-col gap-4.5 rounded-2xl border bg-card px-5 py-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] md:p-8",

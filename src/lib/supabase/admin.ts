@@ -1,12 +1,14 @@
+import type { Database } from "./database.types";
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/config/env";
 import { serverEnv } from "@/config/server-env";
+import { auditForwardHeaders } from "@/lib/request-context";
 
-let cached: SupabaseClient | null = null;
+let cached: SupabaseClient<Database> | null = null;
 
-export function createSupabaseAdminClient(): SupabaseClient {
+function adminConfig() {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = serverEnv.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -17,17 +19,46 @@ export function createSupabaseAdminClient(): SupabaseClient {
     );
   }
 
+  return { url, key };
+}
+
+const AUTH_OPTIONS = {
+  persistSession: false,
+  autoRefreshToken: false,
+  detectSessionInUrl: false,
+};
+
+export function createSupabaseAdminClient(): SupabaseClient<Database> {
+  const { url, key } = adminConfig();
+
   if (cached) {
     return cached;
   }
 
-  cached = createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
+  cached = createClient<Database>(url, key, { auth: AUTH_OPTIONS });
 
   return cached;
+}
+
+/**
+ * The admin client for a write a signed-in person is making, when it has to
+ * bypass RLS (a Manager changing a role, a Tenant Admin inviting a customer).
+ *
+ * Without a session the database can't tell who did it and the audit log says
+ * "System". This names them in x-audit-actor -- trusted on service-role
+ * requests only, see public.audit_trusted_actor -- and forwards the browser's
+ * address like the server client does. Not cached: the headers are this
+ * request's.
+ */
+export async function createAuditedAdminClient(
+  actorId: string,
+): Promise<SupabaseClient<Database>> {
+  const { url, key } = adminConfig();
+
+  return createClient<Database>(url, key, {
+    auth: AUTH_OPTIONS,
+    global: {
+      headers: { ...(await auditForwardHeaders()), "x-audit-actor": actorId },
+    },
+  });
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   createTenantTicket,
   updateTicketDetails,
+  markTicketOpened,
   bulkUpdateTickets,
   changeTicketPriority,
   createMessage,
@@ -15,6 +16,7 @@ import {
   discardStagedAttachments,
   fetchTicketSlaPolicy,
   searchTenantCustomers,
+  searchTenantTickets,
   getCurrentUserIdentity,
   fetchAssignableAgents,
   fetchTenantStaff,
@@ -27,7 +29,6 @@ import {
   PriorityChangeResult,
   TicketUploadedFile,
   TICKET_PRIORITIES,
-  TICKET_STATUSES,
   TicketPriority,
   TicketStatus,
 } from "../types/tickets.types";
@@ -60,10 +61,11 @@ function errorMessage(error: unknown): string {
 }
 
 const PRIORITIES = TICKET_PRIORITIES;
-const STATUSES = TICKET_STATUSES;
 
 const SUPPORT_CLOSED_ERROR =
   "Support is closed right now. Replies open again at the next business opening.";
+
+const TICKET_CLOSED_ERROR = "This ticket is closed. Reopen it to reply.";
 
 /** Most people one message can notify by @mention. */
 const MENTION_NOTIFY_MAX = 50;
@@ -107,12 +109,15 @@ export async function prepareTicketUploadsAction(input: {
       const supabase = await createSupabaseServerClient();
       const { data: ticket } = await supabase
         .from("tickets")
-        .select("sla_policy_id")
+        .select("sla_policy_id, status")
         .eq("id", ticketId)
         .eq("tenant_id", tenantId)
         .maybeSingle();
       if (!ticket) {
         return { success: false as const, error: "Ticket not found." };
+      }
+      if (ticket.status === "closed") {
+        return { success: false as const, error: TICKET_CLOSED_ERROR };
       }
       const policy = await fetchTicketSlaPolicy(ticket.sla_policy_id);
       if (closedReason(Date.now(), policy?.calendar ?? null)) {
@@ -173,7 +178,6 @@ export async function createTicketAction(
     if (!parsed.success) return { error: firstIssue(parsed.error) };
     const { subject, description, requesterCustomerId } = parsed.data;
     const priority = pick(formData.get("priority"), PRIORITIES, "normal");
-    const status = pick(formData.get("status"), STATUSES, "new");
 
     if (!subject || !requesterCustomerId) {
       return { error: "Subject and Requester Customer ID are required." };
@@ -211,7 +215,9 @@ export async function createTicketAction(
       description,
       requester_customer_id: requesterCustomerId,
       priority,
-      status,
+      // Always New: the sheet sends no status, and a hand-made POST must not
+      // open a ticket already Resolved / Closed (skipping its SLA clocks).
+      status: "new",
     });
 
     // No seeded customer message: the description is the opening post, as
@@ -240,37 +246,8 @@ export async function createTicketAction(
       }
     }
 
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { data: managers } = await supabase
-        .from("memberships")
-        .select("user_id")
-        .eq("tenant_id", tenantId)
-        .eq("status", "active")
-        .in("role", ["manager", "tenant_admin"]);
-
-      const recipients = (managers || [])
-        .map((m) => m.user_id)
-        .filter((id) => id !== user?.id);
-
-      await createNotifications(
-        recipients.map((userId) => ({
-          tenantId,
-          userId,
-          type: "ticket_created" as const,
-          payload: {
-            ticket_id: newTicket.id,
-            subject,
-            ticket_number: newTicket.number,
-          },
-        })),
-      );
-    } catch (notifError) {
-      console.error("[notifications] skipped:", notifError);
-    }
+    // Admins/managers, the customer's confirmation email and any assignee are
+    // told by the notify_ticket_created trigger, which also covers the portal.
 
     revalidatePath(`/${tenantSlug}/tickets`);
     return { success: true, ticket: newTicket };
@@ -325,12 +302,17 @@ export async function sendTicketMessageAction(
 
     const { data: ticket } = await supabase
       .from("tickets")
-      .select("assignee_user_id, subject, number, sla_policy_id")
+      .select("assignee_user_id, subject, number, sla_policy_id, status")
       .eq("id", ticketId)
       .eq("tenant_id", tenantIdResolved)
       .maybeSingle();
     if (!ticket) {
       return { success: false, error: "Ticket not found." };
+    }
+    // The UI hides the composer on a closed ticket, but sla_tick can
+    // auto-close it while the tab is open, or the call can be made directly.
+    if (ticket.status === "closed") {
+      return { success: false, error: TICKET_CLOSED_ERROR };
     }
 
     // The composer locks while the ticket's business hours are closed; the
@@ -496,12 +478,6 @@ export async function updateTicketDetailsAction(input: {
       return { success: false, error: "Tenant not found." };
     }
 
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    let previousAssignee: string | null = null;
     if (formData.assigneeId && !formData.unassign) {
       // RLS checks who is editing, not who is assigned: only this tenant's
       // active staff may be given the ticket (and its notification).
@@ -512,17 +488,9 @@ export async function updateTicketDetailsAction(input: {
           error: "Tickets can only be assigned to agents and managers.",
         };
       }
-
-      const { data: existing } = await supabase
-        .from("tickets")
-        .select("assignee_user_id")
-        .eq("id", formData.ticketId)
-        .eq("tenant_id", tenantIdResolved)
-        .maybeSingle();
-      previousAssignee = existing?.assignee_user_id ?? null;
     }
 
-    // Priority has its own rules (reason to lower, due-soon deadlines kept,
+    // Priority has its own rules (due-soon deadlines kept when lowering,
     // audit), so it goes through change_ticket_priority, not a plain update.
     // The schema refuses priority mixed with other fields, so a call runs
     // either the RPC or the update below, never half of both.
@@ -544,35 +512,8 @@ export async function updateTicketDetailsAction(input: {
       });
     }
 
-    const assigneeChanged =
-      !formData.unassign &&
-      formData.assigneeId &&
-      formData.assigneeId !== previousAssignee &&
-      formData.assigneeId !== user?.id;
-
-    if (assigneeChanged && formData.assigneeId) {
-      try {
-        const { data: ticket } = await supabase
-          .from("tickets")
-          .select("subject, number")
-          .eq("id", formData.ticketId)
-          .eq("tenant_id", tenantIdResolved)
-          .single();
-
-        await createNotification({
-          tenantId: tenantIdResolved,
-          userId: formData.assigneeId,
-          type: "ticket_assigned",
-          payload: {
-            ticket_id: formData.ticketId,
-            ticket_number: ticket?.number,
-            subject: ticket?.subject,
-          },
-        });
-      } catch (notifError) {
-        console.error("[notifications] skipped:", notifError);
-      }
-    }
+    // The new assignee is told by the notify_ticket_changed trigger (bulk
+    // assignment included), and a move to Resolved emails the customer.
 
     // Priority and status move the SLA clocks (re-target, pause, resume,
     // finish) in the same transaction, so hand back what they are now.
@@ -618,6 +559,43 @@ export async function assignTicketToMeAction(input: {
 
     revalidatePath(`/${formData.tenantSlug}/tickets/${formData.ticketId}`);
     return { success: true, assigneeId: identity.id };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
+}
+
+/**
+ * The first staff member to open a ticket is its opener. Called once by the
+ * detail page when the ticket has none yet; no revalidate, the page already
+ * shows the viewer.
+ */
+export async function markTicketOpenedAction(input: {
+  ticketId: string;
+  tenantSlug: string;
+}) {
+  try {
+    const parsed = ticketRefSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: firstIssue(parsed.error) };
+    }
+    const { ticketId, tenantSlug } = parsed.data;
+    const identity = await getCurrentUserIdentity(tenantSlug);
+    // Only the people who work tickets count as opening one.
+    if (
+      !identity?.id ||
+      !["agent", "manager", "tenant_admin"].includes(identity.role ?? "")
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const row = await markTicketOpened(ticketId, tenantSlug, identity.id);
+    return {
+      success: true,
+      openedBy: row?.opened_by ?? null,
+      openedAt: row?.opened_at ?? null,
+    };
   } catch (error) {
     return {
       success: false,
@@ -684,7 +662,7 @@ export async function bulkSetPriorityAction(input: {
 
     // One at a time through change_ticket_priority, so each ticket gets the
     // same rules and its own audit entry as a change from the ticket page.
-    // A failure on one (deleted meanwhile, a reason missing) doesn't stop the
+    // A failure on one (deleted meanwhile, say) doesn't stop the
     // rest, and the list is refreshed either way so it shows what changed.
     let count = 0;
     let slaKept = 0;
@@ -812,6 +790,34 @@ export async function searchTicketRequestersAction(
       success: false as const,
       error: errorMessage(error),
       customers: [],
+    };
+  }
+}
+
+/**
+ * Tickets matching what was typed in the header search: at most 8, by
+ * subject, description or number, from this tenant only.
+ */
+export async function searchTicketsAction(tenantSlug: string, query: string) {
+  try {
+    const parsed = searchRequestersSchema.safeParse({ tenantSlug, query });
+    if (!parsed.success) {
+      return {
+        success: false as const,
+        error: firstIssue(parsed.error),
+        tickets: [],
+      };
+    }
+    const tickets = await searchTenantTickets(
+      parsed.data.tenantSlug,
+      parsed.data.query,
+    );
+    return { success: true as const, tickets };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: errorMessage(error),
+      tickets: [],
     };
   }
 }

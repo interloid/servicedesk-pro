@@ -1,11 +1,21 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { PermanentEmailError, sendEmail } from "../_shared/gmail.ts";
+
+import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { invitationEmailHtml, roleWithArticle } from "./invitation-template.ts";
-import { portalSignInEmailHtml } from "./portal-sign-in-template.ts";
+import { customerTicketEmailHtml } from "./customer-ticket-template.ts";
+import { notificationEmailHtml } from "./notification-template.ts";
+import {
+  portalSignInEmailCopy,
+  portalSignInEmailHtml,
+} from "./portal-sign-in-template.ts";
 
 // Sends the mail queued in public.email_jobs: team invitations and password
 // resets (through Supabase Auth), and our own invitation and customer-portal
-// sign-in emails (through Resend).
+// sign-in emails, notification-center alerts and customers' ticket updates
+// (through the Gmail API, as the Google account that granted
+// GOOGLE_REFRESH_TOKEN).
 //
 // One caller:
 //   1. pg_cron every minute while a job is due -- the sender and retry path
@@ -20,8 +30,10 @@ import { portalSignInEmailHtml } from "./portal-sign-in-template.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.trim();
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")?.trim();
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL")?.trim();
+// The app's origin, for the ticket / portal request links in notification and
+// customer emails. Shared with update-payment-method; without it those emails
+// go out with no button.
+const FRONTEND_URL = Deno.env.get("FRONTEND_URL")?.trim().replace(/\/+$/, "");
 
 if (!SUPABASE_URL) {
   throw new Error("SUPABASE_URL is missing");
@@ -67,10 +79,41 @@ type PortalSignInPayload = {
   tenantName: string;
   /** A Tenant Admin's "Invite customer": same link, worded as an invitation. */
   invited?: boolean;
+  /** A first ticket filed signed out: same link, worded as account setup. */
+  ticketNumber?: number | null;
 };
 
-/** Retrying won't fix it (mail not configured, unknown kind): fail at once. */
-class PermanentEmailError extends Error {}
+type NotificationPayload = {
+  notificationId: string;
+};
+
+type CustomerTicketPayload = {
+  ticketId: string;
+  /** customer_ticket_reply only. */
+  messageId?: string;
+};
+
+/** Mirrors FALLBACK_TITLES in src/features/notifications/lib/feed.ts. */
+const NOTIFICATION_FALLBACK_TITLES: Record<string, string> = {
+  ticket_assigned: "Ticket assigned to you",
+  ticket_updated: "New reply",
+  mention: "You were mentioned",
+  sla_breach: "SLA breached",
+  sla_warning: "SLA deadline approaching",
+  ticket_created: "New ticket",
+  ticket_reopened: "Ticket reopened",
+};
+
+// Same pattern and unescaping as mentionsToNames in src/lib/mentions.ts: the
+// customer sees who was named, not the markup or the user id.
+const MENTION_REGEX =
+  /@\[((?:\\.|(?!@\[)[^\\\n])+?)\]\(user:([a-f0-9-]{36})\)/g;
+
+function mentionsToNames(body: string): string {
+  return body.replace(MENTION_REGEX, (_, name: string) =>
+    name.replace(/\\([\\[\]])/g, "$1"),
+  );
+}
 
 /** 30s, 2m, 8m, 32m… capped at an hour. */
 function retryDelayMs(attempts: number): number {
@@ -99,39 +142,6 @@ function isServiceRole(req: Request): boolean {
   }
 }
 
-async function sendResend(message: {
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-}): Promise<void> {
-  if (!RESEND_API_KEY || !FROM_EMAIL) {
-    throw new PermanentEmailError(
-      "Email sending is not configured. Set RESEND_API_KEY and FROM_EMAIL.",
-    );
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [message.to],
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Resend rejected the email (${response.status}): ${body}`);
-  }
-}
-
 /**
  * True once the person has signed in and set a password. An invited account
  * stays unconfirmed until then, and Supabase will still re-send an invite to
@@ -151,7 +161,7 @@ async function isRegistered(userId: string): Promise<boolean> {
  * Always the "You've been invited" email, never a sign-in email. Supabase's
  * invite only works for an address that has never confirmed an account;
  * anyone who has gets a magic link generated WITHOUT sending, carried in our
- * own invitation email through Resend.
+ * own invitation email through Gmail.
  */
 async function sendTeamInvitation({
   userId,
@@ -197,10 +207,15 @@ async function sendTeamInvitation({
 
   const workspace = (tenant?.name as string | undefined) ?? "your team";
 
-  await sendResend({
+  await sendEmail({
     to: email,
     subject: `You've been invited to ${workspace}`,
-    html: invitationEmailHtml({ workspace, role, link: actionLink }),
+    html: invitationEmailHtml({
+      workspace,
+      role,
+      link: actionLink,
+      platformName: (await getPlatformBrand(admin)).platformName,
+    }),
     text: `You've been invited to join ${workspace} as ${roleWithArticle(
       role,
     )}.\n\nAccept the invitation: ${actionLink}\n\nThis link works once and expires in 1 hour. If it has expired, ask your admin to resend the invite.`,
@@ -242,6 +257,7 @@ async function sendPortalSignIn({
   redirectTo,
   tenantName,
   invited = false,
+  ticketNumber = null,
 }: PortalSignInPayload): Promise<void> {
   const { error: createError } = await admin.auth.admin.createUser({
     email,
@@ -272,19 +288,247 @@ async function sendPortalSignIn({
 
   const signInLink = url.toString();
 
-  await sendResend({
+  const copy = portalSignInEmailCopy({
+    workspace: tenantName,
+    invited,
+    ticketNumber,
+  });
+
+  await sendEmail({
     to: email,
-    subject: invited
-      ? `You're invited to ${tenantName} Support`
-      : `Your sign-in link for ${tenantName} Support`,
+    subject: copy.subject,
     html: portalSignInEmailHtml({
       workspace: tenantName,
       link: signInLink,
       invited,
+      ticketNumber,
     }),
-    text: invited
-      ? `You've been invited to ${tenantName} Support, where you can raise tickets and follow their progress: ${signInLink}\n\nThis link works once and expires in 1 hour. After that, sign in from the portal with this email address to get a new one.`
-      : `Sign in to ${tenantName} Support: ${signInLink}\n\nThis link works once and expires in 1 hour. If you didn't ask to sign in, you can ignore this email.`,
+    text: `${copy.bodyText}: ${signInLink}\n\n${copy.note}`,
+  });
+}
+
+/**
+ * One notification, queued by the queue_notification_email trigger because
+ * the recipient has email on for its event. Everything is read at send time;
+ * a notification already read in the app, or deleted, is not emailed.
+ */
+async function sendNotification({
+  notificationId,
+}: NotificationPayload): Promise<void> {
+  const { data: notification, error } = await admin
+    .from("notifications")
+    .select(
+      "type, payload_json, read_at, user:users(email), tenant:tenants(name, slug)",
+    )
+    .eq("id", notificationId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`notification lookup failed: ${error.message}`);
+  }
+
+  if (!notification || notification.read_at) {
+    return;
+  }
+
+  const user = notification.user as { email?: string } | null;
+  const tenant = notification.tenant as { name?: string; slug?: string } | null;
+
+  if (!user?.email) {
+    throw new PermanentEmailError("Recipient has no email address");
+  }
+
+  const payload = (notification.payload_json ?? {}) as Record<string, unknown>;
+  const type = notification.type as string;
+  const number =
+    typeof payload.ticket_number === "number" ? payload.ticket_number : null;
+  const fallback = NOTIFICATION_FALLBACK_TITLES[type] ?? "New notification";
+  const title =
+    (typeof payload.title === "string" && payload.title) ||
+    (number !== null ? `${fallback} · #${number}` : fallback);
+  const body =
+    (typeof payload.body === "string" && payload.body) ||
+    (typeof payload.subject === "string" ? payload.subject : "");
+
+  const ticketId =
+    typeof payload.ticket_id === "string" ? payload.ticket_id : null;
+  const link =
+    FRONTEND_URL && tenant?.slug && ticketId
+      ? `${FRONTEND_URL}/${encodeURIComponent(tenant.slug)}/tickets/${ticketId}`
+      : null;
+
+  const workspace = tenant?.name ?? "ServiceDesk";
+
+  await sendEmail({
+    to: user.email,
+    subject: `[${workspace}] ${title}`,
+    html: notificationEmailHtml({ workspace, title, body, link }),
+    text: [title, body, link ? `View ticket: ${link}` : ""]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+}
+
+type CustomerTicket = {
+  number: number;
+  subject: string;
+  status: string;
+  email: string;
+  workspace: string;
+  link: string | null;
+};
+
+/**
+ * The ticket, its requester's address and the workspace, read at send time.
+ * Null when the ticket has been deleted since the job was queued.
+ */
+async function loadCustomerTicket(
+  ticketId: string,
+): Promise<CustomerTicket | null> {
+  const { data: ticket, error } = await admin
+    .from("tickets")
+    .select(
+      "number, subject, status, customer:customers(email), tenant:tenants(name, slug)",
+    )
+    .eq("id", ticketId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`ticket lookup failed: ${error.message}`);
+  }
+
+  if (!ticket) {
+    return null;
+  }
+
+  const customer = ticket.customer as { email?: string } | null;
+  const tenant = ticket.tenant as { name?: string; slug?: string } | null;
+
+  if (!customer?.email) {
+    throw new PermanentEmailError("Requester has no email address");
+  }
+
+  return {
+    number: ticket.number as number,
+    subject: ticket.subject as string,
+    status: ticket.status as string,
+    email: customer.email,
+    workspace: tenant?.name ?? "Support",
+    link:
+      FRONTEND_URL && tenant?.slug
+        ? `${FRONTEND_URL}/${encodeURIComponent(
+            tenant.slug,
+          )}/portal/requests/${ticketId}`
+        : null,
+  };
+}
+
+async function sendCustomerTicketEmail(
+  ticket: CustomerTicket,
+  content: {
+    subject: string;
+    heading: string;
+    intro: string;
+    quote?: string;
+    buttonLabel: string;
+    note: string;
+  },
+): Promise<void> {
+  await sendEmail({
+    to: ticket.email,
+    subject: content.subject,
+    html: customerTicketEmailHtml({
+      workspace: ticket.workspace,
+      link: ticket.link,
+      ...content,
+    }),
+    text: [
+      content.intro,
+      content.quote ?? "",
+      ticket.link ? `${content.buttonLabel}: ${ticket.link}` : "",
+      content.note,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+}
+
+/** The confirmation for a new request, portal or raised by an agent. */
+async function sendCustomerTicketCreated({
+  ticketId,
+}: CustomerTicketPayload): Promise<void> {
+  const ticket = await loadCustomerTicket(ticketId);
+  if (!ticket) return;
+
+  await sendCustomerTicketEmail(ticket, {
+    subject: `[#${ticket.number}] We've received your request: ${ticket.subject}`,
+    heading: "We've received your request",
+    intro: `Your request "${ticket.subject}" is logged as #${ticket.number}. Our team will get back to you as soon as possible.`,
+    buttonLabel: "View request",
+    note: "You can follow its progress and add details from the support portal. We'll email you when the team replies.",
+  });
+}
+
+/**
+ * A public reply from the team. Internal notes never queue this (the trigger
+ * checks visibility); a reply deleted or turned internal since is skipped.
+ */
+async function sendCustomerTicketReply({
+  ticketId,
+  messageId,
+}: CustomerTicketPayload): Promise<void> {
+  if (!messageId) {
+    throw new PermanentEmailError("customer_ticket_reply without messageId");
+  }
+
+  const { data: message, error } = await admin
+    .from("ticket_messages")
+    .select("body, visibility, author_type")
+    .eq("id", messageId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`message lookup failed: ${error.message}`);
+  }
+
+  if (
+    !message ||
+    message.visibility !== "public" ||
+    message.author_type !== "agent"
+  ) {
+    return;
+  }
+
+  const ticket = await loadCustomerTicket(ticketId);
+  if (!ticket) return;
+
+  const body = mentionsToNames(message.body as string).trim();
+
+  await sendCustomerTicketEmail(ticket, {
+    subject: `Re: [#${ticket.number}] ${ticket.subject}`,
+    heading: "New reply on your request",
+    intro: `The team replied to "${ticket.subject}" (#${ticket.number}):`,
+    quote: body.length > 4000 ? `${body.slice(0, 4000)}…` : body,
+    buttonLabel: "View and reply",
+    note: "Replies to this email aren't read. Answer from the support portal so the team sees it.",
+  });
+}
+
+/** Skipped when the ticket was reopened before the email went out. */
+async function sendCustomerTicketResolved({
+  ticketId,
+}: CustomerTicketPayload): Promise<void> {
+  const ticket = await loadCustomerTicket(ticketId);
+  if (!ticket || (ticket.status !== "resolved" && ticket.status !== "closed")) {
+    return;
+  }
+
+  await sendCustomerTicketEmail(ticket, {
+    subject: `[#${ticket.number}] Your request has been resolved: ${ticket.subject}`,
+    heading: "Your request has been resolved",
+    intro: `We've marked "${ticket.subject}" (#${ticket.number}) as resolved.`,
+    buttonLabel: "View request",
+    note: "If something still isn't right, reopen the request from the support portal and the team will pick it up again.",
   });
 }
 
@@ -292,6 +536,10 @@ const HANDLERS: Record<string, (payload: never) => Promise<void>> = {
   team_invitation: sendTeamInvitation,
   password_reset: sendPasswordReset,
   portal_sign_in: sendPortalSignIn,
+  notification: sendNotification,
+  customer_ticket_created: sendCustomerTicketCreated,
+  customer_ticket_reply: sendCustomerTicketReply,
+  customer_ticket_resolved: sendCustomerTicketResolved,
 };
 
 async function runJob(job: EmailJob): Promise<boolean> {

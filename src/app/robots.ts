@@ -6,6 +6,21 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      // Workspaces, portals and the console aren't for search engines.
+      disallow: [
+        "/api/",
+        "/auth/",
+        "/platform",
+        "/maintenance",
+        "/blocked",
+        "/unauthorized",
+        "/*/login",
+        "/*/forgot-password",
+        "/*/reset-password",
+        "/*/portal",
+        "/*/payment",
+        "/*/account",
+      ],
     },
     sitemap: `${siteConfig.url}/sitemap.xml`,
   };

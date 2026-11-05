@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkifiedText } from "@/components/shared/linkified-text";
 import { parseMentions } from "@/lib/mentions";
 
 export function MentionText({
@@ -18,10 +19,12 @@ export function MentionText({
             key={i}
             className="inline-flex items-center rounded px-1 font-semibold text-brand-accent"
           >
-            @{seg.content}
+            {seg.content}
           </span>
         ) : (
-          <span key={i}>{seg.content}</span>
+          <span key={i}>
+            <LinkifiedText text={seg.content} />
+          </span>
         ),
       )}
     </span>

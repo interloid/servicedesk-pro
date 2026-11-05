@@ -88,6 +88,12 @@ const RESERVED_LABELS = new Set([
   // Mirrored in the database by provision_tenant's reserved check, because that
   // function is what actually creates the slug.
   "portal",
+  // The platform admin console lives at /platform, outside any workspace.
+  "platform",
+  // Where the proxy sends tenant traffic during maintenance.
+  "maintenance",
+  // Where the proxy sends a blocked workspace's traffic.
+  "blocked",
 ]);
 
 export const IS_LOCAL_HOST = PORTAL_BASE_HOSTNAME === "localhost";
@@ -154,6 +160,7 @@ export const TENANT_ROUTES = {
   KNOWLEDGE_BASE: "/kb",
   MACROS: "/macros",
   SLA: "/sla",
+  REPORTS: "/reports",
 
   LOGIN: "/login",
   FORGOT_PASSWORD: "/forgot-password",
@@ -219,6 +226,13 @@ export function isTenantRouteAllowed(
 
   const rest = normalizePath(tenantRelativePath);
 
+  // Sign-in and password pages belong to everyone. An invited Billing Admin has
+  // a session the moment they open their link, so without this they are sent
+  // to the billing page before they can ever set a password.
+  if (TENANT_PUBLIC_PATHS.has(rest)) {
+    return true;
+  }
+
   return BILLING_ADMIN_ROUTE_PREFIXES.some(
     (prefix) => rest === prefix || rest.startsWith(`${prefix}/`),
   );
@@ -238,6 +252,8 @@ export const CENTRAL_PATHS = new Set<string>([
   // Reachable without a staff session, and deliberately outside every tenant:
   // it is where a customer is sent instead of the dashboard.
   APP_ROUTES.UNAUTHORIZED,
+  APP_ROUTES.MAINTENANCE,
+  APP_ROUTES.BLOCKED,
 ]);
 
 const CENTRAL_APP_FORM_PATHS = new Set<string>([
@@ -302,7 +318,14 @@ export function isCentralPath(pathname: string): boolean {
 export function isSafeInternalPath(
   path: string | null | undefined,
 ): path is string {
-  return Boolean(path && path.startsWith("/") && !path.startsWith("//"));
+  // Browsers treat a backslash as a slash, so /\\evil.com leaves this site. Control
+  // characters are dropped by URL parsing, which can have the same effect.
+  return Boolean(
+    path &&
+    path.startsWith("/") &&
+    !path.startsWith("//") &&
+    !/[\\\u0000-\u001f]/.test(path),
+  );
 }
 
 export function sessionTenantDestination(
@@ -336,27 +359,6 @@ export function tenantLoginPath(slug: string, next?: string | null): string {
   return `${base}?next=${encodeURIComponent(next)}`;
 }
 
-export function tenantForgotPasswordPath(slug: string): string {
-  return tenantPath(slug, TENANT_ROUTES.FORGOT_PASSWORD);
-}
-
-export function tenantResetPasswordPath(slug: string): string {
-  return tenantPath(slug, TENANT_ROUTES.RESET_PASSWORD);
-}
-
-export function tenantAuthCallbackPath(
-  slug: string,
-  next?: string | null,
-): string {
-  const base = tenantPath(slug, "/auth/callback");
-
-  if (!next) {
-    return base;
-  }
-
-  return `${base}?next=${encodeURIComponent(next)}`;
-}
-
 const TENANT_PATH_PATTERN = new RegExp("^/([^/]+)(/.*)?$");
 
 export function stripTenantPrefix(
@@ -382,10 +384,6 @@ export function stripTenantPrefix(
     slug,
     rest: match[2] || "/",
   };
-}
-
-export function tenantPrefix(slug: string): string {
-  return `/${encodeURIComponent(slug)}`;
 }
 
 export function landingUrlForSlug(

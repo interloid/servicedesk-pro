@@ -14,4 +14,5 @@ export const MODAL_BUTTON =
 
 /** The affirmative action in a dialog footer. */
 export const MODAL_BUTTON_PRIMARY =
-  "bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90";
+  // Important border for the reason given on TEAM_MODAL_BUTTON_PRIMARY.
+  "border-brand-accent! bg-brand-accent bg-clip-border text-brand-accent-foreground hover:border-brand-accent/90! hover:bg-brand-accent/90 hover:text-brand-accent-foreground";

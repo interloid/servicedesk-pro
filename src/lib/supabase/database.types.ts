@@ -104,7 +104,10 @@ export type Database = {
           id: string;
           ip: unknown;
           meta_json: Json | null;
+          module: string;
+          result: string;
           tenant_id: string;
+          user_agent: string | null;
         };
         Insert: {
           action: Database["public"]["Enums"]["audit_action"];
@@ -115,7 +118,10 @@ export type Database = {
           id?: string;
           ip?: unknown;
           meta_json?: Json | null;
+          module?: string;
+          result?: string;
           tenant_id: string;
+          user_agent?: string | null;
         };
         Update: {
           action?: Database["public"]["Enums"]["audit_action"];
@@ -126,7 +132,10 @@ export type Database = {
           id?: string;
           ip?: unknown;
           meta_json?: Json | null;
+          module?: string;
+          result?: string;
           tenant_id?: string;
+          user_agent?: string | null;
         };
         Relationships: [
           {
@@ -713,6 +722,39 @@ export type Database = {
           },
         ];
       };
+      platform_settings: {
+        Row: {
+          allow_signups: boolean;
+          block_on_payment_failure: boolean;
+          id: boolean;
+          maintenance_mode: boolean;
+          platform_name: string;
+          support_email: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          allow_signups?: boolean;
+          block_on_payment_failure?: boolean;
+          id?: boolean;
+          maintenance_mode?: boolean;
+          platform_name?: string;
+          support_email?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          allow_signups?: boolean;
+          block_on_payment_failure?: boolean;
+          id?: boolean;
+          maintenance_mode?: boolean;
+          platform_name?: string;
+          support_email?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       plans: {
         Row: {
           code: string;
@@ -761,36 +803,100 @@ export type Database = {
         };
         Relationships: [];
       };
+      saved_view_user_preferences: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_pinned: boolean;
+          order_position: number;
+          saved_view_id: string;
+          tenant_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_pinned?: boolean;
+          order_position?: number;
+          saved_view_id: string;
+          tenant_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_pinned?: boolean;
+          order_position?: number;
+          saved_view_id?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "saved_view_user_preferences_view_fk";
+            columns: ["saved_view_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "saved_views";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "saved_view_user_preferences_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_view_user_preferences_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       saved_views: {
         Row: {
-          created_at: string | null;
+          created_at: string;
           filter_json: Json;
           id: string;
           is_shared: boolean;
+          is_system: boolean;
           name: string;
-          owner_user_id: string;
+          owner_user_id: string | null;
+          system_key: string | null;
           tenant_id: string;
-          updated_at: string | null;
+          updated_at: string;
+          visibility_roles: string[];
         };
         Insert: {
-          created_at?: string | null;
+          created_at?: string;
           filter_json?: Json;
           id?: string;
           is_shared?: boolean;
+          is_system?: boolean;
           name: string;
-          owner_user_id: string;
+          owner_user_id?: string | null;
+          system_key?: string | null;
           tenant_id: string;
-          updated_at?: string | null;
+          updated_at?: string;
+          visibility_roles?: string[];
         };
         Update: {
-          created_at?: string | null;
+          created_at?: string;
           filter_json?: Json;
           id?: string;
           is_shared?: boolean;
+          is_system?: boolean;
           name?: string;
-          owner_user_id?: string;
+          owner_user_id?: string | null;
+          system_key?: string | null;
           tenant_id?: string;
-          updated_at?: string | null;
+          updated_at?: string;
+          visibility_roles?: string[];
         };
         Relationships: [
           {
@@ -1260,6 +1366,9 @@ export type Database = {
       tenants: {
         Row: {
           auto_close_after_days: number;
+          block_reason: string | null;
+          block_source: string | null;
+          blocked_at: string | null;
           branding_json: Json;
           created_at: string;
           id: string;
@@ -1270,6 +1379,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          block_reason?: string | null;
+          block_source?: string | null;
+          blocked_at?: string | null;
           auto_close_after_days?: number;
           branding_json?: Json;
           created_at?: string;
@@ -1281,6 +1393,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          block_reason?: string | null;
+          block_source?: string | null;
+          blocked_at?: string | null;
           auto_close_after_days?: number;
           branding_json?: Json;
           created_at?: string;
@@ -1409,10 +1524,13 @@ export type Database = {
           assignee_user_id: string | null;
           closed_at: string | null;
           created_at: string;
+          created_by: string | null;
           description: string;
           first_response_at: string | null;
           id: string;
           number: number;
+          opened_at: string | null;
+          opened_by: string | null;
           priority: Database["public"]["Enums"]["ticket_priority"];
           requester_customer_id: string;
           resolved_at: string | null;
@@ -1426,10 +1544,13 @@ export type Database = {
           assignee_user_id?: string | null;
           closed_at?: string | null;
           created_at?: string;
+          created_by?: string | null;
           description: string;
           first_response_at?: string | null;
           id?: string;
           number: number;
+          opened_at?: string | null;
+          opened_by?: string | null;
           priority?: Database["public"]["Enums"]["ticket_priority"];
           requester_customer_id: string;
           resolved_at?: string | null;
@@ -1443,10 +1564,13 @@ export type Database = {
           assignee_user_id?: string | null;
           closed_at?: string | null;
           created_at?: string;
+          created_by?: string | null;
           description?: string;
           first_response_at?: string | null;
           id?: string;
           number?: number;
+          opened_at?: string | null;
+          opened_by?: string | null;
           priority?: Database["public"]["Enums"]["ticket_priority"];
           requester_customer_id?: string;
           resolved_at?: string | null;
@@ -1557,6 +1681,27 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      current_workspace_block: { Args: never; Returns: string | null };
+      platform_analytics: { Args: { p_from: string }; Returns: Json };
+      platform_db_health: { Args: never; Returns: Json };
+      platform_invoice_summary: { Args: never; Returns: Json };
+      platform_last_sign_ins: { Args: never; Returns: Json };
+      rate_limit_hit: {
+        Args: { p_key: string; p_cost: number; p_window_ms: number };
+        Returns: { hits: number; reset_at: string }[];
+      };
+      sla_policy_ticket_counts: {
+        Args: { p_tenant_id: string; p_policy_ids: string[] };
+        Returns: { policy_id: string; ticket_count: number }[];
+      };
+      audit_log_summary: {
+        Args: { p_from: string; p_to: string };
+        Returns: Json;
+      };
+      current_tenant_has_feature: {
+        Args: { p_feature: string };
+        Returns: boolean;
+      };
       apply_subscription_plan: {
         Args: {
           p_clear_next?: boolean;
@@ -1676,6 +1821,14 @@ export type Database = {
           tenant_slug: string;
         }[];
       };
+      report_first_replies: {
+        Args: { p_since: string; p_tenant_id: string };
+        Returns: {
+          author_id: string;
+          created_at: string;
+          ticket_id: string;
+        }[];
+      };
       reports_overview: {
         Args: { p_days?: number; p_weeks?: number };
         Returns: Json;
@@ -1696,7 +1849,10 @@ export type Database = {
         | "login"
         | "logout"
         | "invite"
-        | "assign";
+        | "assign"
+        | "role_change"
+        | "export"
+        | "login_failed";
       author_type: "agent" | "customer" | "system";
       customer_status: "active" | "blocked";
       invoice_status: "pending" | "paid" | "failed" | "refunded";
@@ -1718,7 +1874,8 @@ export type Database = {
         | "billing"
         | "system"
         | "sla_breach"
-        | "sla_warning";
+        | "sla_warning"
+        | "ticket_reopened";
       sla_event_status: "pending" | "completed" | "breached";
       sla_event_type: "first_response" | "resolution";
       sla_policy_status: "active" | "paused" | "draft";
@@ -1863,6 +2020,9 @@ export const Constants = {
         "logout",
         "invite",
         "assign",
+        "role_change",
+        "export",
+        "login_failed",
       ],
       author_type: ["agent", "customer", "system"],
       customer_status: ["active", "blocked"],
@@ -1887,6 +2047,7 @@ export const Constants = {
         "system",
         "sla_breach",
         "sla_warning",
+        "ticket_reopened",
       ],
       sla_event_status: ["pending", "completed", "breached"],
       sla_event_type: ["first_response", "resolution"],

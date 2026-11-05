@@ -1,3 +1,4 @@
+import type { ViewFilter } from "@/features/saved-view/filters";
 import type { SlaCalendar } from "@/features/tickets/lib/sla-calendar";
 import type { DurationUnit } from "@/features/sla-policies/duration";
 
@@ -54,7 +55,7 @@ const PRIORITY_RANK: Record<TicketPriority, number> = {
   urgent: 3,
 };
 
-/** Lowering a priority needs a reason (change_ticket_priority enforces it). */
+/** Lowering a priority asks for confirmation in the UI first. */
 export function isPriorityLowered(
   from: TicketPriority,
   to: TicketPriority,
@@ -170,6 +171,11 @@ export interface Ticket {
   sla_day_mins?: number;
   sla_policy_id?: string | null;
   created_at: string;
+  /** Staff user who raised it; null when the customer did, on the portal. */
+  created_by?: string | null;
+  /** First agent, manager or tenant admin to open the ticket. */
+  opened_by?: string | null;
+  opened_at?: string | null;
   assignee_id?: string | null;
   first_response_at?: string | null;
   resolved_at?: string | null;
@@ -199,8 +205,14 @@ export interface TicketMessage {
 }
 export interface FetchTicketsOptions {
   search?: string;
+  /** One value or a comma-joined list, as a saved view's link carries. */
   priority?: string;
+  /** One value or a comma-joined list, as a saved view's link carries. */
   status?: string;
+  /** "me" is whoever is looking, as in a saved view. */
+  assignee?: "unassigned" | "me";
+  /** An open saved view's AND / OR rules, applied on top of the above. */
+  viewFilter?: ViewFilter | null;
   page?: number;
   limit?: number;
   sort?: "subject" | "created_at";

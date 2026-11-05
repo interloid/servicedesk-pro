@@ -14,4 +14,8 @@ export const APP_ROUTES = {
    * path by the proxy, so it is reachable signed out and by a customer session.
    */
   UNAUTHORIZED: "/unauthorized",
+  /** Served by the proxy for tenant URLs while maintenance mode is on. */
+  MAINTENANCE: "/maintenance",
+  /** Served by the proxy for a blocked workspace's URLs. */
+  BLOCKED: "/blocked",
 } as const;

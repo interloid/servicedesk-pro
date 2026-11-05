@@ -81,18 +81,18 @@ export const portalRequestSchema = z.object({
 export type PortalRequestValues = z.infer<typeof portalRequestSchema>;
 
 /**
- * The signed-out path behind "First time here? Submit a request and we'll set
- * one up from your email." The email is the only way to reach them back, so it
- * is required here and validated server-side before any row is written.
+ * A first-time customer's request, filed signed out: the ticket is created and
+ * the account is set up from the email. The email is the only way to reach
+ * them back, and the name becomes their customer record, so both are required
+ * and validated server-side before any row is written.
  */
 export const portalGuestRequestSchema = portalRequestSchema.extend({
   email: emailField("Enter the email we should reply to"),
   fullName: z
     .string()
     .trim()
-    .max(120, "That name is too long")
-    .optional()
-    .or(z.literal("")),
+    .min(2, "Please enter your name")
+    .max(120, "Keep your name under 120 characters"),
 });
 
 export type PortalGuestRequestValues = z.infer<typeof portalGuestRequestSchema>;
@@ -107,14 +107,21 @@ export type PortalGuestRequestValues = z.infer<typeof portalGuestRequestSchema>;
  */
 export const portalSignedInRequestFormSchema = portalGuestRequestSchema.extend({
   email: z.string(),
+  fullName: z.string(),
 });
+
+/** Same cap as an agent's reply (TICKET_REPLY_MAX). */
+export const PORTAL_REPLY_MAX = 10_000;
 
 export const portalReplySchema = z.object({
   body: z
     .string()
     .trim()
     .min(1, "Write a reply before sending")
-    .max(10_000, "That reply is too long to send"),
+    .max(
+      PORTAL_REPLY_MAX,
+      `A reply can be up to ${PORTAL_REPLY_MAX.toLocaleString("en-US")} characters`,
+    ),
 });
 
 export type PortalReplyValues = z.infer<typeof portalReplySchema>;

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { cache } from "react";
 import { getTenantIdBySlug } from "@/features/tenancy/services/tenant-resolver";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -19,7 +21,6 @@ import {
   TicketMessage,
   TicketPriority,
   TicketStatus,
-  TICKET_STATUSES,
   NO_SLA_TEXT,
   isTicketPriority,
   isTicketStatus,
@@ -33,6 +34,8 @@ import { normalizeTagName } from "../lib/tags";
 import { CALENDAR_SELECT, one, toSlaCalendar } from "../lib/sla-calendar-row";
 import { DurationUnit, isDurationUnit } from "@/features/sla-policies/duration";
 import { getInitials } from "@/lib/format";
+import { filterToPostgrest } from "@/features/saved-view/filters";
+import { ilikeOrValue } from "@/lib/postgrest";
 import {
   attachmentContentType,
   attachmentExtension,
@@ -161,8 +164,25 @@ export const fetchTicketById = cache(
 
 /** The parts of a tickets query applyTicketFilters needs. */
 interface TicketFilterable<Q> {
-  eq(column: "status" | "priority", value: string): Q;
+  in(column: "status" | "priority", values: string[]): Q;
+  eq(column: "assignee_user_id", value: string): Q;
+  is(column: "assignee_user_id", value: null): Q;
   or(filters: string): Q;
+}
+
+/** The known values in a comma-joined ?status= or ?priority=. */
+function listParam<T extends string>(
+  value: string | undefined,
+  isKnown: (v: string | undefined) => v is T,
+): T[] {
+  return [
+    ...new Set(
+      (value ?? "")
+        .split(",")
+        .map((part) => part.trim().toLowerCase())
+        .filter(isKnown),
+    ),
+  ];
 }
 
 /**
@@ -172,26 +192,42 @@ interface TicketFilterable<Q> {
  */
 function applyTicketFilters<Q extends TicketFilterable<Q>>(
   query: Q,
-  filters: Pick<FetchTicketsOptions, "search" | "priority" | "status">,
+  filters: Pick<FetchTicketsOptions, "search" | "priority" | "status"> & {
+    /** null for unassigned; left out for anyone. */
+    assigneeUserId?: string | null;
+    /** A saved view's rules as a PostgREST logic tree (filterToPostgrest). */
+    viewLogic?: string | null;
+  },
 ): Q {
   let filtered = query;
 
   // Only real enum values reach the query: a hand-typed ?status=foo is "all",
   // not a Postgres enum error.
-  const status = filters.status?.toLowerCase();
-  if (isTicketStatus(status)) filtered = filtered.eq("status", status);
+  const statuses = listParam(filters.status, isTicketStatus);
+  if (statuses.length) filtered = filtered.in("status", statuses);
 
-  const priority = filters.priority?.toLowerCase();
-  if (isTicketPriority(priority)) filtered = filtered.eq("priority", priority);
+  const priorities = listParam(filters.priority, isTicketPriority);
+  if (priorities.length) filtered = filtered.in("priority", priorities);
 
-  // Commas, parentheses and quotes are syntax in a PostgREST or-filter, so
-  // they are dropped and the pattern quoted: "login, password" is plain text.
-  const term = (filters.search ?? "").replace(/[,()"\\]/g, " ").trim();
-  if (term) {
-    filtered = filtered.or(
-      `subject.ilike."%${term}%",description.ilike."%${term}%"`,
-    );
+  if (filters.assigneeUserId === null) {
+    filtered = filtered.is("assignee_user_id", null);
+  } else if (filters.assigneeUserId) {
+    filtered = filtered.eq("assignee_user_id", filters.assigneeUserId);
   }
+
+  // Quoted and escaped, so "login, password" or "50%" is plain text.
+  const term = filters.search?.trim();
+  const value = term ? ilikeOrValue(term) : null;
+  const searchLogic = value
+    ? `or(subject.ilike.${value},description.ilike.${value})`
+    : null;
+
+  // One or= parameter holding both trees, ANDed, rather than two that
+  // PostgREST may not combine.
+  const logic = [filters.viewLogic, searchLogic].filter(Boolean);
+  if (logic.length === 1) filtered = filtered.or(logic[0]!);
+  else if (logic.length > 1) filtered = filtered.or(`and(${logic.join(",")})`);
+
   return filtered;
 }
 
@@ -204,12 +240,14 @@ export async function fetchTenantTickets(
   if (!tenantid) throw new Error("Tenant not found.");
 
   // No process_sla_breaches() here: pg_cron's sla_tick() marks overdue
-  // clocks every minute, and the list works out breaches from due_at itself
+  // clocks every 15 minutes, and the list works out breaches from due_at itself
   // (computeSlaClock), so a list render stays read-only.
   const {
     search,
     priority,
     status,
+    assignee,
+    viewFilter,
     page = 1,
     limit = 8,
     sort,
@@ -239,7 +277,30 @@ export async function fetchTenantTickets(
     )
     .eq("tenant_id", tenantid);
 
-  const filters = { search, priority, status };
+  // "me" is the viewer. Signed out it matches no one rather than everyone.
+  const needsViewer =
+    assignee === "me" ||
+    !!viewFilter?.rules.some(
+      (rule) => rule.field === "assignee" && rule.value === "me",
+    );
+  let viewerId = "00000000-0000-0000-0000-000000000000";
+  if (needsViewer) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) viewerId = user.id;
+  }
+
+  let assigneeUserId: string | null | undefined;
+  if (assignee === "unassigned") {
+    assigneeUserId = null;
+  } else if (assignee === "me") {
+    assigneeUserId = viewerId;
+  }
+
+  const viewLogic = viewFilter ? filterToPostgrest(viewFilter, viewerId) : null;
+
+  const filters = { search, priority, status, assigneeUserId, viewLogic };
   query = applyTicketFilters(query, filters);
 
   const sortColumn = sort === "subject" ? "subject" : "created_at";
@@ -293,38 +354,6 @@ export async function fetchTenantTickets(
   };
 }
 
-export type TicketStatusCounts = Partial<Record<TicketStatus, number>>;
-
-export async function fetchTicketStatusCounts(
-  tenant: string,
-): Promise<TicketStatusCounts> {
-  const supabase = await createSupabaseServerClient();
-  const tenantId = await getTenantIdBySlug(tenant);
-  if (!tenantId) return {};
-
-  // One head-only count per status: nothing is downloaded, and the totals
-  // aren't cut off at the API's max_rows (1000) the way counting rows was.
-  const results = await Promise.all(
-    TICKET_STATUSES.map((status) =>
-      supabase
-        .from("tickets")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .eq("status", status),
-    ),
-  );
-
-  const counts: TicketStatusCounts = {};
-  results.forEach(({ count, error }, i) => {
-    if (error) {
-      console.error("Error fetching ticket status counts:", error.message);
-      return;
-    }
-    if (count) counts[TICKET_STATUSES[i]] = count;
-  });
-  return counts;
-}
-
 /**
  * Attach each ticket's SLA snapshot (the clock that matters most right now)
  * and its tags. The list ticks the countdown itself from this (computeLiveSla).
@@ -347,14 +376,16 @@ async function attachSlaInfo(tickets: Ticket[]): Promise<Ticket[]> {
     policyIds.length > 0
       ? supabase
           .from("sla_policies")
-          .select(`id, notify_before_mins, ${CALENDAR_SELECT}`)
+          .select(
+            `id, notify_before_mins, notify_before_breach, ${CALENDAR_SELECT}`,
+          )
           .in("id", policyIds)
       : Promise.resolve({ data: [], error: null }),
     fetchTagsForTickets(ids),
   ]);
 
   const warnByPolicy = new Map(
-    (policiesRes.data || []).map((p) => [p.id, p.notify_before_mins]),
+    (policiesRes.data || []).map((p) => [p.id, slaWarnMins(p)]),
   );
   const calendarByPolicy = new Map(
     (policiesRes.data || []).map((p) => [
@@ -588,6 +619,18 @@ export async function setTicketTags(
   return fetchTicketTags(ticketId);
 }
 
+/**
+ * A policy's amber lead. With warnings off sla_tick sends none, so the UI
+ * shows no amber either: a 0-minute lead.
+ */
+function slaWarnMins(policy: {
+  notify_before_mins: number | null;
+  notify_before_breach: boolean | null;
+}): number {
+  if (policy.notify_before_breach === false) return 0;
+  return policy.notify_before_mins ?? DEFAULT_SLA_WARN_MINS;
+}
+
 /** The policy a ticket runs against, with what the SLA card shows of it. */
 export async function fetchTicketSlaPolicy(
   policyId: string | null | undefined,
@@ -596,7 +639,9 @@ export async function fetchTicketSlaPolicy(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("sla_policies")
-    .select(`id, name, notify_before_mins, ${CALENDAR_SELECT}`)
+    .select(
+      `id, name, notify_before_mins, notify_before_breach, ${CALENDAR_SELECT}`,
+    )
     .eq("id", policyId)
     .maybeSingle();
 
@@ -629,7 +674,7 @@ export async function fetchTicketSlaPolicy(
   return {
     id: data.id,
     name: data.name,
-    warn_before_mins: data.notify_before_mins ?? DEFAULT_SLA_WARN_MINS,
+    warn_before_mins: slaWarnMins(data),
     business_hours_name: one(join)?.name ?? null,
     calendar,
     day_mins: dayMins,
@@ -897,6 +942,35 @@ export async function createMessage(params: {
   return data;
 }
 
+/**
+ * Records the viewer as the ticket's opener, if nobody has opened it yet.
+ * tickets_stamp_people sets who and when from auth.uid(); a ticket already
+ * opened is left as it is.
+ */
+export async function markTicketOpened(
+  ticketId: string,
+  tenantSlug: string,
+  userId: string,
+) {
+  const supabase = await createSupabaseServerClient();
+  const tenantId = await getTenantIdBySlug(tenantSlug);
+  if (!tenantId) throw new Error("Tenant not found");
+
+  const { data, error } = await supabase
+    .from("tickets")
+    .update({ opened_by: userId })
+    .eq("id", ticketId)
+    .eq("tenant_id", tenantId)
+    .is("opened_by", null)
+    .select("opened_by, opened_at")
+    .maybeSingle();
+
+  if (error) {
+    fail("mark ticket opened", error, "Couldn't update the ticket.");
+  }
+  return data;
+}
+
 export async function updateTicketDetails(
   ticketId: string,
   tenantSlug: string,
@@ -931,8 +1005,9 @@ export async function updateTicketDetails(
 
 /**
  * Changes a ticket's priority through change_ticket_priority, which owns the
- * rules: lowering needs a reason, a clock due soon keeps its deadline, a
- * breach stays recorded, and every change is written to audit_logs.
+ * rules: a clock due soon keeps its deadline when lowering, a breach stays
+ * recorded, and every change is written to audit_logs (with a reason, when
+ * one is given -- it is optional).
  */
 export async function changeTicketPriority(
   ticketId: string,
@@ -952,8 +1027,8 @@ export async function changeTicketPriority(
       throw new Error(error.message);
     }
     if (error.code === "PGRST202") {
-      // No plain-update fallback: it would skip the reason check, the kept
-      // deadline and the audit entry that make a priority change trustworthy.
+      // No plain-update fallback: it would skip the kept deadline and the
+      // audit entry that make a priority change trustworthy.
       console.error(
         "change_ticket_priority is missing; apply migration 20261011120000_ticket_priority_change_rules.sql.",
       );
@@ -1455,13 +1530,11 @@ export async function searchTenantCustomers(
     .eq("tenant_id", tenantId);
 
   // Same escaping as the ticket search: these are or-filter syntax.
-  const term = query
-    .replace(/[,()"\\]/g, " ")
-    .trim()
-    .slice(0, 100);
+  const term = query.trim().slice(0, 100);
   if (term) {
+    const value = ilikeOrValue(term);
     request = request.or(
-      `full_name.ilike."%${term}%",email.ilike."%${term}%",company.ilike."%${term}%"`,
+      `full_name.ilike.${value},email.ilike.${value},company.ilike.${value}`,
     );
   }
 
@@ -1473,4 +1546,80 @@ export async function searchTenantCustomers(
     fail("search customers", error, "Couldn't search customers. Try again.");
   }
   return data || [];
+}
+
+/** How many tickets the header search shows as you type. */
+const QUICK_SEARCH_LIMIT = 8;
+
+/** A header search hit: just what its result row shows. */
+export interface TicketSearchHit {
+  id: string;
+  number: number;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  requester_name: string;
+  updated_at: string;
+}
+
+/**
+ * Tickets matching `query` by subject or description (or "#123" / "123" by
+ * number), newest activity first, at most 8, for the header search. RLS
+ * still decides which tickets the caller sees.
+ */
+export async function searchTenantTickets(
+  tenant: string,
+  query: string,
+): Promise<TicketSearchHit[]> {
+  const supabase = await createSupabaseServerClient();
+  const tenantId = await getTenantIdBySlug(tenant);
+  if (!tenantId) throw new Error("Tenant not found.");
+
+  // Same escaping as the list search: these are or-filter syntax.
+  const term = query.trim().slice(0, 100);
+  if (!term) return [];
+
+  const numberMatch = /^#?(\d{1,9})$/.exec(term);
+  const value = ilikeOrValue(term);
+  const clauses = [`subject.ilike.${value}`, `description.ilike.${value}`];
+  if (numberMatch) clauses.push(`number.eq.${Number(numberMatch[1])}`);
+
+  const { data, error } = await supabase
+    .from("tickets")
+    .select(
+      `
+        id,
+        number,
+        subject,
+        status,
+        priority,
+        updated_at,
+        customers:requester_customer_id (
+          full_name,
+          email
+        )
+      `,
+    )
+    .eq("tenant_id", tenantId)
+    .or(clauses.join(","))
+    .order("updated_at", { ascending: false })
+    .limit(QUICK_SEARCH_LIMIT);
+
+  if (error) {
+    fail("search tickets", error, "Couldn't search tickets. Try again.");
+  }
+
+  return (data || []).map((t) => {
+    const customer = one(t.customers);
+    return {
+      id: t.id,
+      number: t.number,
+      subject: t.subject,
+      status: t.status as TicketStatus,
+      priority: t.priority as TicketPriority,
+      requester_name:
+        customer?.full_name || customer?.email || "Unknown Customer",
+      updated_at: t.updated_at,
+    };
+  });
 }

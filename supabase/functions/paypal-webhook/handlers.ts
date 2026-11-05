@@ -1,3 +1,4 @@
+import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateInvoicePdf } from "./pdf.ts";
 import { uploadInvoicePdf, getInvoiceSignedUrl } from "./storage.ts";
@@ -300,6 +301,7 @@ async function emailInvoiceOnce({
           amount,
           currency,
           signedUrl,
+          brand: await getPlatformBrand(admin),
         });
         delivered += 1;
       } catch (error) {
@@ -1135,6 +1137,7 @@ export async function handlePaymentCompleted(event: WebhookEvent) {
         next_billing_date: nextBillingDate ?? undefined,
         next_billing_amount: nextBillingAmount,
       },
+      await getPlatformBrand(admin),
     );
 
     storagePath = await uploadInvoicePdf(
@@ -1365,6 +1368,7 @@ export async function handleOrderCompleted(event: WebhookEvent) {
         next_billing_date: nextBillingDate,
         next_billing_amount: nextBillingAmount,
       },
+      await getPlatformBrand(admin),
     );
 
     storagePath = await uploadInvoicePdf(invoiceTenantId, invoice.id, pdf);

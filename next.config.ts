@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 /**
@@ -34,7 +34,63 @@ function remotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   }
 }
 
+function supabaseOrigins(): string {
+  try {
+    const { origin, host, protocol } = new URL(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    );
+
+    return `${origin} ${protocol === "http:" ? "ws" : "wss"}://${host}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Where the browser SDK sends errors, and where this policy sends its violation
+ * reports. Both come from the public DSN, so the policy allows this project's
+ * ingest host rather than every *.sentry.io, which would let injected code post
+ * data to anyone's Sentry project.
+ */
+function sentryIngest(): { origin: string; reportUri: string } | null {
+  try {
+    const dsn = new URL(process.env.NEXT_PUBLIC_SENTRY_DSN ?? "");
+    const projectId = dsn.pathname.replace(/^\//, "");
+
+    if (!dsn.username || !projectId) {
+      return null;
+    }
+
+    return {
+      origin: dsn.origin,
+      reportUri: `${dsn.origin}/api/${projectId}/security/?sentry_key=${dsn.username}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const sentry = sentryIngest();
+
+// 'unsafe-inline' stays on script-src because Next.js writes inline bootstrap
+// scripts, and a nonce would force every prerendered page to render dynamically.
+// React needs 'unsafe-eval' in development only.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `img-src 'self' data: blob: ${supabaseOrigins()}`,
+  `connect-src 'self' ${supabaseOrigins()}${sentry ? ` ${sentry.origin}` : ""}`,
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  ...(sentry ? [`report-uri ${sentry.reportUri}`] : []),
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
@@ -51,7 +107,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   /* config options here */
+  poweredByHeader: false,
   reactCompiler: true,
+  experimental: {
+    agentUpgrade: "security",
+  },
   generateBuildId: async () => process.env.NEXT_BUILD_ID || null,
   images: {
     remotePatterns: remotePatterns(),
