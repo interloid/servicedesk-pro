@@ -62,7 +62,7 @@ These rules prevent the most expensive mistakes on this project:
 | Payments   | PayPal Subscriptions and Orders                                                 |
 | Email      | Gmail API for queued app email, Supabase Auth for its own auth email            |
 | Monitoring | Sentry                                                                          |
-| Testing    | Vitest, SQL authorization suite                                                 |
+| Testing    | Vitest, SQL authorization suite, Playwright, Argos                              |
 | Hosting    | Vercel for the app, Supabase for the backend                                    |
 
 ## Local setup
@@ -348,7 +348,8 @@ Console settings reach tenants through the proxy and the brand provider. The pro
 
 ### Security controls
 
-- Security headers and the Content Security Policy are in `next.config.ts`. Add any new external origin there.
+- The Content Security Policy is in `src/lib/csp.ts`, applied per request by the proxy with a nonce. Add any new external origin there. Other security headers, and the policy for static files, are in `next.config.ts`.
+- Every page renders per request, because a prerendered page has no nonce and its scripts would be blocked. Don't remove `connection()` from the root layout.
 - Rate limits count in Postgres through the `rate_limit_hit` RPC, with an in-memory fallback.
 - Audit rows come from database triggers. Service role calls pass the acting user in the `x-audit-actor` header, so the audit row names the right person.
 
@@ -485,12 +486,16 @@ npm test             # Unit tests
 npm run lint         # Lint
 npm run build        # Type check and production build
 npm run test:authz   # Needs Docker and `supabase start`
+npm run test:e2e     # Needs Docker and `npm run e2e:stack`
 ```
 
-| Suite         | Location                | Covers                                                  |
-| ------------- | ----------------------- | ------------------------------------------------------- |
-| Unit          | `src/**/*.test.ts`      | Tenancy routing, plan limits, and workspace status      |
-| Authorization | `supabase/tests/authz/` | Attacks and legitimate flows, run as the real API roles |
+| Suite         | Location                | Covers                                                                                                              |
+| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Unit          | `src/**/*.test.ts`      | Tenancy routing, plan limits, and workspace status                                                                  |
+| Authorization | `supabase/tests/authz/` | Attacks and legitimate flows, run as the real API roles                                                             |
+| End-to-end    | `e2e/**/*.e2e.ts`       | Sign in, tickets, portal, roles, plan gates, console                                                                |
+| Visual        | `e2e/**/visual.e2e.ts`  | Screenshots compared by Argos                                                                                       |
+| Load          | `load/servicedesk.js`   | k6 read traffic on the local E2E stack: `npm run test:load -- smoke\|load\|stress\|spike`. See `docs/load-testing/` |
 
 `test:authz` builds a throwaway database inside the local container and drops it afterwards. It never reads `.env.local` or contacts a hosted project.
 
@@ -502,7 +507,57 @@ DOCKER_CONTEXT=default npm run test:authz
 AUTHZ_EXCLUDE=20261104120000 npm run test:authz
 ```
 
-Automated tests don't cover most UI flows or Edge Functions. After changing billing, test the whole flow against the PayPal sandbox. After changing email, confirm that a real message arrives.
+### End-to-end tests (Playwright)
+
+The suite runs a production build against its own throwaway Supabase stack on ports 55xxx. It doesn't use `.env.local`: `playwright.config.ts` blanks every variable that file lists, refuses a non-local database, and never reuses a server already on port 3100. Your dev server and default local stack can keep running.
+
+```bash
+npx playwright install chromium   # First time only
+
+npm run e2e:stack                 # Build the stack: migrations plus seed data
+npm run test:e2e                  # Build the app and run everything
+E2E_SKIP_BUILD=1 npm run test:e2e # Reuse the last build if the app hasn't changed
+
+npx playwright test e2e/signed-in/tickets.e2e.ts  # One file
+npx playwright test -g "internal note"            # By test name
+npx playwright test --headed                      # Watch the browser
+npm run test:e2e:ui                               # Interactive runner
+npm run test:e2e:report                           # Last HTML report
+npx playwright show-trace .e2e/results/<test>/trace.zip  # Debug a failure
+
+npm run e2e:stack:stop            # Remove the stack and its data
+```
+
+Add `DOCKER_CONTEXT=default` in front of the stack commands if Docker points at a dead context. Rerun `npm run e2e:stack` after adding a migration, or to clear the tickets that test runs create.
+
+When adding tests:
+
+- Name files `*.e2e.ts`. Vitest would collect `*.spec.ts` and fail on it.
+- Pick a saved session with `test.use({ storageState: sessionFile("proAdmin") })`. Accounts are listed in `e2e/support/accounts.ts`.
+- Don't assert status 404 for `notFound()` on a page inside a layout. The shell has already streamed, so it answers 200. Check the screen instead.
+- Don't add sign-ins per test. The app allows 10 attempts per IP in 5 minutes, and the setup project already uses 6.
+
+Not covered: anything that needs PayPal, real email or Edge Functions, because that stack doesn't run them.
+
+### Visual tests (Argos)
+
+The `visual.e2e.ts` files take screenshots with `argosScreenshot`, and [Argos](https://app.argos-ci.com/tkarthick550/servicedesk) compares them against a baseline from your Git history. There's no CI for this, so send a build by hand:
+
+```bash
+npm run e2e:stack                                   # If the stack isn't running
+npm run test:visual                                 # Build the app, take screenshots, upload
+```
+
+Put the project token in `.env.local` as `ARGOS_TOKEN`. The script sets `CI=true`, which is what turns on the upload. `npm run test:e2e` also takes the screenshots but sends nothing. Argos picks its baseline from commits, so commit your work before sending a build.
+
+Never commit the token. When adding a screen:
+
+- Add it to the table in `e2e/signed-in/visual.e2e.ts`, or `e2e/public/visual.e2e.ts` for signed-out pages. Each entry checks that the URL didn't redirect and that no error screen shows, so a broken page can't become the baseline.
+- Use the `seed-juniper` workspace, which no other test writes to.
+- Dates and relative times are replaced with `--` automatically. Use `figures` for totals that change, `mask` for rows whose order isn't fixed, and `element` for a dialog over a changing page.
+- Compare two runs before sending a build. Any screen that differs between them will report a change on every build.
+
+Automated tests cover the main UI flows but not Edge Functions. After changing billing, test the whole flow against the PayPal sandbox. After changing email, confirm that a real message arrives.
 
 ## Seed data
 
@@ -604,7 +659,7 @@ select kind, status, count(*) from email_jobs group by 1, 2;
 | Role change has no effect yet                | Old token                                                                    | Wait for token refresh, or sign in again                         |
 | SLA times are wrong                          | Wrong business hours time zone                                               | Check the policy's business hours                                |
 | Sign-in redirects to the wrong place         | Auth redirect URL isn't allowed                                              | Add it in Auth settings, or `additional_redirect_urls` locally   |
-| Logo or external resource doesn't load       | Blocked by the image allow list or Content Security Policy                   | Check `next.config.ts` and the browser console                   |
+| Logo or external resource doesn't load       | Blocked by the image allow list or Content Security Policy                   | Check `next.config.ts`, `src/lib/csp.ts` and the browser console |
 | All tenants see the maintenance page         | Maintenance mode is on                                                       | Turn it off in `/platform/settings`, then allow about 10 seconds |
 | `/platform` returns 404                      | Email isn't in `PLATFORM_ADMIN_EMAILS`                                       | Add it, then redeploy or restart                                 |
 | `test:authz` says the container wasn't found | Local stack isn't running, or Docker is on another context                   | Run `supabase start`, or set `DOCKER_CONTEXT=default`            |

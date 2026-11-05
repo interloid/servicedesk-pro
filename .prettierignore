@@ -4,6 +4,9 @@ out
 dist
 build
 coverage
+.e2e
+.next-e2e
+screenshots
 public
 *.lock
 package-lock.json

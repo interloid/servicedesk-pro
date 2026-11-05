@@ -21,26 +21,67 @@ import {
 import { siteConfig } from "@/config/site";
 import { getCachedPlatformSettings } from "@/features/platform-admin/services/platform-settings.service";
 
+// Longer than the site-wide description, and limited to what the product does
+// today: search results quote this text.
+const HOME_DESCRIPTION =
+  "Run customer support from one help desk: ticket queues, SLA policies with breach alerts, a branded customer portal and reports. Start free.";
+
 export async function generateMetadata(): Promise<Metadata> {
   const { platformName } = await getCachedPlatformSettings();
+  const socialTitle = `${platformName} — help desk for growing support teams`;
 
   return {
-    title: "Help desk built for teams that outgrew a shared inbox",
-    description: siteConfig.description,
+    // A layout's title template only reaches child segments, not its own page.
+    title: `Help desk built for teams that outgrew a shared inbox | ${platformName}`,
+    description: HOME_DESCRIPTION,
     alternates: { canonical: "/" },
+    robots: { index: true, follow: true },
     openGraph: {
       type: "website",
       url: "/",
       siteName: platformName,
-      title: `${platformName} — help desk for growing support teams`,
-      description: siteConfig.description,
+      title: socialTitle,
+      description: HOME_DESCRIPTION,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: socialTitle,
+      description: HOME_DESCRIPTION,
+      ...(siteConfig.twitterHandle ? { site: siteConfig.twitterHandle } : {}),
     },
   };
 }
 
-export default function Home() {
+export default async function Home() {
+  const { platformName } = await getCachedPlatformSettings();
+
   return (
     <div className="min-h-dvh bg-background text-foreground font-sans flex flex-col justify-between selection:bg-brand-accent/20 selection:text-brand-accent">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebSite",
+                name: platformName,
+                description: HOME_DESCRIPTION,
+                url: siteConfig.url,
+              },
+              {
+                "@type": "SoftwareApplication",
+                name: platformName,
+                description: HOME_DESCRIPTION,
+                url: siteConfig.url,
+                applicationCategory: "BusinessApplication",
+                operatingSystem: "Web",
+              },
+            ],
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+
       <SiteHeader />
 
       <main className="flex-1">
@@ -53,9 +94,9 @@ export default function Home() {
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground max-w-4xl leading-[1.12]">
-            Supercharge your support with
+            Supercharge your support with{" "}
             <span className="text-brand-accent inline-block">
-              <PlatformName />
+              help desk software
             </span>
           </h1>
 

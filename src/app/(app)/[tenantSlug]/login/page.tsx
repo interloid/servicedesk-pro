@@ -9,7 +9,6 @@ import { getShellIdentity } from "@/lib/identity";
 export const metadata: Metadata = {
   title: "Log in",
   description: "Sign in to your organization workspace.",
-  alternates: { canonical: "/login" },
   robots: { index: false, follow: false },
 };
 

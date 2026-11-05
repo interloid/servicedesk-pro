@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { connection } from "next/server";
 import { siteConfig } from "@/config/site";
 import { Providers } from "./providers";
 import { PlatformBrandProvider } from "@/components/shared/platform-brand";
@@ -39,10 +40,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description: siteConfig.description,
       ...(siteConfig.twitterHandle ? { site: siteConfig.twitterHandle } : {}),
     },
-    robots: {
-      index: true,
-      follow: true,
-    },
+    // Private unless a page opts in: nearly every route is a workspace, portal
+    // or console screen, and a new one shouldn't reach search by default.
+    robots: { index: false, follow: false },
   };
 }
 
@@ -51,6 +51,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Renders every page per request. A prerendered page has no nonce on its
+  // scripts, so the proxy's Content-Security-Policy would block them all.
+  await connection();
+
   const { platformName, supportEmail } = await getCachedPlatformSettings();
 
   return (
@@ -66,19 +70,6 @@ export default async function RootLayout({
       )}
     >
       <body className="h-full">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              name: platformName,
-              description: siteConfig.description,
-              url: siteConfig.url,
-            }).replace(/</g, "\\u003c"),
-          }}
-        />
-
         <PlatformBrandProvider brand={{ platformName, supportEmail }}>
           <Providers>{children}</Providers>
         </PlatformBrandProvider>

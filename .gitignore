@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/.e2e/
+/.next-e2e/
+/screenshots/
 
 # next.js
 /.next/

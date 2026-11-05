@@ -64,17 +64,17 @@ Sources for risk and confidence: Z3 screenshots, and Z1 and Z2 for HSTS. Instanc
 
 ### SEC-013: Content Security Policy not enforced
 
-| Attribute          | Detail                                                                                                                                                                                                                              |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scanner alerts     | CSP Header Not Set (Medium, High confidence, CWE-693). CSP Report-Only Header Found (Informational, High, CWE-693)                                                                                                                  |
-| Affected endpoints | Z2: `/`, `/login`, `/setup`, `/tenant/forgot-password`. Z3: `/`. Header policy is global, from `next.config.ts`                                                                                                                     |
-| Evidence           | Z3 responses carry `Content-Security-Policy-Report-Only` and no `Content-Security-Policy`. `next.config.ts` sets report-only on purpose, and RISK-011 in the 2026-11-03 review is Partial                                           |
-| Impact             | The browser logs violations but blocks nothing, so CSP gives no XSS protection today                                                                                                                                                |
-| Exploitability     | Not exploitable alone. It removes a safety net if XSS is found, and sessions are readable by script ([SEC-011](application-security-assessment.md#sec-011))                                                                         |
-| False positive?    | No. Also note the policy allows `script-src 'unsafe-inline'`, which weakens XSS protection when enforced, and has no `report-uri` or `report-to`, so reports never reach the team                                                   |
-| Recommendation     | Add a reporting endpoint, such as Sentry's CSP endpoint. Review violations across staff, portal, billing and console. Then enforce, moving to nonces if inline scripts can be removed                                               |
-| Validation         | Response carries an enforcing header on all routes. Staff, portal, PayPal and Sentry flows work with a clean console. An injected inline test script in staging is blocked                                                          |
-| Retest status      | Fix in working tree, checked on a local build 2026-11-04, [details](security-remediation-tracker.md#zap-fixes-2026-11-04). Not deployed, ZAP not rerun. Policy still allows inline scripts, so ZAP may raise `unsafe-inline` alerts |
+| Attribute          | Detail                                                                                                                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scanner alerts     | CSP Header Not Set (Medium, High confidence, CWE-693). CSP Report-Only Header Found (Informational, High, CWE-693)                                                                                                                                                 |
+| Affected endpoints | Z2: `/`, `/login`, `/setup`, `/tenant/forgot-password`. Z3: `/`. Header policy is global, from `next.config.ts`                                                                                                                                                    |
+| Evidence           | Z3 responses carry `Content-Security-Policy-Report-Only` and no `Content-Security-Policy`. `next.config.ts` sets report-only on purpose, and RISK-011 in the 2026-11-03 review is Partial                                                                          |
+| Impact             | The browser logs violations but blocks nothing, so CSP gives no XSS protection today                                                                                                                                                                               |
+| Exploitability     | Not exploitable alone. It removes a safety net if XSS is found, and sessions are readable by script ([SEC-011](application-security-assessment.md#sec-011))                                                                                                        |
+| False positive?    | No. Also note the policy allows `script-src 'unsafe-inline'`, which weakens XSS protection when enforced, and has no `report-uri` or `report-to`, so reports never reach the team                                                                                  |
+| Recommendation     | Add a reporting endpoint, such as Sentry's CSP endpoint. Review violations across staff, portal, billing and console. Then enforce, moving to nonces if inline scripts can be removed                                                                              |
+| Validation         | Response carries an enforcing header on all routes. Staff, portal, PayPal and Sentry flows work with a clean console. An injected inline test script in staging is blocked                                                                                         |
+| Retest status      | Fix in working tree, checked on a local build 2026-11-04, [details](security-remediation-tracker.md#zap-fixes-2026-11-04). Nonce-based `script-src` added 2026-11-05, [details](security-remediation-tracker.md#zap-fixes-2026-11-05). Not deployed, ZAP not rerun |
 
 <a id="sec-014"></a>
 
@@ -140,7 +140,7 @@ Sources for risk and confidence: Z3 screenshots, and Z1 and Z2 for HSTS. Instanc
 | False positive?    | Likely, for all observed content. It stays open only because authenticated and dynamic routes were never observed. Dynamic `/login` responses in Z2 and Z3 did not carry the header |
 | Recommendation     | No change for static assets. Confirm no authenticated response carries a permissive header                                                                                          |
 | Validation         | Authenticated staging scan: no `Access-Control-Allow-Origin: *` on any response with tenant data                                                                                    |
-| Retest status      | Not retested                                                                                                                                                                        |
+| Retest status      | Local build 2026-11-05, [details](security-remediation-tracker.md#zap-fixes-2026-11-05). Not deployed, ZAP not rerun                                                                |
 
 <a id="sec-022"></a>
 
@@ -156,7 +156,7 @@ Sources for risk and confidence: Z3 screenshots, and Z1 and Z2 for HSTS. Instanc
 | False positive?   | Probably a by-product of how Next.js renders a redirect from a server component. Not closed until the whole body is read                                                                         |
 | Recommendation    | Inspect the entire response. No code change expected if it is only a shell                                                                                                                       |
 | Validation        | Fetch `/platform` anonymously in staging, and confirm the body has no tenant names, emails, counts or settings                                                                                   |
-| Retest status     | Local build 2026-11-04: 26 KB anonymous body with no console data. Marked False Positive. Confirm once on deployment                                                                             |
+| Retest status     | Local build 2026-11-04: 26 KB anonymous body with no console data. Marked False Positive. Confirm once on deployment Redirect now sent by the proxy with a small body (2026-11-05, not deployed) |
 
 <a id="sec-023"></a>
 
@@ -205,23 +205,23 @@ Sources for risk and confidence: Z3 screenshots, and Z1 and Z2 for HSTS. Instanc
 | False positive?    | Yes for public content. Authenticated pages have not been observed                                                                                                                                                                                   |
 | Recommendation     | Confirm tenant and portal pages send `private, no-store`                                                                                                                                                                                             |
 | Validation         | Authenticated staging crawl: no tenant data response carries `public` or `X-Vercel-Cache: HIT`                                                                                                                                                       |
-| Retest status      | Not retested                                                                                                                                                                                                                                         |
+| Retest status      | Local build 2026-11-05, [details](security-remediation-tracker.md#zap-fixes-2026-11-05). Not deployed, ZAP not rerun                                                                                                                                 |
 
 <a id="sec-026"></a>
 
 ### SEC-026: Retrieved from Cache
 
-| Attribute          | Detail                                                                 |
-| ------------------ | ---------------------------------------------------------------------- |
-| Scanner alert      | Retrieved from Cache (Informational, Medium confidence, CWE-525)       |
-| Affected endpoints | `/_next/static/immutable/*`, `/robots.txt`, `/sitemap.xml`             |
-| Evidence           | `Age` header, such as `Age: 405509` on a font file                     |
-| Impact             | None for these public assets. This is normal CDN behaviour             |
-| Exploitability     | None shown                                                             |
-| False positive?    | Yes for observed content. Tracked with SEC-025 for authenticated pages |
-| Recommendation     | No change for static assets                                            |
-| Validation         | Same authenticated crawl as SEC-025                                    |
-| Retest status      | Not retested                                                           |
+| Attribute          | Detail                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Scanner alert      | Retrieved from Cache (Informational, Medium confidence, CWE-525)                                                     |
+| Affected endpoints | `/_next/static/immutable/*`, `/robots.txt`, `/sitemap.xml`                                                           |
+| Evidence           | `Age` header, such as `Age: 405509` on a font file                                                                   |
+| Impact             | None for these public assets. This is normal CDN behaviour                                                           |
+| Exploitability     | None shown                                                                                                           |
+| False positive?    | Yes for observed content. Tracked with SEC-025 for authenticated pages                                               |
+| Recommendation     | No change for static assets                                                                                          |
+| Validation         | Same authenticated crawl as SEC-025                                                                                  |
+| Retest status      | Local build 2026-11-05, [details](security-remediation-tracker.md#zap-fixes-2026-11-05). Not deployed, ZAP not rerun |
 
 <a id="sec-027"></a>
 

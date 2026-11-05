@@ -32,6 +32,7 @@ import {
   isRememberedSession,
 } from "@/lib/supabase/remember";
 
+import { contentSecurityPolicy, createNonce } from "@/lib/csp";
 import { APP_ROUTES } from "@/lib/routes";
 import {
   getWorkspaceBlock,
@@ -174,7 +175,10 @@ async function maintenanceGate(
   }
 
   return withSessionCookies(
-    NextResponse.rewrite(new URL(APP_ROUTES.MAINTENANCE, request.url)),
+    // The request headers carry the nonce the rendered page needs.
+    NextResponse.rewrite(new URL(APP_ROUTES.MAINTENANCE, request.url), {
+      request: { headers: request.headers },
+    }),
     response,
   );
 }
@@ -230,11 +234,23 @@ async function workspaceGate(
   target.searchParams.set("slug", slug);
   if (block.source === "payment") target.searchParams.set("reason", "payment");
 
-  return withSessionCookies(NextResponse.rewrite(target), response);
+  return withSessionCookies(
+    NextResponse.rewrite(target, { request: { headers: request.headers } }),
+    response,
+  );
 }
 
 export async function proxy(request: NextRequest) {
-  return routeRequest(request);
+  const policy = contentSecurityPolicy(createNonce());
+
+  // On the request too: Next.js reads the nonce from there when it renders.
+  request.headers.set("content-security-policy", policy);
+
+  const response = await routeRequest(request);
+
+  response.headers.set("content-security-policy", policy);
+
+  return response;
 }
 
 async function routeRequest(request: NextRequest): Promise<NextResponse> {
@@ -299,6 +315,15 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
   // access (requirePlatformAdmin), so no tenant redirect may claim it -- the
   // tenant-hint cookie would otherwise send it to a workspace login.
   if (pathname === "/platform" || pathname.startsWith("/platform/")) {
+    // Same destination as requirePlatformAdmin, sent before the console's shell
+    // renders into the redirect body. Server actions still reach their own check.
+    if (!user && (request.method === "GET" || request.method === "HEAD")) {
+      return withSessionCookies(
+        NextResponse.redirect(new URL(APP_ROUTES.LOGIN, request.url)),
+        response,
+      );
+    }
+
     return response;
   }
 

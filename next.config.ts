@@ -34,63 +34,44 @@ function remotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   }
 }
 
-function supabaseOrigins(): string {
-  try {
-    const { origin, host, protocol } = new URL(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    );
+/**
+ * Paths the proxy matcher skips (keep the two in step). HTML gets its nonce policy
+ * from the proxy, so these get a fixed one that lets the file itself run nothing.
+ */
+const PROXY_SKIPPED_PATHS = [
+  "/_next/static/:path*",
+  "/_next/image",
+  "/favicon.ico",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/opengraph-image",
+  "/:path*.:ext(svg|png|jpg|jpeg|gif|webp)",
+];
 
-    return `${origin} ${protocol === "http:" ? "ws" : "wss"}://${host}`;
-  } catch {
-    return "";
-  }
-}
+const STATIC_FILE_POLICY =
+  "default-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'";
 
 /**
- * Where the browser SDK sends errors, and where this policy sends its violation
- * reports. Both come from the public DSN, so the policy allows this project's
- * ingest host rather than every *.sentry.io, which would let injected code post
- * data to anyone's Sentry project.
+ * Vercel answers static files with Access-Control-Allow-Origin: *. Nothing here
+ * is loaded cross-origin (tenant subdomains load from their own host), so name
+ * this app's origin instead.
  */
-function sentryIngest(): { origin: string; reportUri: string } | null {
+function siteOrigin(): string | null {
   try {
-    const dsn = new URL(process.env.NEXT_PUBLIC_SENTRY_DSN ?? "");
-    const projectId = dsn.pathname.replace(/^\//, "");
-
-    if (!dsn.username || !projectId) {
-      return null;
-    }
-
-    return {
-      origin: dsn.origin,
-      reportUri: `${dsn.origin}/api/${projectId}/security/?sentry_key=${dsn.username}`,
-    };
+    return new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "").origin;
   } catch {
     return null;
   }
 }
 
-const sentry = sentryIngest();
+const origin = siteOrigin();
 
-// 'unsafe-inline' stays on script-src because Next.js writes inline bootstrap
-// scripts, and a nonce would force every prerendered page to render dynamically.
-// React needs 'unsafe-eval' in development only.
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  `img-src 'self' data: blob: ${supabaseOrigins()}`,
-  `connect-src 'self' ${supabaseOrigins()}${sentry ? ` ${sentry.origin}` : ""}`,
-  "frame-ancestors 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  ...(sentry ? [`report-uri ${sentry.reportUri}`] : []),
-].join("; ");
+const staticFileHeaders = [
+  { key: "Content-Security-Policy", value: STATIC_FILE_POLICY },
+  ...(origin ? [{ key: "Access-Control-Allow-Origin", value: origin }] : []),
+];
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
@@ -107,6 +88,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // The Playwright suite builds here, so a build wired to its throwaway database
+  // can never be served by a plain `next start`. See playwright.config.ts.
+  ...(process.env.E2E_DIST_DIR ? { distDir: process.env.E2E_DIST_DIR } : {}),
   poweredByHeader: false,
   reactCompiler: true,
   experimental: {
@@ -122,6 +106,10 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      ...PROXY_SKIPPED_PATHS.map((source) => ({
+        source,
+        headers: staticFileHeaders,
+      })),
     ];
   },
 };
