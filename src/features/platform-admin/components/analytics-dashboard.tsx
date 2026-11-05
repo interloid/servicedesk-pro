@@ -31,10 +31,8 @@ import {
   PLATFORM_CARD,
   PLATFORM_STAT_GRID,
   PlatformPageHeader,
-  TablePaginationFooter,
 } from "./platform-ui";
 import { StatCard } from "./stat-card";
-import { useTablePagination } from "./use-table-pagination";
 
 // Passed the palette validator against the card surface (light mode).
 const TEAL = "#0d9488";
@@ -82,7 +80,6 @@ export function AnalyticsDashboard({
   range: AnalyticsRange;
 }) {
   const router = useRouter();
-  const { pageRows: planRows, footer: plansFooter } = useTablePagination(plans);
   const { metrics, revenueSeries } = overview;
   const data = analytics.available ? analytics.data : null;
 
@@ -222,15 +219,9 @@ export function AnalyticsDashboard({
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-bold text-foreground">Revenue by plan</h2>
         <DataTable
-          rows={planRows}
+          rows={plans}
           rowKey={(plan) => plan.id}
           empty="No plans found."
-          footer={
-            <TablePaginationFooter
-              {...plansFooter}
-              noun={{ one: "plan", other: "plans" }}
-            />
-          }
           columns={[
             {
               key: "plan",

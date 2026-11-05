@@ -164,6 +164,7 @@ export async function getPlatformBilling(): Promise<PlatformBillingData> {
           .from("plans")
           .select("id, name, price_month, sort_order")
           .order("sort_order")
+          .order("price_month")
           .range(from, to),
       ),
       fetchAll<{

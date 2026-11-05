@@ -43,7 +43,10 @@ export async function getPlatformPlans(): Promise<PlatformPlan[]> {
     .select(
       "id, code, name, description, price_month, seat_limit, ticket_limit, storage_limit_mb, is_active, features_json",
     )
-    .order("sort_order");
+    .order("sort_order")
+    // Price breaks ties: rows with equal sort_order come back in whatever order
+    // Postgres finds them, and saving a plan moves it to the end of that.
+    .order("price_month");
 
   if (plans.error) {
     throw new Error(`[platform] plans query failed: ${plans.error.message}`);

@@ -182,6 +182,7 @@ async function loadTenantRows(admin: SupabaseClient) {
         .from("plans")
         .select("id, name, price_month, seat_limit, sort_order")
         .order("sort_order")
+        .order("price_month")
         .range(from, to),
     ),
     loadTenants(admin),

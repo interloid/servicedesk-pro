@@ -1,7 +1,14 @@
 /**
- * Dev-only tenant seeder: 10-15 workspaces, each with a Tenant Admin, Manager,
- * Agent, Billing Admin and 2 portal customers, spread across every plan and
- * subscription state.
+ * Dev-only tenant seeder: 10-15 workspaces spread across every plan and
+ * subscription state, each with 2 portal customers and:
+ *
+ *   Free      2 staff (Tenant Admin, Agent), the plan's full seat limit
+ *   Pro       15 staff, the plan's full seat limit
+ *   Business  4 staff (Tenant Admin, Manager, Agent, Billing Admin)
+ *
+ *   Tickets   10 per customer, covering every status, with their conversations
+ *   Invoices  12 monthly invoices covering every status on paid plans. Free
+ *             tenants get none, since nothing is ever charged.
  *
  *   Preview (default, reads only):
  *     node --env-file=.env.local scripts/seed-tenants.mjs [--count 15]
@@ -16,7 +23,14 @@
  *
  * Seeded rows are recognised by slug (seed-*) and email (*.seed.test), which is
  * what --clean deletes by. .test never resolves, so nothing can reach a real
- * inbox. Tenants that already exist are skipped, so re-running is safe.
+ * inbox. Tenants that already exist are skipped, so re-running is safe, but they
+ * keep what they had: run --clean first to rebuild them with this data.
+ *
+ * Ticket triggers queue real mail, which the email-jobs cron would try to send
+ * to these .test addresses. Seeded staff get email alerts switched off before
+ * any ticket exists (that also covers later SLA alerts), and the customer mail
+ * the inserts queue is deleted straight after them. A cron run landing inside
+ * that gap can still try a few, which only bounce.
  *
  * Seeded PayPal ids (I-SEED...) do not exist at PayPal. Nothing here sets
  * next_plan_id, pending_plan_id or grace_period_ends_at, which are the only
@@ -216,14 +230,140 @@ const CUSTOMER_COMPANIES = [
   "Brightwater Inc",
 ];
 
-const STAFF_ROLES = [
-  { local: "admin", role: "tenant_admin", label: "Tenant Admin" },
-  { local: "manager", role: "manager", label: "Manager" },
-  { local: "agent", role: "agent", label: "Agent" },
-  { local: "billing", role: "billing_admin", label: "Billing Admin" },
+const ROLE_LABELS = {
+  tenant_admin: "Tenant Admin",
+  manager: "Manager",
+  agent: "Agent",
+  billing_admin: "Billing Admin",
+};
+
+const OWNER = { local: "admin", role: "tenant_admin" };
+const CORE_STAFF = [
+  OWNER,
+  { local: "manager", role: "manager" },
+  { local: "agent", role: "agent" },
+  { local: "billing", role: "billing_admin" },
 ];
 
+// Pro fills all 15 seats: the core four, 2 more managers and 9 more agents.
+const PRO_EXTRA_MANAGERS = [2, 3].map((n) => ({
+  local: `manager${n}`,
+  role: "manager",
+}));
+const PRO_EXTRA_AGENTS = Array.from({ length: 9 }, (_, i) => ({
+  local: `agent${i + 2}`,
+  role: "agent",
+}));
+
+const STAFF_BY_PLAN = {
+  Free: [OWNER, { local: "agent", role: "agent" }],
+  Pro: [...CORE_STAFF, ...PRO_EXTRA_MANAGERS, ...PRO_EXTRA_AGENTS],
+  Business: CORE_STAFF,
+};
+
+// The plan really must have room: a roster over the limit would hit the seat
+// trigger, and one that merely differs would no longer test the limit asked for.
+const EXPECTED_SEAT_LIMITS = { Free: 2, Pro: 15 };
+
 const CUSTOMER_LOCALS = ["customer1", "customer2"];
+
+const HOUR_MS = 3_600_000;
+const PRIORITIES = ["low", "normal", "high", "urgent"];
+
+// One customer's 10 tickets: every status at least once. Ages are hours before
+// the seed runs. resolved_at stays under the default 4-day auto-close, so
+// sla_tick doesn't turn the resolved ones into closed the moment it next runs.
+const TICKET_PLAN = [
+  {
+    subject: "Cannot log in after password reset",
+    status: "new",
+    age: 1,
+  },
+  {
+    subject: "Question about exporting our data",
+    status: "new",
+    age: 3,
+  },
+  {
+    subject: "Dashboard loads very slowly in the morning",
+    status: "open",
+    age: 5,
+  },
+  {
+    subject: "Email notifications arrive twice",
+    status: "open",
+    age: 30,
+    customerFollowUp: true,
+  },
+  {
+    subject: "Need a copy of last quarter's report",
+    status: "pending",
+    age: 6,
+  },
+  {
+    subject: "Attachment upload fails on large files",
+    status: "pending",
+    age: 50,
+  },
+  {
+    subject: "Integration stopped syncing overnight",
+    status: "on_hold",
+    age: 8,
+    internalNote: true,
+  },
+  {
+    subject: "Wrong timezone on ticket timestamps",
+    status: "resolved",
+    age: 72,
+    resolvedAgo: 20,
+    customerFollowUp: true,
+  },
+  {
+    subject: "Please add a teammate to our account",
+    status: "resolved",
+    age: 96,
+    resolvedAgo: 30,
+  },
+  {
+    subject: "Portal link in the welcome email is broken",
+    status: "closed",
+    age: 240,
+    resolvedAgo: 216,
+    closedAgo: 120,
+    customerFollowUp: true,
+  },
+];
+
+const AGENT_REPLIES = {
+  open: "Thanks for reporting this. I'm looking into it and will update you here.",
+  pending:
+    "Could you send us a little more detail? We'll carry on as soon as we hear back.",
+  on_hold:
+    "We've passed this to our engineering team and will update you once they respond.",
+  resolved: "This should be fixed now. Let us know if you still see the issue.",
+  closed: "This is sorted on our side, so we're closing this ticket.",
+};
+
+const INVOICE_MONTHS = 12;
+
+const NO_EMAIL_PREFS = {
+  email: {
+    assigned: false,
+    replies: false,
+    sla: false,
+    mention: false,
+    created: false,
+    reopened: false,
+  },
+  in_app: {
+    assigned: true,
+    replies: true,
+    sla: true,
+    mention: true,
+    created: true,
+    reopened: true,
+  },
+};
 
 const SLA_TARGETS = [
   { priority: "Urgent", first_response_mins: 30, resolution_mins: 240 },
@@ -277,16 +417,18 @@ function peopleFor(spec, tenantIndex) {
     return `${first} ${last}`;
   };
   const email = (local) => `${local}@${spec.key}${EMAIL_SUFFIX}`;
+  const roster = STAFF_BY_PLAN[spec.plan];
 
   return {
-    staff: STAFF_ROLES.map((staff, slot) => ({
+    staff: roster.map((staff, slot) => ({
       ...staff,
+      label: ROLE_LABELS[staff.role],
       email: email(staff.local),
       fullName: person(slot),
     })),
     customers: CUSTOMER_LOCALS.map((local, i) => ({
       email: email(local),
-      fullName: person(STAFF_ROLES.length + i),
+      fullName: person(roster.length + i),
       company:
         CUSTOMER_COMPANIES[(tenantIndex * 2 + i) % CUSTOMER_COMPANIES.length],
       // 555-01xx numbers are reserved for fiction.
@@ -297,6 +439,8 @@ function peopleFor(spec, tenantIndex) {
 
 const daysFromNow = (days) =>
   new Date(Date.now() + days * DAY_MS).toISOString();
+const hoursAgo = (hours) =>
+  new Date(Date.now() - hours * HOUR_MS).toISOString();
 
 /** Dates and billing columns for each state, shaped like what billing itself writes. */
 function subscriptionState(spec) {
@@ -357,13 +501,21 @@ function subscriptionState(spec) {
 async function loadPlans() {
   const { data, error } = await supabase
     .from("plans")
-    .select("id, name, seat_limit")
+    .select("id, name, seat_limit, price_month")
     .eq("is_active", true);
   if (error) throw error;
 
   const byName = new Map(data.map((plan) => [plan.name, plan]));
   for (const name of new Set(TENANTS.map((spec) => spec.plan))) {
     if (!byName.has(name)) throw new Error(`No active plan named "${name}".`);
+  }
+  for (const [name, limit] of Object.entries(EXPECTED_SEAT_LIMITS)) {
+    const actual = byName.get(name).seat_limit;
+    if (actual !== limit) {
+      throw new Error(
+        `Plan "${name}" has seat_limit ${actual}, expected ${limit}. Fix the plan first.`,
+      );
+    }
   }
   return byName;
 }
@@ -414,14 +566,6 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
   const [owner, ...team] = staff;
   const plan = plans.get(spec.plan);
 
-  // The seat trigger reads the plan at insert time, so a plan too small for
-  // four staff (Free has 2) is provisioned on the roomiest plan and moved to
-  // its real plan after everyone is in. Same for cancelled/expired below.
-  const fits = plan.seat_limit === 0 || plan.seat_limit >= STAFF_ROLES.length;
-  const roomiest = [...plans.values()].sort(
-    (a, b) => b.seat_limit - a.seat_limit,
-  )[0];
-
   const ownerId = await createAuthUser(owner.email, owner.fullName, password);
 
   // The real signup path: tenant, trial subscription, owner, business hours,
@@ -434,7 +578,7 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
       p_full_name: owner.fullName,
       p_organization_name: spec.name,
       p_portal_slug: slug,
-      p_plan_id: (fits ? plan : roomiest).id,
+      p_plan_id: plan.id,
       p_timezone_id: timezones.get(spec.tz),
       p_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
       p_day_start: "09:00",
@@ -445,6 +589,7 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
   );
   const tenantId = provisioned[0].tenant_id;
   const joinedAt = new Date().toISOString();
+  const staffIds = new Map([[owner.local, ownerId]]);
 
   const addPerson = async (person, role) => {
     const userId = await createAuthUser(
@@ -477,25 +622,43 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
   };
 
   for (const member of team) {
-    await addPerson(member, member.role);
+    staffIds.set(member.local, await addPerson(member, member.role));
   }
 
+  // Before any ticket exists: see the note at the top of this file.
+  await must(
+    supabase.from("notification_prefs").insert(
+      [...staffIds.values()].map((userId) => ({
+        tenant_id: tenantId,
+        user_id: userId,
+        channel_json: NO_EMAIL_PREFS,
+      })),
+    ),
+    `notification_prefs ${slug}`,
+  );
+
+  const customerRows = [];
   for (const customer of customers) {
     const userId = await addPerson(customer, "customer");
-    await must(
-      supabase.from("customers").insert({
-        tenant_id: tenantId,
-        email: customer.email,
-        full_name: customer.fullName,
-        company: customer.company,
-        phone: customer.phone,
-        portal_user_id: userId,
-        // Skip the first-visit wizard and password prompt: they log in with one.
-        portal_onboarded_at: joinedAt,
-        portal_password_prompted_at: joinedAt,
-      }),
+    const row = await must(
+      supabase
+        .from("customers")
+        .insert({
+          tenant_id: tenantId,
+          email: customer.email,
+          full_name: customer.fullName,
+          company: customer.company,
+          phone: customer.phone,
+          portal_user_id: userId,
+          // Skip the first-visit wizard and password prompt: they log in with one.
+          portal_onboarded_at: joinedAt,
+          portal_password_prompted_at: joinedAt,
+        })
+        .select("id")
+        .single(),
       `customer ${customer.email}`,
     );
+    customerRows.push(row);
   }
 
   // Keeps subscriptions and tenants in step, the same call billing uses.
@@ -524,6 +687,181 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
       `subscription state ${slug}`,
     );
   }
+
+  const agentIds = staff
+    .filter((member) => member.role === "agent")
+    .map((member) => staffIds.get(member.local));
+  const ticketCount = await seedTickets(tenantId, customerRows, agentIds, slug);
+  const invoiceCount =
+    Number(plan.price_month) > 0
+      ? await seedInvoices(tenantId, spec, plan, owner.email, slug)
+      : 0;
+
+  return { staff: staff.length, tickets: ticketCount, invoices: invoiceCount };
+}
+
+/** Tickets go in as one statement per tenant; the number trigger handles that. */
+async function seedTickets(tenantId, customerRows, agentIds, slug) {
+  const planned = customerRows.flatMap((customer, c) =>
+    TICKET_PLAN.map((item, i) => ({ item, customer, c, i })),
+  );
+
+  const tickets = await must(
+    supabase
+      .from("tickets")
+      .insert(
+        planned.map(({ item, customer, c, i }) => ({
+          tenant_id: tenantId,
+          subject: item.subject,
+          description: `${item.subject}. Reported through the customer portal. Please take a look when you can.`,
+          status: item.status,
+          priority: PRIORITIES[(i + c) % PRIORITIES.length],
+          requester_customer_id: customer.id,
+          // New tickets are still in the queue, with nobody on them.
+          assignee_user_id:
+            item.status === "new"
+              ? null
+              : agentIds[(c * TICKET_PLAN.length + i) % agentIds.length],
+          created_at: hoursAgo(item.age),
+          resolved_at: item.resolvedAgo ? hoursAgo(item.resolvedAgo) : null,
+          closed_at: item.closedAgo ? hoursAgo(item.closedAgo) : null,
+        })),
+      )
+      .select("id, subject, status, assignee_user_id, requester_customer_id"),
+    `tickets ${slug}`,
+  );
+
+  const messages = tickets.flatMap((ticket) => {
+    if (ticket.status === "new") return [];
+
+    const item = TICKET_PLAN.find((t) => t.subject === ticket.subject);
+    // Every row carries every key: a bulk insert sends null for a missing one.
+    const base = {
+      tenant_id: tenantId,
+      ticket_id: ticket.id,
+      visibility: "public",
+    };
+    // Staged inside the ticket's life: first answer an hour in, the rest later.
+    const repliedAt = hoursAgo(item.age - 1);
+    const laterAt = hoursAgo(item.age - 2);
+    const rows = [
+      {
+        ...base,
+        author_type: "agent",
+        author_id: ticket.assignee_user_id,
+        body: AGENT_REPLIES[ticket.status],
+        created_at: repliedAt,
+      },
+    ];
+    if (item.customerFollowUp) {
+      rows.push({
+        ...base,
+        author_type: "customer",
+        author_id: ticket.requester_customer_id,
+        body:
+          ticket.status === "open"
+            ? "Thanks. It happened again this morning, if that helps."
+            : "Thanks, that worked for us.",
+        created_at: laterAt,
+      });
+    }
+    if (item.internalNote) {
+      rows.push({
+        ...base,
+        author_type: "agent",
+        author_id: ticket.assignee_user_id,
+        body: "Waiting on engineering. Check in with them before replying again.",
+        visibility: "internal",
+        created_at: laterAt,
+      });
+    }
+    return rows;
+  });
+
+  await must(
+    supabase.from("ticket_messages").insert(messages),
+    `ticket_messages ${slug}`,
+  );
+
+  await must(
+    supabase.from("email_jobs").delete().eq("tenant_id", tenantId),
+    `email_jobs ${slug}`,
+  );
+
+  return tickets.length;
+}
+
+/**
+ * Monthly charges at the plan's flat price, oldest first so numbers count up.
+ * The newest lines up with the subscription: a past_due tenant's latest charge
+ * failed and every other tenant's was paid. The earlier ones cover the rest.
+ */
+async function seedInvoices(tenantId, spec, plan, billingEmail, slug) {
+  const state = subscriptionState(spec);
+  const { id: subscriptionId } = await must(
+    supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .single(),
+    `subscription ${slug}`,
+  );
+
+  const amount = Number(plan.price_month);
+  const newestStart = new Date(Date.now() + state.start * DAY_MS);
+  const isRunning = spec.status === "active" || spec.status === "past_due";
+
+  const statusFor = (monthsBack) => {
+    if (monthsBack === 0) return spec.status === "past_due" ? "failed" : "paid";
+    if (monthsBack === 1) return "pending";
+    if (monthsBack === 3) return "failed";
+    if (monthsBack === 5) return "refunded";
+    return "paid";
+  };
+
+  const rows = [];
+  for (let back = INVOICE_MONTHS - 1, seq = 1; back >= 0; back--, seq++) {
+    const start = new Date(newestStart);
+    start.setUTCMonth(start.getUTCMonth() - back);
+    const next = new Date(start);
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    const end = new Date(next.getTime() - DAY_MS);
+
+    const status = statusFor(back);
+    const settled = status === "paid" || status === "refunded";
+    const number = String(seq).padStart(3, "0");
+
+    rows.push({
+      tenant_id: tenantId,
+      // Same tag as seed-invoices.mjs, which can also clean these up.
+      paypal_txn_id: `SEED-${slug}-${number}`,
+      invoice_number: `INV-${number}`,
+      invoice_type: "recurring",
+      subscription_id: subscriptionId,
+      paypal_subscription_id: state.agreement,
+      amount,
+      subtotal: amount,
+      tax: 0,
+      amount_paid: settled ? amount : 0,
+      balance_due: settled ? 0 : amount,
+      currency: "USD",
+      status,
+      plan_name: plan.name,
+      seats: plan.seat_limit,
+      payment_method: "PayPal",
+      period_start: start.toISOString().slice(0, 10),
+      period_end: end.toISOString().slice(0, 10),
+      paid_at: settled ? start.toISOString() : null,
+      // Only the newest invoice of a running subscription has a next charge.
+      next_billing_date: isRunning && back === 0 ? next.toISOString() : null,
+      next_billing_amount: isRunning && back === 0 ? amount : null,
+      billing_email: billingEmail,
+      created_at: start.toISOString(),
+    });
+  }
+
+  await must(supabase.from("invoices").insert(rows), `invoices ${slug}`);
+  return rows.length;
 }
 
 async function listSeedAuthUsers() {
@@ -569,8 +907,11 @@ function printPlan(specs, plans) {
       plan: spec.plan,
       subscription: spec.status,
       seat_limit: plans.get(spec.plan).seat_limit,
-      staff: STAFF_ROLES.length,
+      staff: STAFF_BY_PLAN[spec.plan].length,
       customers: CUSTOMER_LOCALS.length,
+      tickets: CUSTOMER_LOCALS.length * TICKET_PLAN.length,
+      invoices:
+        Number(plans.get(spec.plan).price_month) > 0 ? INVOICE_MONTHS : 0,
     })),
   );
 }
@@ -633,8 +974,16 @@ const password = process.env.SEED_PASSWORD ?? DEFAULT_PASSWORD;
 for (const spec of todo) {
   const slug = `${SLUG_PREFIX}${spec.key}`;
   try {
-    await seedTenant(spec, TENANTS.indexOf(spec), plans, timezones, password);
-    console.log(`  ok  ${slug} (${spec.plan}, ${spec.status})`);
+    const made = await seedTenant(
+      spec,
+      TENANTS.indexOf(spec),
+      plans,
+      timezones,
+      password,
+    );
+    console.log(
+      `  ok  ${slug} (${spec.plan}, ${spec.status}): ${made.staff} staff, ${made.tickets} tickets, ${made.invoices} invoices`,
+    );
   } catch (error) {
     // Don't leave half a workspace behind: a re-run skips any slug that exists.
     console.error(
