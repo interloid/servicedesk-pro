@@ -4,6 +4,7 @@ import { toBusinessHoursOption } from "@/features/sla-policies/services/sla.serv
 import { getTenantPlanRecord } from "@/features/team/services/team.service";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { trustedCustomerAvatarUrl } from "@/features/portal/avatar-url";
 import {
   AgentLoadMetric,
   PrioritySlaMetric,
@@ -785,7 +786,7 @@ async function computeAgentLoad(
 
   const { data: users, error: usersError } = await supabase
     .from("users")
-    .select("id, full_name, email")
+    .select("id, full_name, email, avatar_url")
     .in("id", agentIds);
 
   if (usersError) {
@@ -838,6 +839,10 @@ async function computeAgentLoad(
       name: user?.full_name || (user ? "Unnamed" : "Former member"),
       email: user?.email || "",
       initials: initials(user?.full_name || "?"),
+      // Only a photo uploaded through the app for this workspace.
+      avatarUrl: user
+        ? trustedCustomerAvatarUrl(tenantId, id, user.avatar_url)
+        : null,
       open,
       solved,
       medianFirstReply:

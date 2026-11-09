@@ -56,6 +56,8 @@ export interface AgentLoadMetric {
   name: string;
   email: string;
   initials: string;
+  /** Profile photo; null shows the initials. */
+  avatarUrl: string | null;
   open: number;
   solved: number;
   medianFirstReply: string | null;

@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, ChangeEvent } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Camera } from "lucide-react";
@@ -36,7 +34,6 @@ import {
 } from "@/features/users/actions/user-actions";
 import { uploadAvatar } from "@/features/portal/avatar-upload";
 import { avatarError } from "@/features/portal/portal";
-import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 import { toast } from "sonner";
 
 interface ProfileModalProps {
@@ -45,8 +42,6 @@ interface ProfileModalProps {
   companyName: string;
   tenantId: string;
   role: string;
-  /** False for roles that can't open the notification settings page. */
-  showNotificationsLink?: boolean;
   initialValues?: Partial<ProfileFormValues> & { initials?: string };
 }
 
@@ -56,10 +51,8 @@ export function ProfileModal({
   companyName,
   role,
   tenantId,
-  showNotificationsLink = true,
   initialValues,
 }: ProfileModalProps) {
-  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
@@ -293,25 +286,6 @@ export function ProfileModal({
                 Contact support to update your company name.
               </p>
             </FormItem>
-            {/* SLA and other email alerts live in the Notification center;
-                a second switch here never saved and disagreed with it. */}
-            {showNotificationsLink && tenantSlug && (
-              <p className="text-xs sm:text-sm text-slate-500 pt-2">
-                Choose which emails you get in{" "}
-                <Link
-                  href={tenantPath(
-                    tenantSlug,
-                    TENANT_ROUTES.SETTINGS.NOTIFICATIONS,
-                  )}
-                  onClick={() => handleOpenChange(false)}
-                  className="font-semibold text-brand-accent hover:underline"
-                >
-                  Notification preferences
-                </Link>
-                .
-              </p>
-            )}
-
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-4">
               <Button
                 type="button"

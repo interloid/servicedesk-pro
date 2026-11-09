@@ -147,9 +147,13 @@ export interface Ticket {
   description?: string | null;
   requester_name: string;
   requester_company: string;
+  /** The requester's portal photo; null or absent shows initials. */
+  requester_avatar_url?: string | null;
   priority: TicketPriority;
   assignee_name?: string;
   assignee_initials?: string;
+  /** The visible assignee's photo; null or absent shows initials. */
+  assignee_avatar_url?: string | null;
   assignee_role?: string;
   status: TicketStatus;
   sla_type: "warning" | "breached" | "normal" | "paused";
@@ -186,6 +190,8 @@ export interface Ticket {
     email: string;
     company: string | null;
     full_name: string;
+    /** Their portal login, when they have one: where their photo lives. */
+    portal_user_id?: string | null;
   } | null;
 }
 
@@ -202,6 +208,8 @@ export interface TicketMessage {
   created_at: string;
   author_name?: string;
   author_initials?: string;
+  /** Staff author's photo; customer messages use the requester's. */
+  author_avatar_url?: string | null;
 }
 export interface FetchTicketsOptions {
   search?: string;

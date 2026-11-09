@@ -41,6 +41,7 @@ const sampleAgent = (
     .split(" ")
     .map((part) => part[0])
     .join(""),
+  avatarUrl: null,
   open,
   solved,
   medianFirstReply: "1h 12m",

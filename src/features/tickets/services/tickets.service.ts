@@ -34,6 +34,7 @@ import { normalizeTagName } from "../lib/tags";
 import { CALENDAR_SELECT, one, toSlaCalendar } from "../lib/sla-calendar-row";
 import { DurationUnit, isDurationUnit } from "@/features/sla-policies/duration";
 import { getInitials } from "@/lib/format";
+import { trustedCustomerAvatarUrl } from "@/features/portal/avatar-url";
 import { filterToPostgrest } from "@/features/saved-view/filters";
 import { ilikeOrValue } from "@/lib/postgrest";
 import {
@@ -67,28 +68,62 @@ function fail(
   throw new Error(userMessage);
 }
 
+/**
+ * Profile photos for the given users, keyed by user id. Staff and portal
+ * customers both keep theirs on `users.avatar_url`, under `<tenant>/<user>/`
+ * in the avatars bucket; anything outside that folder is ignored (a customer
+ * can write the column themselves), so those people fall back to initials.
+ * Photos are decoration: a failed read just means initials.
+ */
+async function loadAvatarUrls(
+  supabase: SupabaseClient,
+  tenantId: string,
+  userIds: (string | null | undefined)[],
+): Promise<Map<string, string>> {
+  const ids = [...new Set(userIds.filter((id): id is string => !!id))];
+  const avatars = new Map<string, string>();
+  if (ids.length === 0) return avatars;
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, avatar_url")
+    .in("id", ids);
+
+  if (error) {
+    console.error("[tickets] avatars failed:", error.message);
+    return avatars;
+  }
+
+  for (const row of data ?? []) {
+    const url = trustedCustomerAvatarUrl(tenantId, row.id, row.avatar_url);
+    if (url) avatars.set(row.id, url);
+  }
+  return avatars;
+}
+
 export async function withVisibleAssignee<
-  T extends { assignee_user_id?: string | null } & Record<string, unknown>,
+  T extends {
+    assignee_user_id?: string | null;
+    customers?: { portal_user_id?: string | null } | null;
+  } & Record<string, unknown>,
 >(supabase: SupabaseClient, rows: T[], tenantId: string): Promise<T[]> {
   const assigneeIds = [
     ...new Set(rows.map((t) => t.assignee_user_id).filter(Boolean) as string[]),
   ];
+  const requesterIds = rows.map((t) => t.customers?.portal_user_id);
 
-  if (assigneeIds.length === 0) {
-    return rows.map((t) => ({
-      ...t,
-      assignee_name: undefined,
-      assignee_initials: undefined,
-    }));
-  }
-
-  const { data: memberships } = await supabase
-    .from("memberships")
-    .select("user_id, role")
-    .eq("tenant_id", tenantId)
-    .eq("status", "active")
-    .in("user_id", assigneeIds)
-    .in("role", [...VISIBLE_ASSIGNEE_ROLES]);
+  const [{ data: memberships }, avatars] = await Promise.all([
+    assigneeIds.length === 0
+      ? Promise.resolve({ data: [] as { user_id: string; role: string }[] })
+      : supabase
+          .from("memberships")
+          .select("user_id, role")
+          .eq("tenant_id", tenantId)
+          .eq("status", "active")
+          .in("user_id", assigneeIds)
+          .in("role", [...VISIBLE_ASSIGNEE_ROLES]),
+    loadAvatarUrls(supabase, tenantId, [...assigneeIds, ...requesterIds]),
+  ]);
 
   const visibleRoles = Object.fromEntries(
     (memberships || []).map((m) => [m.user_id, m.role]),
@@ -98,13 +133,21 @@ export async function withVisibleAssignee<
     const t = row as T & { assignee?: { full_name?: string | null } };
     const fullName = t.assignee?.full_name || undefined;
     const visible = t.assignee_user_id && visibleRoles[t.assignee_user_id];
+    const requesterUserId = t.customers?.portal_user_id;
     return {
       ...t,
       assignee_id: t.assignee_user_id ?? null,
       assignee_name: visible && fullName ? fullName : undefined,
       assignee_initials:
         visible && fullName ? getInitials(fullName, "") : undefined,
+      assignee_avatar_url:
+        visible && fullName
+          ? (avatars.get(t.assignee_user_id as string) ?? null)
+          : null,
       assignee_role: visible || undefined,
+      requester_avatar_url: requesterUserId
+        ? (avatars.get(requesterUserId) ?? null)
+        : null,
     };
   });
 }
@@ -128,7 +171,8 @@ export const fetchTicketById = cache(
           customers:requester_customer_id (
             full_name,
             company,
-            email
+            email,
+            portal_user_id
           ),
           assignee:assignee_user_id (
             full_name
@@ -265,7 +309,8 @@ export async function fetchTenantTickets(
         customers:requester_customer_id (
           full_name,
           email,
-          company
+          company,
+          portal_user_id
         ),
         assignee:assignee_user_id (
           full_name
@@ -698,6 +743,8 @@ export interface AssignableAgent {
   full_name: string;
   email: string;
   role: string;
+  /** Profile photo, or null for initials. */
+  avatar_url: string | null;
 }
 
 /** Staff who work tickets: they can be @mentioned and attach files. */
@@ -728,7 +775,9 @@ export async function fetchTenantStaff(
 
   const { data, error } = await supabase
     .from("memberships")
-    .select("user_id, role, users!memberships_user_id_fkey(full_name, email)")
+    .select(
+      "user_id, role, users!memberships_user_id_fkey(full_name, email, avatar_url)",
+    )
     .eq("tenant_id", tenantId)
     .eq("status", "active")
     .in("role", [...ASSIGNABLE_ROLES]);
@@ -738,7 +787,11 @@ export async function fetchTenantStaff(
     return [];
   }
 
-  type AgentUser = { full_name: string | null; email: string };
+  type AgentUser = {
+    full_name: string | null;
+    email: string;
+    avatar_url: string | null;
+  };
 
   const rows = (data || []) as Array<{
     user_id: string;
@@ -761,6 +814,11 @@ export async function fetchTenantStaff(
     full_name: agentUser.full_name || agentUser.email || "Unknown",
     email: agentUser.email || "",
     role: m.role,
+    avatar_url: trustedCustomerAvatarUrl(
+      tenantId,
+      m.user_id,
+      agentUser.avatar_url,
+    ),
   }));
 }
 
@@ -860,13 +918,20 @@ export async function getTicketMessages(ticketId: string, tenantId: string) {
   if (authorIds.length > 0) {
     const { data: members } = await supabase
       .from("memberships")
-      .select("user_id, users!memberships_user_id_fkey(full_name, email)")
+      .select(
+        "user_id, users!memberships_user_id_fkey(full_name, email, avatar_url)",
+      )
       .eq("tenant_id", tenantId)
       .in("user_id", authorIds);
 
-    type MemberUser = { full_name: string | null; email: string };
+    type MemberUser = {
+      full_name: string | null;
+      email: string;
+      avatar_url: string | null;
+    };
 
     const nameById = new Map<string, string>();
+    const avatarById = new Map<string, string>();
     for (const m of (members || []) as Array<{
       user_id: string;
       users: MemberUser[] | MemberUser | null;
@@ -874,10 +939,19 @@ export async function getTicketMessages(ticketId: string, tenantId: string) {
       const user = Array.isArray(m.users) ? m.users[0] : m.users;
       if (user && m.user_id) {
         nameById.set(m.user_id, user.full_name || user.email || "Agent");
+        const url = trustedCustomerAvatarUrl(
+          tenantId,
+          m.user_id,
+          user.avatar_url,
+        );
+        if (url) avatarById.set(m.user_id, url);
       }
     }
 
     rows.forEach((m) => {
+      if (m.author_type === "agent") {
+        m.author_avatar_url = avatarById.get(m.author_id) ?? null;
+      }
       if (m.author_type === "agent" && !m.author_name) {
         const name = nameById.get(m.author_id);
         if (name) {

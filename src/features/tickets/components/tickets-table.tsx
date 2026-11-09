@@ -11,6 +11,7 @@ import {
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { PersonAvatar } from "@/components/shared/person-avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1036,9 +1037,12 @@ export default function TicketsTable({
                                 ticket.assignee_name ? (
                                   <span className="inline-flex items-center gap-2 font-medium whitespace-nowrap">
                                     {ticket.assignee_initials && (
-                                      <span className="w-5 h-5 shrink-0 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
-                                        {ticket.assignee_initials}
-                                      </span>
+                                      <PersonAvatar
+                                        src={ticket.assignee_avatar_url}
+                                        initials={ticket.assignee_initials}
+                                        className="size-5"
+                                        fallbackClassName="bg-slate-200 text-slate-700 text-[10px]"
+                                      />
                                     )}
                                     {ticket.assignee_name}
                                   </span>

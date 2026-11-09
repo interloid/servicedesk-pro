@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { PersonAvatar } from "@/components/shared/person-avatar";
 import { AgentLoadMetric } from "../types/types";
 
 type SortKey = "name" | "open" | "solved" | "reply" | "sla" | "csat";
@@ -254,15 +255,15 @@ export function AgentPerformanceTable({
                 >
                   <TableCell className={cn(CELL, "py-0")}>
                     <div className="flex items-center gap-3">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
+                      <PersonAvatar
+                        src={agent.avatarUrl}
+                        initials={agent.initials || "?"}
+                        className="size-9"
+                        fallbackClassName={cn(
+                          "text-sm font-semibold text-white",
                           avatarColor(agent.id),
                         )}
-                      >
-                        {agent.initials || "?"}
-                      </span>
+                      />
                       <div className="min-w-0">
                         <p className="truncate font-medium text-foreground">
                           {agent.name}

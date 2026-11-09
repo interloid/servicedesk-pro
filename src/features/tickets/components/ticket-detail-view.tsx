@@ -78,6 +78,7 @@ import { IndeterminateProgress } from "@/components/ui/indeterminate-progress";
 import { BackLink } from "@/components/shared/back-link";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 import { formatChatDay, formatChatTime, getInitials } from "@/lib/format";
+import { PersonAvatar } from "@/components/shared/person-avatar";
 import {
   TICKET_ATTACHMENT_ACCEPT,
   attachmentsError,
@@ -295,6 +296,13 @@ export default function TicketDetailView({
     const map: Record<string, string> = {};
     for (const m of [...agents, ...mentionableMembers]) {
       if (m.id && !map[m.id]) map[m.id] = m.full_name;
+    }
+    return map;
+  }, [agents, mentionableMembers]);
+  const memberAvatarById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of [...agents, ...mentionableMembers]) {
+      if (m.id && m.avatar_url && !map[m.id]) map[m.id] = m.avatar_url;
     }
     return map;
   }, [agents, mentionableMembers]);
@@ -957,6 +965,11 @@ export default function TicketDetailView({
                       ? getInitials(ticket.requester_name, "")
                       : "CU"
                     : getInitials(authorName, ""));
+                // Live messages (realtime, just sent) carry no photo; the
+                // staff list has it.
+                const avatarUrl = isCustomer
+                  ? ticket.requester_avatar_url
+                  : msg.author_avatar_url || memberAvatarById[msg.author_id];
                 return (
                   <Fragment key={msg.id}>
                     {newDay && (
@@ -998,17 +1011,17 @@ export default function TicketDetailView({
                         )}
                       >
                         {!isMine && (
-                          <span
-                            aria-hidden
-                            className={cn(
-                              "flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                          <PersonAvatar
+                            src={avatarUrl}
+                            initials={initials}
+                            className="size-8"
+                            fallbackClassName={cn(
+                              "text-[11px]",
                               isCustomer
                                 ? "bg-brand-accent text-brand-accent-foreground"
                                 : "bg-slate-600 text-white",
                             )}
-                          >
-                            {initials}
-                          </span>
+                          />
                         )}
                         <div
                           className={cn(
@@ -1188,9 +1201,15 @@ export default function TicketDetailView({
                                 item.className,
                               )}
                             >
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">
-                                {getInitials(member.full_name, member.email)}
-                              </span>
+                              <PersonAvatar
+                                src={member.avatar_url}
+                                initials={getInitials(
+                                  member.full_name,
+                                  member.email,
+                                )}
+                                className="size-6"
+                                fallbackClassName="bg-slate-200 text-[10px] text-slate-600"
+                              />
                               <span
                                 className={cn(
                                   "truncate text-xs font-medium",
@@ -1265,11 +1284,16 @@ export default function TicketDetailView({
               </div>
               <CardContent className="p-4 space-y-3 text-xs">
                 <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
-                  <div className="w-9 h-9 rounded-full bg-slate-500 text-white flex items-center justify-center text-xs font-bold">
-                    {ticket.requester_name
-                      ? getInitials(ticket.requester_name, "")
-                      : "CU"}
-                  </div>
+                  <PersonAvatar
+                    src={ticket.requester_avatar_url}
+                    initials={
+                      ticket.requester_name
+                        ? getInitials(ticket.requester_name, "")
+                        : "CU"
+                    }
+                    className="size-9"
+                    fallbackClassName="bg-slate-500 text-xs text-white"
+                  />
                   <div>
                     <h4 className="font-bold text-slate-900">
                       {ticket.requester_name}
