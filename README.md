@@ -151,7 +151,7 @@ Set these in `.env.local` locally and in the host's settings for deployed enviro
 
 ### Edge Functions
 
-Set these with `supabase secrets set NAME=value`. Hosted Supabase provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+On hosted projects, set these in the GitHub environment; each deploy copies them to Supabase (see [docs/deployment.md](docs/deployment.md)). Locally, use `supabase functions serve --env-file .env.local`. Hosted Supabase provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
 
 | Variable                                                           | Purpose                                                           |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
