@@ -9,12 +9,15 @@
  *   2. Their Storage objects are removed (Storage does not cascade): everything
  *      under `<tenant id>/` in the ticket-attachments, avatars, branding and
  *      invoices buckets.
- *   3. seed-tenants.mjs --clean deletes the seeded workspaces and accounts,
+ *   3. Seeded accounts are released from surviving visitor workspaces (ticket
+ *      assignments and invited_by cleared, memberships removed), then
+ *      seed-tenants.mjs --clean deletes the seeded workspaces and accounts,
  *      with whatever visitors changed in them; their Storage objects go too.
  *   4. Auth users that now belong to no workspace are deleted, except seeded
  *      accounts, platform admins, the keep-list and accounts created inside
  *      the grace period.
- *   5. seed-tenants.mjs --apply rebuilds the seeded workspaces.
+ *   5. seed-tenants.mjs --apply --count <n> rebuilds as many seeded
+ *      workspaces as there were.
  *
  * Dry run (default; reads only, prints what would go):
  *   node --env-file=.env.local scripts/demo-reset.mjs
@@ -58,7 +61,9 @@ import {
   parseGraceHours,
   parseKeepList,
   planUsers,
+  planSeedRelease,
   planWorkspaces,
+  seedCountToRebuild,
   summaryMarkdown,
 } from "./demo-reset-plan.mjs";
 import { PLATFORM_ADMIN_EMAIL, SLUG_PREFIX } from "./seed-data.mjs";
@@ -151,7 +156,7 @@ async function linksInto(tenantIds) {
       () =>
         supabase
           .from("memberships")
-          .select("user_id, tenant_id")
+          .select("id, user_id, tenant_id, is_primary")
           .in("tenant_id", ids)
           .order("id"),
       "memberships",
@@ -167,7 +172,7 @@ async function linksInto(tenantIds) {
       "customers",
     );
     links.push(
-      ...memberships,
+      ...memberships.map(({ id, ...rest }) => ({ membership_id: id, ...rest })),
       ...customers.map((c) => ({
         user_id: c.portal_user_id,
         tenant_id: c.tenant_id,
@@ -227,33 +232,53 @@ async function countObjects(tenantIds) {
  * memberships.invited_by and tickets.assignee_user_id have no ON DELETE
  * action, so a reference from a surviving workspace would block deleteUser.
  */
-async function releaseReferences(userIds) {
+async function releaseReferences(userIds, tenantIds) {
+  // Scoped to `tenantIds` when given; null means every workspace.
+  const scopes = tenantIds ? chunk(tenantIds, 100) : [null];
   for (const ids of chunk(userIds, 100)) {
-    await must(
-      supabase
-        .from("memberships")
-        .update({ invited_by: null })
-        .in("invited_by", ids),
-      "clear memberships.invited_by",
-    );
-    await must(
-      supabase
-        .from("tickets")
-        .update({ assignee_user_id: null })
-        .in("assignee_user_id", ids),
-      "clear tickets.assignee_user_id",
-    );
+    for (const scope of scopes) {
+      const inScope = (query) => (scope ? query.in("tenant_id", scope) : query);
+      await must(
+        inScope(
+          supabase
+            .from("memberships")
+            .update({ invited_by: null })
+            .in("invited_by", ids),
+        ),
+        "clear memberships.invited_by",
+      );
+      await must(
+        inScope(
+          supabase
+            .from("tickets")
+            .update({ assignee_user_id: null })
+            .in("assignee_user_id", ids),
+        ),
+        "clear tickets.assignee_user_id",
+      );
+    }
   }
 }
 
+/** Visitor workspaces that exist right now (the deleted ones are gone). */
+async function aliveVisitorWorkspaces() {
+  const remaining = await selectAll(
+    () => supabase.from("tenants").select("id, slug").order("id"),
+    "tenants",
+  );
+  return remaining
+    .filter((t) => !t.slug?.startsWith(SLUG_PREFIX))
+    .map((t) => t.id);
+}
+
 /** Runs seed-tenants.mjs with the already-verified project ref. */
-function runSeed(mode) {
+function runSeed(mode, extra = []) {
   const script = join(
     dirname(fileURLToPath(import.meta.url)),
     "seed-tenants.mjs",
   );
   const refArgs = hosted ? ["--project-ref", projectRef] : [];
-  execFileSync(process.execPath, [script, `--${mode}`, ...refArgs], {
+  execFileSync(process.execPath, [script, `--${mode}`, ...refArgs, ...extra], {
     stdio: "inherit",
     env: process.env,
   });
@@ -274,6 +299,7 @@ const tenants = await selectAll(
 );
 const workspaces = planWorkspaces(tenants, { now, graceHours });
 const survivors = workspaces.recent.map((t) => t.id);
+const seedCount = seedCountToRebuild(workspaces.seeded.map((t) => t.slug));
 
 const users = await listAllUsers();
 const adminExists = users.some(
@@ -306,7 +332,7 @@ console.log(
 console.log(
   `Workspaces: ${workspaces.deleted.length} visitor to delete, ` +
     `${workspaces.recent.length} visitor inside the grace period (kept), ` +
-    `${workspaces.seeded.length} seeded to rebuild.`,
+    `${workspaces.seeded.length} seeded to rebuild (--count ${seedCount}).`,
 );
 for (const tenant of workspaces.deleted) {
   console.log(`  delete  ${tenant.slug}  (created ${tenant.created_at})`);
@@ -327,7 +353,7 @@ if (!apply) {
   const objects = await countObjects(doomed);
   console.log(
     `Storage: ${objects} object(s) under deleted or rebuilt workspaces.\n` +
-      `Seeded workspaces would be rebuilt with seed-tenants.mjs --clean, then --apply.\n` +
+      `Seeded workspaces would be rebuilt with seed-tenants.mjs --clean, then --apply --count ${seedCount}.\n` +
       `\nDry run, nothing was changed. To reset:\n` +
       `  node --env-file=.env.local scripts/demo-reset.mjs --apply${hosted ? ` --project-ref ${projectRef}` : ""}`,
   );
@@ -369,9 +395,39 @@ for (const ids of chunk(
 }
 console.log(`Deleted ${workspaces.deleted.length} visitor workspace(s).`);
 
-// 3. Seeded workspaces and accounts. Their old ids are known from the plan, so
-// their files can be removed once the rows are gone. From here on a failed
-// step is counted and the rest still runs, so the rebuild always gets a turn.
+// 3. Seeded workspaces and accounts. From here on a failed step is counted and
+// the rest still runs, so the rebuild always gets a turn.
+//
+// First, nothing in a surviving visitor workspace may still point at a seeded
+// account, or --clean's deleteUser fails on it (tickets.assignee_user_id and
+// memberships.invited_by have no ON DELETE action) and stops half way.
+try {
+  const alive = await aliveVisitorWorkspaces();
+  const release = planSeedRelease({
+    users: await listAllUsers(),
+    links: await linksInto(alive),
+    survivors: alive,
+  });
+  if (alive.length > 0 && release.userIds.length > 0) {
+    await releaseReferences(release.userIds, alive);
+  }
+  for (const ids of chunk(release.memberships, 100)) {
+    await must(
+      supabase.from("memberships").delete().in("id", ids),
+      "remove seeded memberships",
+    );
+  }
+  console.log(
+    `Released seeded accounts from ${alive.length} surviving workspace(s); ` +
+      `removed ${release.memberships.length} membership(s).`,
+  );
+} catch (error) {
+  failures++;
+  console.error(`Releasing seeded accounts failed: ${error.message}`);
+}
+
+// Their old workspace ids are known from the plan, so their files can be
+// removed once the rows are gone.
 try {
   runSeed("clean");
 } catch (error) {
@@ -397,13 +453,7 @@ console.log(`Removed ${objectsRemoved} storage object(s).`);
 let usersDeleted = 0;
 let usersKept = 0;
 try {
-  const remaining = await selectAll(
-    () => supabase.from("tenants").select("id, slug").order("id"),
-    "tenants",
-  );
-  const alive = remaining
-    .filter((t) => !t.slug?.startsWith(SLUG_PREFIX))
-    .map((t) => t.id);
+  const alive = await aliveVisitorWorkspaces();
   const after = await planAccounts(await listAllUsers(), alive);
   usersKept = Object.values(after.kept).reduce((a, b) => a + b, 0);
   try {
@@ -432,7 +482,8 @@ console.log(`Deleted ${usersDeleted} account(s).`);
 // 5. Rebuild.
 let seededRebuilt = 0;
 try {
-  runSeed("apply");
+  // The same set as before the reset, not the seeder's default.
+  runSeed("apply", ["--count", String(seedCount)]);
   const rebuilt = await must(
     supabase.from("tenants").select("id").like("slug", `${SLUG_PREFIX}%`),
     "seeded workspaces",

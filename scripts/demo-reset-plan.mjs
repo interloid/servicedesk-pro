@@ -7,7 +7,13 @@
  * guessing.
  */
 import { isHostedSupabaseUrl } from "./seed-guard.mjs";
-import { SLUG_PREFIX, STAFF_EMAIL_SUFFIX } from "./seed-data.mjs";
+import {
+  MAX_TENANTS,
+  MIN_TENANTS,
+  SLUG_PREFIX,
+  STAFF_EMAIL_SUFFIX,
+  TENANTS,
+} from "./seed-data.mjs";
 
 export const DEFAULT_GRACE_HOURS = 2;
 
@@ -220,6 +226,51 @@ export function planUsers({
     else remove.push(user);
   }
   return { remove, kept };
+}
+
+/**
+ * What must be undone before seed-tenants.mjs --clean deletes the seeded
+ * accounts, or a row in a surviving visitor workspace would block it:
+ *
+ *   userIds      seeded accounts; their tickets.assignee_user_id and
+ *                memberships.invited_by in surviving workspaces are cleared
+ *   memberships  ids of seeded accounts' memberships in surviving workspaces.
+ *                A primary (owner) membership can't be deleted on its own, so
+ *                it is left to cascade when the account goes.
+ *
+ * `links` are from the reset's membership query: { membership_id, user_id,
+ * tenant_id, is_primary }; portal-customer links (no membership_id) are
+ * ignored, since customers.portal_user_id is ON DELETE SET NULL.
+ */
+export function planSeedRelease({ users, links, survivors }) {
+  const seeded = new Set(users.filter(isSeedAccount).map((user) => user.id));
+  const alive = new Set(survivors);
+  const memberships = links
+    .filter(
+      (link) =>
+        link.membership_id &&
+        !link.is_primary &&
+        seeded.has(link.user_id) &&
+        alive.has(link.tenant_id),
+    )
+    .map((link) => link.membership_id);
+  return { userIds: [...seeded], memberships };
+}
+
+/**
+ * The --count to rebuild with: seed-tenants.mjs seeds TENANTS in order, so this
+ * is one past the last known seeded slug present, kept within the script's
+ * limits. Unknown seed-* slugs (a visitor can pick one) don't count. None at
+ * all means the seeder's default.
+ */
+export function seedCountToRebuild(slugs) {
+  const present = new Set(slugs);
+  let last = -1;
+  TENANTS.forEach((spec, index) => {
+    if (present.has(`${SLUG_PREFIX}${spec.key}`)) last = index;
+  });
+  if (last === -1) return MAX_TENANTS;
+  return Math.min(MAX_TENANTS, Math.max(MIN_TENANTS, last + 1));
 }
 
 /** Splits `items` into arrays of at most `size`, for `.in()` filters. */

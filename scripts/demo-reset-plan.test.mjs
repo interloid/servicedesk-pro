@@ -8,10 +8,13 @@ import {
   isSeedAccount,
   parseGraceHours,
   parseKeepList,
+  planSeedRelease,
   planUsers,
   planWorkspaces,
+  seedCountToRebuild,
   summaryMarkdown,
 } from "./demo-reset-plan.mjs";
+import { MAX_TENANTS, MIN_TENANTS, TENANTS } from "./seed-data.mjs";
 
 const REF = "abcdefghijklmnopqrst";
 const HOSTED_URL = `https://${REF}.supabase.co`;
@@ -230,6 +233,97 @@ describe("planUsers", () => {
       graceHours: 2,
     });
     expect(result.remove).toEqual([]);
+  });
+});
+
+describe("planSeedRelease", () => {
+  const users = [
+    { id: "seed-agent", email: "agent@juniper.seed.test" },
+    {
+      id: "seed-customer",
+      email: "pat@north.example",
+      user_metadata: { seed_tenant: "north" },
+    },
+    { id: "visitor", email: "visitor@mail.example" },
+  ];
+
+  // A seeded agent joined (and owns one of) the visitor workspaces still
+  // inside the grace period, and was assigned tickets there.
+  const links = [
+    {
+      membership_id: "m1",
+      user_id: "seed-agent",
+      tenant_id: "recent",
+      is_primary: false,
+    },
+    {
+      membership_id: "m2",
+      user_id: "seed-agent",
+      tenant_id: "recent-owned",
+      is_primary: true,
+    },
+    {
+      membership_id: "m3",
+      user_id: "seed-customer",
+      tenant_id: "recent",
+      is_primary: false,
+    },
+    {
+      membership_id: "m4",
+      user_id: "visitor",
+      tenant_id: "recent",
+      is_primary: false,
+    },
+    {
+      membership_id: "m5",
+      user_id: "seed-agent",
+      tenant_id: "seed-tenant",
+      is_primary: false,
+    },
+    // A portal-customer link: no membership row to remove.
+    { user_id: "seed-customer", tenant_id: "recent" },
+  ];
+
+  const plan = planSeedRelease({
+    users,
+    links,
+    survivors: ["recent", "recent-owned"],
+  });
+
+  it("releases every seeded account before --clean deletes it", () => {
+    expect(plan.userIds).toEqual(["seed-agent", "seed-customer"]);
+  });
+
+  it("removes seeded memberships in surviving workspaces only", () => {
+    // m2 is the owner row, which only cascades with the account; m4 is a
+    // visitor; m5 is in a seeded workspace that --clean deletes anyway.
+    expect(plan.memberships).toEqual(["m1", "m3"]);
+  });
+
+  it("does nothing without surviving workspaces", () => {
+    expect(
+      planSeedRelease({ users, links, survivors: [] }).memberships,
+    ).toEqual([]);
+  });
+});
+
+describe("seedCountToRebuild", () => {
+  const slug = (i) => `seed-${TENANTS[i].key}`;
+
+  it("rebuilds as many as were seeded", () => {
+    const ten = Array.from({ length: 10 }, (_, i) => slug(i));
+    expect(seedCountToRebuild(ten)).toBe(10);
+    expect(seedCountToRebuild([...ten, slug(11)])).toBe(12);
+  });
+
+  it("ignores seed-* slugs the seeder doesn't know", () => {
+    const ten = Array.from({ length: 10 }, (_, i) => slug(i));
+    expect(seedCountToRebuild([...ten, "seed-visitor", "seed-x"])).toBe(10);
+  });
+
+  it("stays within the seeder's limits", () => {
+    expect(seedCountToRebuild([slug(0)])).toBe(MIN_TENANTS);
+    expect(seedCountToRebuild([])).toBe(MAX_TENANTS);
   });
 });
 

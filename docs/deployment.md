@@ -157,7 +157,7 @@ Development is an open demo: anyone can sign up at `/setup`. **Actions → Demo 
 
 1. **Visitor workspaces:** every workspace whose slug doesn't start with `seed-` and that is older than the grace period (2 hours by default). Deleting the `tenants` row cascades to every table in `public` (tickets, messages, customers, memberships, invoices, subscriptions, SLA policies, audit logs and the rest), so deleting that row is the whole job. There is no separate deprovision function.
 2. **Their files:** Storage doesn't cascade, so everything under `<workspace id>/` in the `ticket-attachments`, `avatars`, `branding` and `invoices` buckets is removed through the Storage API.
-3. **Seeded workspaces:** `seed-tenants.mjs --clean` removes them with anything visitors changed in them, and their files go too. `seed-tenants.mjs --apply` rebuilds them at the end.
+3. **Seeded workspaces:** seeded accounts are first released from surviving visitor workspaces (their ticket assignments and `invited_by` references cleared, their memberships removed), so nothing blocks deleting them. Then `seed-tenants.mjs --clean` removes the seeded workspaces with anything visitors changed in them, and their files go too. `seed-tenants.mjs --apply --count <n>` rebuilds them at the end, as many as there were before the reset.
 4. **Visitor accounts:** Auth users that belong to no remaining workspace (no membership and no portal-customer link).
 
 **What it keeps**
