@@ -588,11 +588,11 @@ Good to know:
 
 ### Git workflow
 
-Feature work happens on `feature/*` branches, which merge into `develop` and then into `main` through a pull request.
+Trunk-based. Feature branches merge into `main` through a pull request once CI passes. `main` is always deployable.
 
 ### Release order
 
-GitHub Actions deploys every push: `main` to production and `develop` to the development environment, each with its own Supabase project. The pipeline runs the CI checks, then `supabase db push`, then `supabase functions deploy`, then the app through the Vercel CLI, in that order, because new app code can depend on new database objects. Setup, secrets, the first production run, and rollback are in [docs/deployment.md](docs/deployment.md).
+GitHub Actions deploys every merge to `main` to the **development** environment. A release tag (`v1.2.3`) on a commit that has already deployed to development promotes that commit to **production**, after an approval. Each environment has its own Supabase project. Every deploy runs the CI checks, then `supabase db push`, then `supabase functions deploy`, then the app through the Vercel CLI, in that order, because new app code can depend on new database objects. Setup, releasing, hotfixes and rollback are in [docs/deployment.md](docs/deployment.md).
 
 Migrations recorded as applied don't prove that a function was redeployed. The pipeline deploys every function on each run; check with `supabase functions list` if in doubt.
 

@@ -1,5 +1,6 @@
 # One-off setup for a new development Supabase project, run by hand from the
-# Actions tab after the first deploy to develop has applied the migrations.
+# Actions tab after the first development deploy (a push to main) has applied
+# the migrations.
 #
 # `supabase db push` never runs seed files, so plans, time zones and storage
 # buckets are loaded here. It refuses to run against production and does
