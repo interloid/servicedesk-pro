@@ -1,0 +1,54 @@
+# One-off setup for a new development Supabase project, run by hand from the
+# Actions tab after the first development deploy (a push to main) has applied
+# the migrations.
+#
+# `supabase db push` never runs seed files, so plans, time zones and storage
+# buckets are loaded here. It refuses to run against production and does
+# nothing if the plans table already has rows, so running it twice is safe.
+name: Bootstrap development database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: development
+    env:
+      # Session pooler connection string from the dev project's Connect panel.
+      DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      PRODUCTION_PROJECT_REF: ${{ vars.PRODUCTION_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Refuse anything but the development project
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::error::Set SUPABASE_DB_URL and SUPABASE_PROJECT_REF in the development environment."
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            *"$SUPABASE_PROJECT_REF"*) ;;
+            *) echo "::error::SUPABASE_DB_URL does not point at project $SUPABASE_PROJECT_REF."; exit 1 ;;
+          esac
+          if [ -n "$PRODUCTION_PROJECT_REF" ] && [ "$SUPABASE_PROJECT_REF" = "$PRODUCTION_PROJECT_REF" ]; then
+            echo "::error::The development environment points at the production project."
+            exit 1
+          fi
+
+      - name: Load plans, time zones and buckets
+        run: |
+          plans=$(psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -c "select count(*) from public.plans")
+          if [ "$plans" != "0" ]; then
+            echo "Plans already present ($plans rows); nothing to do."
+            exit 0
+          fi
+          for f in supabase/schemas/seeds/*.sql supabase/schemas/storage/buckets.sql; do
+            echo "Loading $f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f "$f"
+          done

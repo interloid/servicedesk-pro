@@ -119,7 +119,7 @@ npm run dev
 | Feature        | What it needs                                                                                                        |
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Google sign-in | `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` in the shell that runs Supabase |
-| Edge Functions | `supabase functions serve --env-file <file>`, with the secrets from [Edge Functions](#edge-functions)                |
+| Edge Functions | `supabase functions serve --env-file .env.local`, with the secrets from [Edge Functions](#edge-functions) in group 7 |
 | PayPal         | Sandbox credentials, a public webhook URL, and PayPal plans. See [Billing](#billing).                                |
 | Queued email   | Gmail credentials and Vault secrets. Without them, jobs stay in `email_jobs` unsent.                                 |
 | Scheduled jobs | Vault secrets. See [Scheduled jobs](#scheduled-jobs).                                                                |
@@ -147,12 +147,11 @@ Set these in `.env.local` locally and in the host's settings for deployed enviro
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`                      | No       | Browser and server error reporting                                    |
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`         | No       | Source map upload at build time                                       |
 
-> [!NOTE]
-> `.env.example` also lists variables the code no longer uses. See [Known gaps](#known-gaps).
+`.env.example` lists every variable in numbered groups, marks each one public or secret, and says where it's set for development and production. Locally, one `.env.local` holds the app variables and the Edge Function secrets (group 7). Where each secret lives in each environment is in [docs/deployment.md](docs/deployment.md#where-secrets-live).
 
 ### Edge Functions
 
-Set these with `supabase secrets set NAME=value`. Hosted Supabase provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+On hosted projects, set these in the GitHub environment; each deploy copies them to Supabase (see [docs/deployment.md](docs/deployment.md)). Locally, use `supabase functions serve --env-file .env.local`. Hosted Supabase provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
 
 | Variable                                                           | Purpose                                                           |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
@@ -578,46 +577,53 @@ node --env-file=.env.local scripts/seed-invoices.mjs --tenant <id-or-slug>
 node --env-file=.env.local scripts/seed-invoices.mjs --clean
 ```
 
+The data lives in `scripts/seed-data.mjs`: 15 **fictional** US companies, each with its own city, time zone, staff, two business customers, and 20 tickets with full conversation threads. No real company or person is used. `scripts/seed-data.test.mjs` checks that every address is undeliverable and every phone number is in the fictional `555-01xx` range, and that the data still matches what the e2e suite expects.
+
+### Demo accounts
+
+Every account uses the same password: `SEED_PASSWORD` if set when seeding, otherwise the default in `scripts/seed-tenants.mjs`. Use a strong `SEED_PASSWORD` for any deployed environment.
+
+**Platform console:** the seed also creates `platform-admin@servicedesk-pro.com`, which belongs to no workspace, so signing in lands on `/platform`. Add it to `PLATFORM_ADMIN_EMAILS` to grant access. It never gets the shared seed password: set `PLATFORM_ADMIN_PASSWORD` before seeding, or the seed prints a random one once. `--clean` leaves it in place, and re-seeding doesn't change its password.
+
+**Juniper Ridge Energy** (`/seed-juniper`, Business plan, Houston, TX). This is the best workspace for a full demo, because every feature is on:
+
+| Role                              | Name              | Sign in as                               |
+| --------------------------------- | ----------------- | ---------------------------------------- |
+| Tenant Admin                      | David Russell     | `admin@juniper.seed.test`                |
+| Manager                           | Emily Johnson     | `manager@juniper.seed.test`              |
+| Agent                             | James Rodriguez   | `agent@juniper.seed.test`                |
+| Billing Admin                     | Ashley Washington | `billing@juniper.seed.test`              |
+| Customer (Gulf Coast Fabrication) | Jasmine Patel     | `jasmine.patel@gulfcoastfab.example`     |
+| Customer (Bayou City Electric)    | Robert Hayes      | `robert.hayes@bayoucityelectric.example` |
+
+**Cedar Health Group** (`/seed-cedar`, Pro plan, Boston, MA). Staff sign in as `admin@`, `manager@`, `agent@` and `billing@cedar.seed.test`, and customers as `dana.whitfield@northfieldclinic.example` and `marcus.bell@baysidept.example`.
+
+**Bluepeak Software** (`/seed-bluepeak`, Free plan, Austin, TX). Staff sign in as `admin@` and `agent@bluepeak.seed.test`, and customers as `jordan.ellis@lakewaydental.example` and `priya.raman@hillcountryrealty.example`.
+
+The other 12 workspaces cover the remaining plan and billing states (trial, past due, cancelled, expired). The seed command prints every login when it finishes.
+
 Good to know:
 
 - Existing seed tenants are skipped, so run `--clean` before `--apply` to rebuild them.
-- Seed accounts use `*.seed.test` emails and a shared password. `SEED_PASSWORD` overrides the default in the script.
+- Staff accounts use `*.seed.test` addresses and customers use `*.example`. Neither can receive mail. Seeded accounts carry a `seed_tenant` tag, which is how `--clean` finds them.
 - Seeded PayPal IDs don't exist at PayPal, so changing plan or cancelling on a seeded workspace fails.
+- Never list a seeded account in `PLATFORM_ADMIN_EMAILS` outside local and test stacks.
 
 ## Deployment
 
 ### Git workflow
 
-Feature work happens on `feature/*` branches, which merge into `develop` and then into `main` through a pull request.
+Trunk-based. Feature branches merge into `main` through a pull request once CI passes. `main` is always deployable.
 
 ### Release order
 
-Run the steps in this order, because new app code can depend on new database objects:
+GitHub Actions deploys every merge to `main` to the **development** environment. A release tag (`v1.2.3`) on a commit that has already deployed to development promotes that commit to **production**, after an approval. Each environment has its own Supabase project. Every deploy runs the CI checks, then `supabase db push`, then `supabase functions deploy`, then the app through the Vercel CLI, in that order, because new app code can depend on new database objects. Setup, releasing, hotfixes and rollback are in [docs/deployment.md](docs/deployment.md).
 
-```bash
-supabase link --project-ref <ref>
-supabase migration list            # Review what is pending
-supabase db push                   # 1. Database
-supabase functions deploy          # 2. Edge Functions
-```
-
-3\. Deploy the app. Vercel builds it when you push, depending on the project's settings.
-
-Migrations recorded as applied don't prove that a function was redeployed. If you changed a function, deploy it and check with `supabase functions list`.
+Migrations recorded as applied don't prove that a function was redeployed. The pipeline deploys every function on each run; check with `supabase functions list` if in doubt.
 
 ### New environment checklist
 
-1. Create the Supabase project, then link it and push migrations.
-2. The seed files don't run on `db push`, so load `supabase/schemas/seeds/` and `supabase/schemas/storage/buckets.sql`.
-3. Enable the custom access token hook (`public.custom_access_token_hook`) in the Auth settings. Tenant claims and RLS depend on it.
-4. Set the Auth site URL, redirect URLs, SMTP, and Google provider.
-5. Set the function secrets, and deploy all functions.
-6. Create the [Vault secrets](#scheduled-jobs), and confirm the jobs succeed in `cron.job_run_details`.
-7. Create PayPal plans under one product, then set `plans.code`.
-8. Register the `paypal-webhook` URL with PayPal, then set `PAYPAL_WEBHOOK_ID`.
-9. Set the app variables on the host, and deploy.
-10. For subdomains, add a wildcard domain and set `NEXT_PUBLIC_APP_DOMAIN`.
-11. Create a workspace at `/setup`, then test a ticket, an email, and a payment.
+[docs/deployment.md](docs/deployment.md) covers setting up an environment: the GitHub environment, Vercel variables, the bootstrap workflow for seeds, and the dashboard-only steps (access token hook, Auth URLs, function and Vault secrets, PayPal plans and webhook). After it's up, create a workspace at `/setup`, then test a ticket, an email, and a payment.
 
 ## Operations and troubleshooting
 
@@ -668,13 +674,12 @@ select kind, status, count(*) from email_jobs group by 1, 2;
 
 Check these before relying on the related feature. This list was last reviewed on 2026-11-05.
 
-| Gap                                | Details                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reconcile job auth in migrations   | The only migration that schedules `reconcile-subscriptions-hourly` sends `x-cron-secret`, but the function now requires a service role bearer token. `config.toml` cites migration `20260918120000`, which isn't in the repository. **A new environment needs this job rescheduled** with bearer auth, following `20260925130000_email_jobs_queue.sql`. Check existing environments with `select jobname, command from cron.job`. |
-| Unused variables in `.env.example` | The code doesn't read `SESSION_SECRET`, `RESEND_API_KEY`, `PAYPAL_TOKEN_DOMAINS`, `NEXT_PUBLIC_PAYPAL_CARD_FIELDS`, `AUTH_COOKIE_DOMAIN`, `PORTAL_BASE_DOMAIN`, or `SUBDOMAIN_ROUTING_AVAILABLE` from the environment. `CRON_SECRET` is only mentioned by the old migration above. Email moved from Resend to Gmail.                                                                                                              |
-| Plan feature flags                 | `features_json` entries are mostly plan page labels and aren't all enforced. Search the code before relying on a flag.                                                                                                                                                                                                                                                                                                            |
-| Routes without pages               | `TENANT_ROUTES` lists routes with no page yet, including `/kb`, `/macros`, and several `/settings/*` paths.                                                                                                                                                                                                                                                                                                                       |
-| Generated types                    | `database.types.ts` has been edited by hand in the past, so regenerating can produce unrelated changes.                                                                                                                                                                                                                                                                                                                           |
+| Gap                  | Details                                                                                                                                                                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing migration    | `config.toml` cites migration `20260918120000`, which isn't in the repository. Check production's history before its first pipeline deploy; see [docs/deployment.md](docs/deployment.md). (The reconcile job itself is now scheduled with bearer auth by `20261112110000`.) |
+| Plan feature flags   | `features_json` entries are mostly plan page labels and aren't all enforced. Search the code before relying on a flag.                                                                                                                                                      |
+| Routes without pages | `TENANT_ROUTES` lists routes with no page yet, including `/kb`, `/macros`, and several `/settings/*` paths.                                                                                                                                                                 |
+| Generated types      | `database.types.ts` has been edited by hand in the past, so regenerating can produce unrelated changes.                                                                                                                                                                     |
 
 ## More documentation
 
