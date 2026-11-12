@@ -18,9 +18,7 @@ create table if not exists public.payment_methods
         references public.tenants(id)
         on delete cascade,
 
-    subscription_id uuid
-        references public.subscriptions(id)
-        on delete set null,
+    subscription_id uuid,
 
     -- PayPal billing agreement / subscription id (I-...) this method bills
     -- through. Not a vaulted card token: the Payment Method Tokens API is not
@@ -68,7 +66,17 @@ create table if not exists public.payment_methods
     -- A row typed 'card' must carry the metadata that makes it a card, so no
     -- code path can leave a half-populated card on display.
     constraint chk_card_metadata_present
-        check (payment_source_type <> 'card' or card_last4 is not null)
+        check (payment_source_type <> 'card' or card_last4 is not null),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint payment_methods_tenant_id_id_key
+        unique (tenant_id, id),
+
+    constraint payment_methods_subscription_id_fkey
+        foreign key (tenant_id, subscription_id)
+        references public.subscriptions (tenant_id, id)
+        on delete set null (subscription_id)
 );
 
 create index if not exists idx_payment_methods_tenant_id
@@ -102,6 +110,10 @@ create trigger payment_methods_updated_at
 -- circular: payment_methods points at subscriptions and back again, so this
 -- side has to wait until both tables exist.
 alter table public.subscriptions
-    add column if not exists payment_method_id uuid
-    references public.payment_methods(id)
-    on delete set null;
+    add column if not exists payment_method_id uuid;
+
+alter table public.subscriptions
+    add constraint subscriptions_payment_method_id_fkey
+        foreign key (tenant_id, payment_method_id)
+        references public.payment_methods (tenant_id, id)
+        on delete set null (payment_method_id);

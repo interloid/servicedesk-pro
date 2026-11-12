@@ -139,7 +139,12 @@ create table if not exists public.subscriptions
                 'CANCELLED',
                 'EXPIRED'
             )
-        )
+        ),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint subscriptions_tenant_id_id_key
+        unique (tenant_id, id)
 );
 
 -- reconcile-subscriptions scans for plan changes that have come due, and for
