@@ -1,4 +1,4 @@
--- Demo outbox (migration 20261112140000): captured emails can hold working
+-- Demo outbox (migration 20261112150000): captured emails can hold working
 -- invite links, so only the workspace's Tenant Admins read them, and nobody
 -- but the service role writes them.
 

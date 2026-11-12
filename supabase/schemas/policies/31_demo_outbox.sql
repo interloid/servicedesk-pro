@@ -7,7 +7,7 @@
 -- invite. So only the workspace's Tenant Admins read them -- an Agent or
 -- Manager reading an admin invite could take that role. Rows are written only
 -- by the service role (the email Edge Functions), so there is no client write.
--- Migration: 20261112140000_demo_outbox.sql.
+-- Migration: 20261112150000_demo_outbox.sql.
 
 ALTER TABLE public.demo_outbox ENABLE ROW LEVEL SECURITY;
 
