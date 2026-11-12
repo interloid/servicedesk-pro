@@ -201,6 +201,7 @@ GitHub Actions builds and deploys the app with the Vercel CLI, after the databas
 3. **Variables:** set nothing in Vercel. Each deploy writes the GitHub environment's app values to Vercel: Production for a release, Preview scoped to `main` for development. The token needs access to the project's environment variables, which a team-scoped token has.
 4. **Domains:** in **Project → Settings → Domains**, assign the production domain to Production. For development, add the dev domain to the project without assigning it, then set `APP_DOMAIN_ALIAS` in the `development` environment. Each development deploy points that domain at the new build.
 5. **Git connection:** leave the repository connected. `vercel.json` stops automatic deploys of `main`; pull-request previews (if enabled) still work.
+6. **Production Branch:** in **Project → Settings → Environments → Production → Branch Tracking**, set the branch to `vercel-production`. Vercel refuses Preview variables scoped to its Production Branch, so it can't stay `main`, and it must name a branch that exists. Create `vercel-production` once from `main` (`git push origin origin/main:refs/heads/vercel-production`), after `vercel.json` lists it, and protect it with a ruleset that restricts updates and deletion. `vercel.json` turns off Vercel's own deploys for it; production is deployed only by release tags.
 
 ### What the workflow does
 
