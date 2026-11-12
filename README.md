@@ -583,6 +583,8 @@ The data lives in `scripts/seed-data.mjs`: 15 **fictional** US companies, each w
 
 Every account uses the same password: `SEED_PASSWORD` if set when seeding, otherwise the default in `scripts/seed-tenants.mjs`. Use a strong `SEED_PASSWORD` for any deployed environment.
 
+**Platform console:** the seed also creates `platform-admin@servicedesk-pro.com`, which belongs to no workspace, so signing in lands on `/platform`. Add it to `PLATFORM_ADMIN_EMAILS` to grant access. It never gets the shared seed password: set `PLATFORM_ADMIN_PASSWORD` before seeding, or the seed prints a random one once. `--clean` leaves it in place, and re-seeding doesn't change its password.
+
 **Juniper Ridge Energy** (`/seed-juniper`, Business plan, Houston, TX). This is the best workspace for a full demo, because every feature is on:
 
 | Role                              | Name              | Sign in as                               |

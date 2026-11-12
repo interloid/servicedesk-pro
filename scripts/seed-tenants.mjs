@@ -44,6 +44,8 @@
  * these rows. Changing plan or cancelling on a seeded tenant in the UI WILL
  * call PayPal and fail.
  */
+import { randomBytes } from "node:crypto";
+
 import { createClient } from "@supabase/supabase-js";
 
 import {
@@ -61,6 +63,9 @@ import {
 
 const DAY_MS = 86_400_000;
 const DEFAULT_PASSWORD = "test@123";
+
+const PLATFORM_ADMIN_EMAIL = "platform-admin@servicedesk-pro.com";
+const PLATFORM_ADMIN_NAME = "Platform Admin";
 
 // The plan really must have room: a roster over the limit would hit the seat
 // trigger, and one that merely differs would no longer test the limit asked for.
@@ -249,6 +254,54 @@ async function createAuthUser(email, fullName, password, seedTenant) {
   });
   if (error) throw new Error(`createUser ${email}: ${error.message}`);
   return data.user.id;
+}
+
+/**
+ * The platform console operator: in no workspace, so sign-in lands on
+ * /platform, and untagged, so --clean leaves it alone. It never gets the shared
+ * seed password -- PLATFORM_ADMIN_PASSWORD, or a random one printed once.
+ * Access itself still comes from PLATFORM_ADMIN_EMAILS, not from this account.
+ */
+async function ensurePlatformAdmin() {
+  for (let page = 1; ; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error) throw error;
+    if (data.users.some((user) => user.email === PLATFORM_ADMIN_EMAIL)) {
+      return { created: false };
+    }
+    if (data.users.length < 200) break;
+  }
+
+  const password =
+    process.env.PLATFORM_ADMIN_PASSWORD ??
+    randomBytes(18).toString("base64url");
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: PLATFORM_ADMIN_EMAIL,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: PLATFORM_ADMIN_NAME },
+  });
+  if (error)
+    throw new Error(`createUser ${PLATFORM_ADMIN_EMAIL}: ${error.message}`);
+
+  // Audit rows name their actor through public.users, so the console's own
+  // writes need the row even though no workspace does.
+  await must(
+    supabase.from("users").upsert({
+      id: data.user.id,
+      email: PLATFORM_ADMIN_EMAIL,
+      full_name: PLATFORM_ADMIN_NAME,
+    }),
+    `users ${PLATFORM_ADMIN_EMAIL}`,
+  );
+
+  return {
+    created: true,
+    password: process.env.PLATFORM_ADMIN_PASSWORD ? null : password,
+  };
 }
 
 async function must(promise, label) {
@@ -676,6 +729,13 @@ requireProjectRef();
 
 const password = process.env.SEED_PASSWORD ?? DEFAULT_PASSWORD;
 
+const platformAdmin = await ensurePlatformAdmin();
+console.log(
+  platformAdmin.created
+    ? `  ok  platform admin ${PLATFORM_ADMIN_EMAIL} (no workspace)`
+    : `  --  platform admin ${PLATFORM_ADMIN_EMAIL} already there, left as is`,
+);
+
 for (const spec of todo) {
   const slug = `${SLUG_PREFIX}${spec.key}`;
   try {
@@ -702,4 +762,9 @@ for (const spec of todo) {
 printCredentials(todo);
 if (todo.length > 0) {
   console.log(`Password for all of the above: ${password}`);
+}
+if (platformAdmin.password) {
+  console.log(
+    `\nPlatform admin ${PLATFORM_ADMIN_EMAIL} password (shown once, store it now): ${platformAdmin.password}`,
+  );
 }
