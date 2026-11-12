@@ -21,5 +21,10 @@ create table if not exists public.tags (
         default now(),
 
     constraint uq_tag_name
-        unique (tenant_id, name)
+        unique (tenant_id, name),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint tags_tenant_id_id_key
+        unique (tenant_id, id)
 );

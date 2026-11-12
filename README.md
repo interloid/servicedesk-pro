@@ -382,7 +382,7 @@ There are no down migrations. To undo a change, write a new migration.
 - [ ] Enable RLS and add policies for each role that needs access
 - [ ] Grant only the table privileges the API roles need
 - [ ] Add audit and `updated_at` triggers where they apply
-- [ ] Add attack cases to `supabase/tests/authz/cases.sql`
+- [ ] Add attack and legitimate cases to `supabase/tests/authz/cases/`, and check the attacks fail without your migration (`AUTHZ_EXCLUDE`)
 
 ### Storage buckets
 
@@ -448,7 +448,7 @@ Shared code is in `supabase/functions/_shared/`. Functions run on Deno, so they 
 1. Create `src/app/(app)/[tenantSlug]/(base-layout)/<route>/page.tsx`.
 2. Add the route to `TENANT_ROUTES` in `src/lib/tenancy.ts`.
 3. Add its first path segment to `RESERVED_LABELS`, and to the `tenants_slug_not_reserved` constraint with a migration. Its current copy is in `supabase/schemas/tables/03_tenants.sql`. Otherwise a workspace could claim that slug.
-4. Add a link in `src/components/shared/layout/app-sidebar.tsx`.
+4. Add a link in `src/components/shared/layout/app-sidebar.tsx`, and add the route to `SHIPPED_TENANT_ROUTES` in `src/lib/tenancy.ts`. The sidebar hides routes that aren't in that set, and a unit test fails if one has no page.
 5. If a role shouldn't see it, update the checks in `src/lib/tenancy.ts` and `role-route-guard.tsx`, and enforce the rule in RLS.
 6. Put the UI and logic in `src/features/<feature>/`.
 
@@ -484,26 +484,28 @@ Shared code is in `supabase/functions/_shared/`. Functions run on Deno, so they 
 npm test             # Unit tests
 npm run lint         # Lint
 npm run build        # Type check and production build
-npm run test:authz   # Needs Docker and `supabase start`
+npm run test:authz   # Needs PostgreSQL 15+ installed locally (no Docker)
 npm run test:e2e     # Needs Docker and `npm run e2e:stack`
 ```
 
 | Suite         | Location                | Covers                                                                                                              |
 | ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Unit          | `src/**/*.test.ts`      | Tenancy routing, plan limits, and workspace status                                                                  |
-| Authorization | `supabase/tests/authz/` | Attacks and legitimate flows, run as the real API roles                                                             |
+| Authorization | `supabase/tests/authz/` | Attacks and legitimate flows, run as the real API roles, on a database built from every migration                   |
 | End-to-end    | `e2e/**/*.e2e.ts`       | Sign in, tickets, portal, roles, plan gates, console                                                                |
 | Visual        | `e2e/**/visual.e2e.ts`  | Screenshots compared by Argos                                                                                       |
 | Load          | `load/servicedesk.js`   | k6 read traffic on the local E2E stack: `npm run test:load -- smoke\|load\|stress\|spike`. See `docs/load-testing/` |
 
-`test:authz` builds a throwaway database inside the local container and drops it afterwards. It never reads `.env.local` or contacts a hosted project.
+`test:authz` starts a throwaway PostgreSQL cluster in a temp directory, applies every migration, the seeds and the buckets, runs `supabase/tests/authz/cases/*.sql`, and deletes the cluster. It never reads `.env` files or contacts a hosted project. It finds `initdb` on `PATH` or in Homebrew's `postgresql@15`–`@17`; set `PG_BIN` otherwise.
+
+`shim.sql` stands in for what Supabase adds to PostgreSQL: the API roles, `auth.uid()`/`auth.jwt()`, the storage tables, and no-op `cron`, `net` and `vault` APIs. Policies, grants, functions and triggers all come from the real migrations. Each attack must fail with a named SQLSTATE or match no rows; any other error counts as a failure.
 
 ```bash
-# If Docker points at a dead context
-DOCKER_CONTEXT=default npm run test:authz
+# Leave migrations out, to confirm the attacks then succeed
+AUTHZ_EXCLUDE="20261112120000 20261112130000" npm run test:authz
 
-# Leave a migration out, to confirm the attacks then succeed
-AUTHZ_EXCLUDE=20261104120000 npm run test:authz
+# Keep the database afterwards, to inspect it with psql
+AUTHZ_KEEP=1 npm run test:authz
 ```
 
 ### End-to-end tests (Playwright)
@@ -668,7 +670,7 @@ select kind, status, count(*) from email_jobs group by 1, 2;
 | Logo or external resource doesn't load       | Blocked by the image allow list or Content Security Policy                   | Check `next.config.ts`, `src/lib/csp.ts` and the browser console |
 | All tenants see the maintenance page         | Maintenance mode is on                                                       | Turn it off in `/platform/settings`, then allow about 10 seconds |
 | `/platform` returns 404                      | Email isn't in `PLATFORM_ADMIN_EMAILS`                                       | Add it, then redeploy or restart                                 |
-| `test:authz` says the container wasn't found | Local stack isn't running, or Docker is on another context                   | Run `supabase start`, or set `DOCKER_CONTEXT=default`            |
+| `test:authz` says `Missing initdb`           | PostgreSQL server binaries aren't installed or on `PATH`                     | Install PostgreSQL 15+, or set `PG_BIN` to its `bin` folder      |
 
 ## Known gaps
 

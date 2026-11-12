@@ -46,8 +46,7 @@ create table if not exists public.sla_policies
             )
         ),
 
-    business_hours_id uuid
-        references public.business_hours(id),
+    business_hours_id uuid,
 
     is_default boolean
         not null
@@ -85,7 +84,16 @@ create table if not exists public.sla_policies
 
     updated_at timestamptz
         not null
-        default now()
+        default now(),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint sla_policies_tenant_id_id_key
+        unique (tenant_id, id),
+
+    constraint sla_policies_business_hours_id_fkey
+        foreign key (tenant_id, business_hours_id)
+        references public.business_hours (tenant_id, id)
 );
 
 comment on table public.sla_policies is

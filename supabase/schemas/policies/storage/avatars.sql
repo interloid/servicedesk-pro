@@ -10,51 +10,8 @@ FOR SELECT
 TO public
 USING (bucket_id = 'avatars');
 
--- 2. INSERT (Corrected with parentheses around OR conditions)
-DROP POLICY IF EXISTS "avatars_insert" ON storage.objects;
-CREATE POLICY "avatars_insert"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (
-    bucket_id = 'avatars'
-    AND (
-        (storage.foldername(name))[1] = (auth.jwt() ->> 'tenant_id')
-        OR (storage.foldername(name))[1] = (auth.jwt() -> 'user_metadata' ->> 'tenant_id')
-    )
-);
-
--- 3. UPDATE (Overwriting existing avatar files)
-DROP POLICY IF EXISTS "avatars_update" ON storage.objects;
-CREATE POLICY "avatars_update"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (
-    bucket_id = 'avatars'
-    AND (
-        (storage.foldername(name))[1] = (auth.jwt() ->> 'tenant_id')
-        OR (storage.foldername(name))[1] = (auth.jwt() -> 'user_metadata' ->> 'tenant_id')
-    )
-)
-WITH CHECK (
-    bucket_id = 'avatars'
-    AND (
-        (storage.foldername(name))[1] = (auth.jwt() ->> 'tenant_id')
-        OR (storage.foldername(name))[1] = (auth.jwt() -> 'user_metadata' ->> 'tenant_id')
-    )
-);
-
--- 4. DELETE (Removing avatar files)
-DROP POLICY IF EXISTS "avatars_delete" ON storage.objects;
-CREATE POLICY "avatars_delete"
-ON storage.objects
-FOR DELETE
-TO authenticated
-USING (
-    bucket_id = 'avatars'
-    AND (
-        (storage.foldername(name))[1] = (auth.jwt() ->> 'tenant_id')
-        OR (storage.foldername(name))[1] = (auth.jwt() -> 'user_metadata' ->> 'tenant_id')
-    )
-);
+-- 2. INSERT, UPDATE, DELETE: no client policies.
+-- Uploads go through signed upload URLs minted by the service role, and stale
+-- photos are removed by the service role. The old policies also accepted
+-- user_metadata.tenant_id, which any user can set on their own account.
+-- SEC-004, migration 20261112120000.

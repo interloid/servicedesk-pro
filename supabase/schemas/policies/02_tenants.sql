@@ -19,17 +19,12 @@ USING (
 );
 
 -- =====================================================
--- INSERT
--- Only tenant_admin can create a tenant (after sign-up/onboarding)
+-- INSERT, DELETE
+-- No client policies. Workspaces are created by
+-- provision_tenant (service role) and never deleted by
+-- the app; a direct delete skipped the PayPal
+-- cancellation. SEC-007, migration 20261112120000.
 -- =====================================================
-
-CREATE POLICY "tenants_insert"
-ON public.tenants
-FOR INSERT
-TO authenticated
-WITH CHECK (
-    public.current_tenant_role() = 'tenant_admin'
-);
 
 -- =====================================================
 -- UPDATE
@@ -45,20 +40,6 @@ USING (
     AND public.current_tenant_role() = 'tenant_admin'
 )
 WITH CHECK (
-    id = public.current_tenant_id()
-    AND public.current_tenant_role() = 'tenant_admin'
-);
-
--- =====================================================
--- DELETE
--- Only tenant_admin can delete their tenant
--- =====================================================
-
-CREATE POLICY "tenants_delete"
-ON public.tenants
-FOR DELETE
-TO authenticated
-USING (
     id = public.current_tenant_id()
     AND public.current_tenant_role() = 'tenant_admin'
 );

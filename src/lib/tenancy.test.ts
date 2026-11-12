@@ -1,6 +1,14 @@
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { isSafeInternalPath, isTenantRouteAllowed } from "./tenancy";
+import {
+  isSafeInternalPath,
+  isTenantRouteAllowed,
+  SHIPPED_TENANT_ROUTES,
+  TENANT_ROUTES,
+} from "./tenancy";
 
 describe("isSafeInternalPath", () => {
   it.each(["/tickets", "/a/b?c=d", "/"])("accepts %s", (path) => {
@@ -48,5 +56,44 @@ describe("isTenantRouteAllowed", () => {
 
   it("doesn't limit other roles", () => {
     expect(isTenantRouteAllowed("agent", "/tickets")).toBe(true);
+  });
+});
+
+describe("SHIPPED_TENANT_ROUTES", () => {
+  // Every page under the tenant segment, as a URL path with route groups
+  // ("(base-layout)") removed, e.g. "/settings/team".
+  const TENANT_APP = join(process.cwd(), "src/app/(app)/[tenantSlug]");
+
+  function pageRoutes(dir: string, prefix = ""): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.isFile()) {
+        return entry.name === "page.tsx" ? [prefix || "/"] : [];
+      }
+
+      const segment = /^\(.+\)$/.test(entry.name) ? "" : `/${entry.name}`;
+
+      return pageRoutes(join(dir, entry.name), prefix + segment);
+    });
+  }
+
+  const built = new Set(pageRoutes(TENANT_APP));
+
+  it.each([...SHIPPED_TENANT_ROUTES])(
+    "%s has a page, so the sidebar link is not a 404",
+    (route) => {
+      expect(built.has(route)).toBe(true);
+    },
+  );
+
+  it("are all tenant routes", () => {
+    const declared = new Set<string>(
+      Object.values(TENANT_ROUTES).flatMap((value) =>
+        typeof value === "string" ? [value] : Object.values(value),
+      ),
+    );
+
+    for (const route of SHIPPED_TENANT_ROUTES) {
+      expect(declared.has(route)).toBe(true);
+    }
   });
 });

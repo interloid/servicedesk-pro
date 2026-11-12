@@ -47,7 +47,12 @@ create table if not exists public.customers
         default now(),
 
     constraint uq_customer_email
-        unique (tenant_id, email)
+        unique (tenant_id, email),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint customers_tenant_id_id_key
+        unique (tenant_id, id)
 );
 
 comment on table public.customers is

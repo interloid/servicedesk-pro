@@ -186,6 +186,26 @@ export const TENANT_ROUTES = {
 
 export const DEFAULT_TENANT_PATH = TENANT_ROUTES.TICKETS;
 
+/**
+ * The staff routes that have a page today. TENANT_ROUTES also reserves paths
+ * for features still to come (knowledge base, macros, several settings
+ * screens); the sidebar shows only these, so it never links to a 404.
+ * tenancy.test.ts checks every entry against src/app.
+ */
+export const SHIPPED_TENANT_ROUTES: ReadonlySet<string> = new Set<string>([
+  TENANT_ROUTES.TICKETS,
+  TENANT_ROUTES.VIEWS,
+  TENANT_ROUTES.CUSTOMERS,
+  TENANT_ROUTES.SLA,
+  TENANT_ROUTES.REPORTS,
+  TENANT_ROUTES.SETTINGS.TEAM,
+  TENANT_ROUTES.SETTINGS.BRANDING,
+  TENANT_ROUTES.SETTINGS.NOTIFICATIONS,
+  TENANT_ROUTES.SETTINGS.AUDIT,
+  TENANT_ROUTES.ACCOUNT.BILLING,
+  TENANT_ROUTES.ACCOUNT.PLANS,
+]);
+
 const BILLING_ADMIN_ROUTE_PREFIXES = [
   TENANT_ROUTES.ACCOUNT.BILLING,
   TENANT_ROUTES.ACCOUNT.PLANS,

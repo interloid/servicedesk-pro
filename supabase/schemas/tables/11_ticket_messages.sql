@@ -15,9 +15,7 @@ create table if not exists public.ticket_messages
         on delete cascade,
 
     ticket_id uuid
-        not null
-        references public.tickets(id)
-        on delete cascade,
+        not null,
 
     author_type author_type
         not null,
@@ -47,7 +45,17 @@ create table if not exists public.ticket_messages
         default now(),
 
     constraint chk_message_body
-        check(length(trim(body)) > 0)
+        check(length(trim(body)) > 0),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint ticket_messages_tenant_id_id_key
+        unique (tenant_id, id),
+
+    constraint ticket_messages_ticket_id_fkey
+        foreign key (tenant_id, ticket_id)
+        references public.tickets (tenant_id, id)
+        on delete cascade
 );
 
 comment on table public.ticket_messages is

@@ -16,9 +16,7 @@ CREATE TABLE IF NOT EXISTS public.sla_alert_jobs
         on delete cascade,
 
     sla_event_id uuid
-        not null
-        references public.sla_events(id)
-        on delete cascade,
+        not null,
 
     kind text
         not null
@@ -48,7 +46,14 @@ CREATE TABLE IF NOT EXISTS public.sla_alert_jobs
         not null
         default now(),
 
-    processed_at timestamptz
+    processed_at timestamptz,
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint sla_alert_jobs_sla_event_id_fkey
+        foreign key (tenant_id, sla_event_id)
+        references public.sla_events (tenant_id, id)
+        on delete cascade
 );
 
 CREATE INDEX IF NOT EXISTS idx_sla_alert_jobs_pending
