@@ -204,3 +204,14 @@ BEGIN
 
 END;
 $$;
+
+-- Service role only. SECURITY DEFINER and it takes the plan and owner as
+-- arguments, so any other caller could create a paid workspace for free.
+-- SEC-031, migration 20261112120000.
+REVOKE ALL ON FUNCTION public.provision_tenant(
+    uuid, text, text, text, text, uuid, uuid, jsonb, time, time, jsonb
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.provision_tenant(
+    uuid, text, text, text, text, uuid, uuid, jsonb, time, time, jsonb
+) TO service_role;
