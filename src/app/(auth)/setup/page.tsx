@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Ban, Wrench } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { DemoNotice } from "@/features/onboarding/components/demo-notice";
 import { OnboardingWizard } from "@/features/onboarding/components/onboarding-wizard";
 import { getTimezones } from "@/features/onboarding/services/onboarding.service";
 import { AuthShell } from "@/features/auth/components/auth-card";
@@ -89,6 +90,7 @@ export default async function SetupPage() {
 
   return (
     <AuthShell>
+      <DemoNotice />
       <OnboardingWizard timezones={timezones} />
     </AuthShell>
   );
