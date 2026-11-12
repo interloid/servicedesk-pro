@@ -142,6 +142,24 @@ It also closes two paths the original findings did not list: a Tenant Admin rewr
 
 `npm run test:authz` builds a throwaway local database. Without this migration, 13 attacks succeed. With it, they are blocked and the invite, role change, disable, remove, profile save, team list, ownership transfer and invite activation cases pass at database level. **Not tested:** those flows in the signed-in app.
 
+## Fixes on branch, 2026-11-12
+
+Not merged and not applied on live, so the statuses above stay as they are until then (see "How to update this tracker").
+
+| Finding | Change                                                                                                                                           | Evidence                                                                                                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-031 | `EXECUTE` on `provision_tenant` revoked from `PUBLIC`, `anon` and `authenticated` for every overload; `service_role` keeps it                    | `20261112120000_close_client_write_paths.sql`. `npm run test:authz`: anon and signed-in calls get 42501; the service-role sign-up path still works                                            |
+| SEC-007 | `tenants_insert` and `tenants_delete` dropped                                                                                                    | Same migration. Direct insert gets 42501, direct delete matches no rows; rename still works                                                                                                   |
+| SEC-004 | Client insert, update and delete on the `avatars` bucket dropped (uploads use service-role signed URLs)                                          | Same migration. Spoofed `user_metadata` insert gets 42501; overwrite and delete match no rows; public read unchanged                                                                          |
+| SEC-008 | Client insert, update and delete on the `invoices` bucket dropped                                                                                | Same migration. Billing admin can still read own PDFs                                                                                                                                         |
+| SEC-029 | `memberships_select` and `users_select` limited to staff plus the caller's own row                                                               | Same migration. A customer sees 1 membership and 1 profile; staff still see all 5                                                                                                             |
+| SEC-032 | 20 foreign keys made tenant-consistent, `(tenant_id, x)` → `(tenant_id, id)`, and an assignee trigger                                            | `20261112130000_tenant_consistent_references.sql`. Cross-workspace message, ticket, tag, attachment, assignee and invoice writes are refused (23503 or TA001), including for the service role |
+| SEC-006 | `reconcile-subscriptions` now checks for the service role, through `_shared/service-role.ts` shared with `email-jobs` and `portal-storage-sweep` | `src/lib/edge-service-role.test.ts`. Not run against a deployed function                                                                                                                      |
+
+`npm run test:authz` result: 51 of 51 pass. With `AUTHZ_EXCLUDE="20261112120000 20261112130000"`, 22 attacks succeed, so the suite detects these issues.
+
+Not verified here: the signed-in app flows on top of these changes (no e2e run), Storage's handling of signed upload URLs without the avatar policies, and live data that might already cross workspaces (the migration warns and leaves such a key `NOT VALID` rather than failing).
+
 ## Evidence gaps
 
 These are missing evidence rather than findings. They are not passes.
