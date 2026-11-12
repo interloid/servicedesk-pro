@@ -210,6 +210,8 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           # Development only: point a fixed domain at the newest build.
           if [ "$VERCEL_ENV" = "preview" ] && [ -n "$APP_DOMAIN_ALIAS" ]; then
-            npx --yes vercel@65.5.0 alias set "$url" "$APP_DOMAIN_ALIAS" --token="$VERCEL_TOKEN"
+            # --scope: without it the CLI looks up the token's personal account,
+            # which fails with "User not found." for a team-scoped token.
+            npx --yes vercel@65.5.0 alias set "$url" "$APP_DOMAIN_ALIAS" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
             echo "url=https://$APP_DOMAIN_ALIAS" >> "$GITHUB_OUTPUT"
           fi
