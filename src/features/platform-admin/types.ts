@@ -324,12 +324,6 @@ export const PLAN_FEATURES = [
     group: "advanced",
   },
   { key: "audit_logs", label: "Audit logs", enforced: true, group: "advanced" },
-  {
-    key: "ai_automation",
-    label: "AI automation",
-    enforced: false,
-    group: "advanced",
-  },
 ] as const;
 
 // plans.seat_limit has no null: this value is what the app reads as "Unlimited".
