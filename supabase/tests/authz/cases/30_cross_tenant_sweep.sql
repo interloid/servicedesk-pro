@@ -1,12 +1,15 @@
 -- Every table with a tenant_id column: a member of Alpha, by role, cannot read,
 -- change or delete Bravo's rows by naming them. Generated from the catalog, so a
 -- new tenant table is covered without editing this file. Refusal is either no
--- matching rows (RLS) or 42501 (no table privilege for the API role).
+-- matching rows (RLS) or 42501 (no table privilege for the API role). A table
+-- where Bravo has no rows would pass trivially, so it is listed as not
+-- exercised instead.
 
 DO $$
 DECLARE
     t regclass;
     who record;
+    bravo_rows bigint;
 BEGIN
     FOR t IN
         SELECT c.oid::regclass
@@ -16,6 +19,14 @@ BEGIN
           AND c.relkind = 'r'
         ORDER BY c.relname
     LOOP
+        EXECUTE format('SELECT count(*) FROM %s WHERE tenant_id = %L', t, authz.id('b_tenant'))
+            INTO bravo_rows;
+
+        IF bravo_rows = 0 THEN
+            INSERT INTO authz.not_exercised VALUES (format('cross-tenant sweep: %s (no Bravo rows)', t));
+            CONTINUE;
+        END IF;
+
         FOR who IN
             SELECT * FROM (VALUES
                 ('a_admin', 'tenant_admin'),

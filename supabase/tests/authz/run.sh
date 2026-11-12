@@ -80,6 +80,13 @@ done
 
 db -At -F ' | ' -c "select case when passed then 'PASS' else 'FAIL' end, kind, label, coalesce(detail, '') from authz.results order by id"
 
+SKIPPED=$(db -At -c "select label from authz.not_exercised order by 1")
+if [ -n "$SKIPPED" ]; then
+  echo
+  echo "Not exercised:"
+  echo "$SKIPPED" | sed 's/^/  /'
+fi
+
 FAILED=$(db -At -c "select count(*) from authz.results where not passed")
 TOTAL=$(db -At -c "select count(*) from authz.results")
 echo

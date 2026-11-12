@@ -246,7 +246,7 @@ SELECT authz.expect_allowed(
     'authenticated',
     format(
         'INSERT INTO public.ticket_tags (tenant_id, ticket_id, tag_id) VALUES (%L, %L, %L)',
-        authz.id('a_tenant'), authz.id('a_ticket'), authz.id('a_tag')
+        authz.id('a_tenant'), authz.id('a_ticket2'), authz.id('a_tag')
     )
 );
 
@@ -365,3 +365,71 @@ BEGIN
     END;
 END
 $$;
+
+-- One customer against another customer of the same workspace ----------------------
+
+SELECT authz.expect_refused(
+    'a customer cannot read another customer''s ticket in their workspace',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    format('SELECT 1 FROM public.tickets WHERE id = %L', authz.id('a_ticket2')),
+    ARRAY['0rows']
+);
+
+SELECT authz.expect_refused(
+    'a customer cannot read another customer''s messages',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    format('SELECT 1 FROM public.ticket_messages WHERE ticket_id = %L', authz.id('a_ticket2')),
+    ARRAY['0rows']
+);
+
+SELECT authz.expect_refused(
+    'a customer cannot read another customer''s record',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    format('SELECT 1 FROM public.customers WHERE id = %L', authz.id('a_customer2')),
+    ARRAY['0rows']
+);
+
+SELECT authz.expect_refused(
+    'a customer cannot reply on another customer''s ticket',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    format(
+        $sql$INSERT INTO public.ticket_messages (tenant_id, ticket_id, author_type, author_id, body)
+            VALUES (%L, %L, 'customer', %L, 'Ignore the refund.')$sql$,
+        authz.id('a_tenant'), authz.id('a_ticket2'), authz.id('a_customer')
+    ),
+    ARRAY['42501']
+);
+
+SELECT authz.expect_refused(
+    'a customer cannot attach a file to another customer''s ticket',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    format(
+        $sql$INSERT INTO public.attachments
+            (tenant_id, ticket_id, storage_path, filename, original_filename, mime, size, uploaded_by)
+            VALUES (%L, %L, 'x/c.pdf', 'c.pdf', 'c.pdf', 'application/pdf', 10, %L)$sql$,
+        authz.id('a_tenant'), authz.id('a_ticket2'), authz.id('a_customer_user')
+    ),
+    ARRAY['42501']
+);
+
+SELECT authz.expect_refused(
+    'a customer cannot change another customer''s ticket',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    format($sql$UPDATE public.tickets SET status = 'closed' WHERE id = %L$sql$, authz.id('a_ticket2')),
+    ARRAY['0rows', '42501']
+);
+
+SELECT authz.expect_rows(
+    'control',
+    'a customer still sees their own ticket',
+    authz.claims('a_customer_user', 'a_tenant', 'customer'),
+    'authenticated',
+    'SELECT 1 FROM public.tickets',
+    1
+);

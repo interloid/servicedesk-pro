@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS authz.results (
     detail text
 );
 
+-- Checks that could not run, e.g. a table the fixtures leave empty. Printed by
+-- run.sh, never counted as passes.
+CREATE TABLE IF NOT EXISTS authz.not_exercised (
+    label text PRIMARY KEY
+);
+
 -- Named fixture ids, so cases read as "a_ticket" rather than a UUID.
 CREATE TABLE IF NOT EXISTS authz.ids (
     name text PRIMARY KEY,

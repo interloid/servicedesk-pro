@@ -175,7 +175,7 @@ SELECT authz.expect_rows(
     authz.claims('a_agent', 'a_tenant', 'agent'),
     'authenticated',
     'SELECT 1 FROM public.memberships',
-    5
+    6
 );
 
 SELECT authz.expect_rows(
@@ -184,7 +184,7 @@ SELECT authz.expect_rows(
     authz.claims('a_agent', 'a_tenant', 'agent'),
     'authenticated',
     'SELECT 1 FROM public.users',
-    5
+    6
 );
 
 SELECT authz.expect_rows(
@@ -193,5 +193,5 @@ SELECT authz.expect_rows(
     authz.claims('a_billing', 'a_tenant', 'billing_admin'),
     'authenticated',
     'SELECT 1 FROM public.memberships',
-    5
+    6
 );
