@@ -189,12 +189,18 @@ jobs:
       # The Supabase URL and keys are compiled into the build, so each
       # environment is built separately, from the same commit.
       - name: Build the app
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
         run: |
           if [ "$VERCEL_ENV" = "production" ]; then
             npx --yes vercel@65.5.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
           else
             npx --yes vercel@65.5.0 pull --yes --environment=preview --git-branch=main --token="$VERCEL_TOKEN"
           fi
+          # Vercel never returns sensitive values, so the build gets them from
+          # GitHub directly.
+          node scripts/ci/sync-env.mjs build-env
           npx --yes vercel@65.5.0 build --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
 
       - name: Deploy the app

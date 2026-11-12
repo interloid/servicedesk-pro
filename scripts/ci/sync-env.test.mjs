@@ -3,7 +3,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { MANIFEST, planVercel, resolveValues } from "./sync-env.mjs";
+import {
+  MANIFEST,
+  mergeDotenv,
+  planVercel,
+  resolveValues,
+} from "./sync-env.mjs";
 
 const REF = "abcdefghijklmnopqrst";
 
@@ -154,6 +159,7 @@ describe("planVercel", () => {
         key: "NEXT_PUBLIC_SITE_URL",
         id: "all",
         target: ["preview", "development"],
+        original: ["production", "preview", "development"],
       },
       {
         op: "create",
@@ -171,6 +177,26 @@ describe("planVercel", () => {
     ];
     const ops = planVercel(existing, desired, "development");
     expect(ops.map((op) => op.op)).toEqual(["create"]);
+  });
+});
+
+describe("mergeDotenv", () => {
+  it("replaces pulled values and keeps the rest", () => {
+    const pulled = 'VERCEL="1"\nSUPABASE_SERVICE_ROLE_KEY=""\nOTHER="x"\n';
+    const out = mergeDotenv(
+      pulled,
+      new Map([
+        ["SUPABASE_SERVICE_ROLE_KEY", "key"],
+        ["NEXT_PUBLIC_SITE_NAME", 'The "Desk"'],
+      ]),
+    );
+    expect(out).toBe(
+      'VERCEL="1"\nOTHER="x"\nSUPABASE_SERVICE_ROLE_KEY="key"\nNEXT_PUBLIC_SITE_NAME=\'The "Desk"\'\n',
+    );
+  });
+
+  it("refuses a value it can't write safely", () => {
+    expect(() => mergeDotenv("", new Map([["A", "two\nlines"]]))).toThrow();
   });
 });
 

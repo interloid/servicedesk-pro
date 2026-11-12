@@ -161,20 +161,25 @@ In **Settings → Rules → Rulesets**, create two rulesets:
 
 Nothing to set by hand. Each production deploy writes the `production` environment's app values to Vercel **Production**. A Vercel variable shared across environments (for example "All Environments") is split: production gets its own copy, and the others keep the old value.
 
-### D. Production Supabase
+### D. Prepare the production Supabase project
 
-Production is already running, so its function secrets, Vault secrets, Auth hook and PayPal webhook should already exist. Confirm that Vault holds `service_role_key` and `reconcile_subscriptions_url`: migration `20261112110000` reschedules the reconcile job with them.
+The first release switches the live app to the production project as soon as it deploys, because it writes the `production` values to Vercel. So the project must be complete **before** the first tag. Do this once, from a trusted machine with the Production vault:
 
-### E. Before the first release
+1. Create the project in the same region as development, and save its ref, database password, anon key and service-role key to the Production vault.
+2. Build the schema, and read the output of each command:
+   ```bash
+   supabase link --project-ref <production ref>
+   supabase migration list    # a new project lists nothing on the remote
+   supabase db push
+   ```
+3. In the **SQL editor**, run the contents of `supabase/schemas/seeds/01_plans_seed.sql`, `supabase/schemas/seeds/02_timezone_seed.sql` and `supabase/schemas/storage/buckets.sql`, in that order. `db push` never runs them.
+4. Under **Authentication → Hooks**, enable "Customize Access Token" with `public.custom_access_token_hook`. Under **Authentication → URL Configuration**, set the production site URL and redirect URLs. Configure SMTP and Google sign-in if you use them.
+5. Create the Vault secrets, as in [development step D3](#d-first-deploy-and-one-time-database-setup), with the production ref and service-role key. Migration `20261112110000` reschedules the reconcile job with `service_role_key` and `reconcile_subscriptions_url`.
+6. In PayPal **live**, confirm that `plans.code` matches your live plan IDs, register `https://<production ref>.supabase.co/functions/v1/paypal-webhook` as the webhook URL, and put its ID in the GitHub `production` environment as `PAYPAL_WEBHOOK_ID`.
 
-Run this once from a trusted machine with production access, and read the output:
+### E. Existing projects and migration history
 
-```bash
-supabase link --project-ref <production ref>
-supabase migration list
-```
-
-Every version listed as applied on the remote must exist in `supabase/migrations/`. `supabase/config.toml` mentions `20260918120000`, which is not in this repository. If production has it, the dry-run step stops the first release. Decide what that migration was before using `supabase migration repair`; don't repair it blind.
+Before a project's first deploy from this workflow, run `supabase migration list` against it. Every version listed as applied on the remote must exist in `supabase/migrations/`. `supabase/config.toml` mentions `20260918120000`, which is not in this repository. If a project has it, the dry-run step stops the deploy. Decide what that migration was before using `supabase migration repair`; don't repair it blind.
 
 ### F. First release
 

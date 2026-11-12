@@ -9,6 +9,9 @@
  *   node scripts/ci/sync-env.mjs check     every required value is there
  *   node scripts/ci/sync-env.mjs supabase  Edge Function secrets, via the CLI
  *   node scripts/ci/sync-env.mjs vercel    app variables, via the Vercel API
+ *   node scripts/ci/sync-env.mjs build-env app variables into the file
+ *                                          `vercel build` reads, after `vercel pull`
+ *                                          (Vercel never returns sensitive values)
  *
  * Inputs (environment): SECRETS_JSON and VARS_JSON (toJSON of the contexts),
  * DEPLOY_ENV (development | production), APP_ONLY, SUPABASE_PROJECT_REF,
@@ -18,7 +21,7 @@
  * where it's used, so optional settings can be adopted one at a time.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -139,6 +142,25 @@ export function resolveValues({ secrets, vars, deployEnv, appOnly }) {
 }
 
 /**
+ * Sets `values` in the text of a dotenv file, replacing lines for the same
+ * names and keeping the rest. Values are double-quoted (single-quoted if they
+ * contain a double quote), the forms the dotenv parser reads back verbatim.
+ */
+export function mergeDotenv(text, values) {
+  const kept = text.split("\n").filter((line) => {
+    const name = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line);
+    return line.trim() !== "" && !(name && values.has(name[1]));
+  });
+  const lines = [...values].map(([name, value]) => {
+    if (value.includes("\n") || (value.includes('"') && value.includes("'"))) {
+      throw new Error(`${name} can't be written to a dotenv file as it is.`);
+    }
+    return value.includes('"') ? `${name}='${value}'` : `${name}="${value}"`;
+  });
+  return [...kept, ...lines].join("\n") + "\n";
+}
+
+/**
  * Works out the Vercel API calls that make `desired` true for one scope, given
  * the project's current variables. Development is Preview for branch `main`;
  * production is Production.
@@ -166,6 +188,7 @@ export function planVercel(existing, desired, deployEnv) {
         key,
         id: shared.id,
         target: shared.target.filter((t) => t !== target),
+        original: shared.target,
       });
     }
     if (own) ops.push({ op: "update", key, id: own.id, value });
@@ -259,21 +282,35 @@ async function syncVercel(values, deployEnv) {
     MANIFEST.filter((e) => e.secret).map((e) => e.name),
   );
 
+  // A split variable is restored if its replacement can't be created, so this
+  // environment never ends up without it.
+  const split = new Map();
   for (const op of planVercel(envs, only(values, "app"), deployEnv)) {
     if (op.op === "untarget") {
       await api("PATCH", `${project}/env/${op.id}`, { target: op.target });
+      split.set(op.key, op);
       console.log(`  split   ${op.key} (kept for ${op.target.join(", ")})`);
     } else if (op.op === "update") {
       await api("PATCH", `${project}/env/${op.id}`, { value: op.value });
       console.log(`  update  ${op.key}`);
     } else {
-      await api("POST", `/v10/projects/${VERCEL_PROJECT_ID}/env`, {
-        key: op.key,
-        value: op.value,
-        target: op.target,
-        ...(op.gitBranch && { gitBranch: op.gitBranch }),
-        type: secretNames.has(op.key) ? "sensitive" : "encrypted",
-      });
+      try {
+        await api("POST", `/v10/projects/${VERCEL_PROJECT_ID}/env`, {
+          key: op.key,
+          value: op.value,
+          target: op.target,
+          ...(op.gitBranch && { gitBranch: op.gitBranch }),
+          type: secretNames.has(op.key) ? "sensitive" : "encrypted",
+        });
+      } catch (error) {
+        const undo = split.get(op.key);
+        if (undo) {
+          await api("PATCH", `${project}/env/${undo.id}`, {
+            target: undo.original,
+          });
+        }
+        throw error;
+      }
       console.log(`  create  ${op.key}`);
     }
   }
@@ -294,8 +331,16 @@ async function main() {
     syncSupabase(values);
   } else if (command === "vercel") {
     await syncVercel(values, args.deployEnv);
+  } else if (command === "build-env") {
+    const target = args.deployEnv === "production" ? "production" : "preview";
+    const file = `.vercel/.env.${target}.local`;
+    const app = only(values, "app");
+    writeFileSync(file, mergeDotenv(readFileSync(file, "utf8"), app), {
+      mode: 0o600,
+    });
+    console.log(`Wrote ${app.size} app values from GitHub into ${file}.`);
   } else {
-    throw new Error("Usage: sync-env.mjs check|supabase|vercel");
+    throw new Error("Usage: sync-env.mjs check|supabase|vercel|build-env");
   }
 }
 
