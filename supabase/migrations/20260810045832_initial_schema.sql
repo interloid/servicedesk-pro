@@ -4,6 +4,26 @@
 
 SET check_function_bodies = false;
 
+-- Table, sequence and function grants for the API roles.
+--
+-- This file is a schema dump, and the dump recorded only the extra grants
+-- (MAINTAIN, REFERENCES, TRIGGER, TRUNCATE). The SELECT, INSERT, UPDATE and
+-- DELETE grants that RLS policies sit on came from the platform's default
+-- privileges at the moment each table was created, and later migrations rely on
+-- the same thing (20260925130000_email_jobs_queue.sql revokes grants it never
+-- gave). Stating those defaults here makes a fresh database, such as a new
+-- environment, get the same grants in the same order as production did.
+-- On a database where this migration already ran, the file is never run again,
+-- and on a project that already has these defaults it changes nothing.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+    GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+    GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+    GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+
 CREATE EXTENSION btree_gin WITH SCHEMA public;
 
 CREATE EXTENSION citext WITH SCHEMA public;

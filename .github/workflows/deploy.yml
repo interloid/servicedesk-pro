@@ -1,0 +1,183 @@
+# Trunk-based deploys with tag promotion.
+#
+#   push to main       -> development, automatically
+#   push tag v1.2.3    -> production, after approval on the `production`
+#                         environment, and only for a commit that is on main
+#                         and has already deployed to development successfully
+#
+# Order within a deploy, so new app code never runs against an old schema:
+#   1. CI checks (ci.yml)
+#   2. Database migrations   supabase db push
+#   3. Edge Functions        supabase functions deploy
+#   4. App                   Vercel CLI (Vercel's own Git deploys are off for
+#                            main, see vercel.json)
+#
+# Rollback: promote the previous deployment in Vercel, or run this workflow by
+# hand on an older tag with "app only" ticked. Setup: docs/deployment.md.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      app_only:
+        description: "App only: skip migrations and functions (for rolling back to an older tag)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One deploy per environment at a time, and never cancel one halfway through a
+# migration.
+concurrency:
+  group: deploy-${{ github.ref_type == 'tag' && 'production' || 'development' }}
+  cancel-in-progress: false
+
+jobs:
+  # Production only: the tag must name a commit that development already ran.
+  verify-release:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Tag is a release version
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tags look like v1.2.3; got '$GITHUB_REF_NAME'."
+            exit 1
+          fi
+
+      - name: Commit is on main
+        run: |
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not on main. Tag a commit from main."
+            exit 1
+          fi
+
+      - name: Commit deployed to development successfully
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ids=$(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$GITHUB_SHA&environment=development&per_page=100" --jq '.[].id')
+          for id in $ids; do
+            state=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses?per_page=1" --jq '.[0].state')
+            if [ "$state" = "success" ]; then
+              echo "Development deployment $id of $GITHUB_SHA succeeded."
+              exit 0
+            fi
+          done
+          echo "::error::$GITHUB_SHA has no successful development deployment. Let the main deploy finish (or fix it) before tagging."
+          exit 1
+
+  checks:
+    needs: verify-release
+    # Runs for main, and for a tag once verify-release has passed.
+    if: >-
+      always() &&
+      (github.ref_name == 'main' || github.ref_type == 'tag') &&
+      (needs.verify-release.result == 'success' || needs.verify-release.result == 'skipped')
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: [verify-release, checks]
+    if: >-
+      always() &&
+      (github.ref_name == 'main' || github.ref_type == 'tag') &&
+      needs.checks.result == 'success' &&
+      (needs.verify-release.result == 'success' || needs.verify-release.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_type == 'tag' && 'production' || 'development' }}
+      url: ${{ steps.app.outputs.url }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_ENV: ${{ github.ref_type == 'tag' && 'production' || 'preview' }}
+      APP_DOMAIN_ALIAS: ${{ vars.APP_DOMAIN_ALIAS }}
+      APP_ONLY: ${{ inputs.app_only == true }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Check the environment is configured
+        run: |
+          missing=""
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF \
+                      VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing in the '${{ github.ref_type == 'tag' && 'production' || 'development' }}' environment:$missing. See docs/deployment.md."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v3.0.1
+        if: env.APP_ONLY != 'true'
+        with:
+          version: 2.122.0
+
+      - name: Link the Supabase project
+        if: env.APP_ONLY != 'true'
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # Fails here, before anything changes, if the project has migrations this
+      # commit doesn't (for example a change made in the dashboard).
+      - name: Migrations, dry run
+        if: env.APP_ONLY != 'true'
+        run: |
+          supabase migration list
+          supabase db push --dry-run
+
+      - name: Apply migrations
+        if: env.APP_ONLY != 'true'
+        run: supabase db push
+
+      - name: Deploy Edge Functions
+        if: env.APP_ONLY != 'true'
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Variables come from the Vercel project: Production for a release tag,
+      # Preview scoped to the main branch for development. The Supabase URL and
+      # keys are compiled into the build, so each environment is built
+      # separately, from the same commit.
+      - name: Build the app
+        run: |
+          if [ "$VERCEL_ENV" = "production" ]; then
+            npx --yes vercel@65.5.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+          else
+            npx --yes vercel@65.5.0 pull --yes --environment=preview --git-branch=main --token="$VERCEL_TOKEN"
+          fi
+          npx --yes vercel@65.5.0 build --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
+
+      - name: Deploy the app
+        id: app
+        run: |
+          url=$(npx --yes vercel@65.5.0 deploy --prebuilt --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          # Development only: point a fixed domain at the newest build.
+          if [ "$VERCEL_ENV" = "preview" ] && [ -n "$APP_DOMAIN_ALIAS" ]; then
+            npx --yes vercel@65.5.0 alias set "$url" "$APP_DOMAIN_ALIAS" --token="$VERCEL_TOKEN"
+            echo "url=https://$APP_DOMAIN_ALIAS" >> "$GITHUB_OUTPUT"
+          fi

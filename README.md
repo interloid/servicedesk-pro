@@ -588,36 +588,17 @@ Good to know:
 
 ### Git workflow
 
-Feature work happens on `feature/*` branches, which merge into `develop` and then into `main` through a pull request.
+Trunk-based. Feature branches merge into `main` through a pull request once CI passes. `main` is always deployable.
 
 ### Release order
 
-Run the steps in this order, because new app code can depend on new database objects:
+GitHub Actions deploys every merge to `main` to the **development** environment. A release tag (`v1.2.3`) on a commit that has already deployed to development promotes that commit to **production**, after an approval. Each environment has its own Supabase project. Every deploy runs the CI checks, then `supabase db push`, then `supabase functions deploy`, then the app through the Vercel CLI, in that order, because new app code can depend on new database objects. Setup, releasing, hotfixes and rollback are in [docs/deployment.md](docs/deployment.md).
 
-```bash
-supabase link --project-ref <ref>
-supabase migration list            # Review what is pending
-supabase db push                   # 1. Database
-supabase functions deploy          # 2. Edge Functions
-```
-
-3\. Deploy the app. Vercel builds it when you push, depending on the project's settings.
-
-Migrations recorded as applied don't prove that a function was redeployed. If you changed a function, deploy it and check with `supabase functions list`.
+Migrations recorded as applied don't prove that a function was redeployed. The pipeline deploys every function on each run; check with `supabase functions list` if in doubt.
 
 ### New environment checklist
 
-1. Create the Supabase project, then link it and push migrations.
-2. The seed files don't run on `db push`, so load `supabase/schemas/seeds/` and `supabase/schemas/storage/buckets.sql`.
-3. Enable the custom access token hook (`public.custom_access_token_hook`) in the Auth settings. Tenant claims and RLS depend on it.
-4. Set the Auth site URL, redirect URLs, SMTP, and Google provider.
-5. Set the function secrets, and deploy all functions.
-6. Create the [Vault secrets](#scheduled-jobs), and confirm the jobs succeed in `cron.job_run_details`.
-7. Create PayPal plans under one product, then set `plans.code`.
-8. Register the `paypal-webhook` URL with PayPal, then set `PAYPAL_WEBHOOK_ID`.
-9. Set the app variables on the host, and deploy.
-10. For subdomains, add a wildcard domain and set `NEXT_PUBLIC_APP_DOMAIN`.
-11. Create a workspace at `/setup`, then test a ticket, an email, and a payment.
+[docs/deployment.md](docs/deployment.md) covers setting up an environment: the GitHub environment, Vercel variables, the bootstrap workflow for seeds, and the dashboard-only steps (access token hook, Auth URLs, function and Vault secrets, PayPal plans and webhook). After it's up, create a workspace at `/setup`, then test a ticket, an email, and a payment.
 
 ## Operations and troubleshooting
 
@@ -668,13 +649,13 @@ select kind, status, count(*) from email_jobs group by 1, 2;
 
 Check these before relying on the related feature. This list was last reviewed on 2026-11-05.
 
-| Gap                                | Details                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reconcile job auth in migrations   | The only migration that schedules `reconcile-subscriptions-hourly` sends `x-cron-secret`, but the function now requires a service role bearer token. `config.toml` cites migration `20260918120000`, which isn't in the repository. **A new environment needs this job rescheduled** with bearer auth, following `20260925130000_email_jobs_queue.sql`. Check existing environments with `select jobname, command from cron.job`. |
-| Unused variables in `.env.example` | The code doesn't read `SESSION_SECRET`, `RESEND_API_KEY`, `PAYPAL_TOKEN_DOMAINS`, `NEXT_PUBLIC_PAYPAL_CARD_FIELDS`, `AUTH_COOKIE_DOMAIN`, `PORTAL_BASE_DOMAIN`, or `SUBDOMAIN_ROUTING_AVAILABLE` from the environment. `CRON_SECRET` is only mentioned by the old migration above. Email moved from Resend to Gmail.                                                                                                              |
-| Plan feature flags                 | `features_json` entries are mostly plan page labels and aren't all enforced. Search the code before relying on a flag.                                                                                                                                                                                                                                                                                                            |
-| Routes without pages               | `TENANT_ROUTES` lists routes with no page yet, including `/kb`, `/macros`, and several `/settings/*` paths.                                                                                                                                                                                                                                                                                                                       |
-| Generated types                    | `database.types.ts` has been edited by hand in the past, so regenerating can produce unrelated changes.                                                                                                                                                                                                                                                                                                                           |
+| Gap                                | Details                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing migration                  | `config.toml` cites migration `20260918120000`, which isn't in the repository. Check production's history before its first pipeline deploy; see [docs/deployment.md](docs/deployment.md). (The reconcile job itself is now scheduled with bearer auth by `20261112110000`.)                                          |
+| Unused variables in `.env.example` | The code doesn't read `SESSION_SECRET`, `RESEND_API_KEY`, `PAYPAL_TOKEN_DOMAINS`, `NEXT_PUBLIC_PAYPAL_CARD_FIELDS`, `AUTH_COOKIE_DOMAIN`, `PORTAL_BASE_DOMAIN`, or `SUBDOMAIN_ROUTING_AVAILABLE` from the environment. `CRON_SECRET` is only mentioned by the old migration above. Email moved from Resend to Gmail. |
+| Plan feature flags                 | `features_json` entries are mostly plan page labels and aren't all enforced. Search the code before relying on a flag.                                                                                                                                                                                               |
+| Routes without pages               | `TENANT_ROUTES` lists routes with no page yet, including `/kb`, `/macros`, and several `/settings/*` paths.                                                                                                                                                                                                          |
+| Generated types                    | `database.types.ts` has been edited by hand in the past, so regenerating can produce unrelated changes.                                                                                                                                                                                                              |
 
 ## More documentation
 
