@@ -8,9 +8,13 @@
 # Order within a deploy, so new app code never runs against an old schema:
 #   1. CI checks (ci.yml)
 #   2. Database migrations   supabase db push
-#   3. Edge Functions        supabase functions deploy
-#   4. App                   Vercel CLI (Vercel's own Git deploys are off for
+#   3. Edge Functions        secrets from GitHub, then supabase functions deploy
+#   4. App                   variables from GitHub synced to Vercel, then the
+#                            Vercel CLI (Vercel's own Git deploys are off for
 #                            main, see vercel.json)
+#
+# The GitHub environment is the one place every deployed value is set:
+# scripts/ci/sync-env.mjs lists them and pushes them to Supabase and Vercel.
 #
 # Rollback: promote the previous deployment in Vercel, or run this workflow by
 # hand on an older tag with "app only" ticked. Setup: docs/deployment.md.
@@ -109,6 +113,7 @@ jobs:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       VERCEL_ENV: ${{ github.ref_type == 'tag' && 'production' || 'preview' }}
+      DEPLOY_ENV: ${{ github.ref_type == 'tag' && 'production' || 'development' }}
       APP_DOMAIN_ALIAS: ${{ vars.APP_DOMAIN_ALIAS }}
       APP_ONLY: ${{ inputs.app_only == true }}
     steps:
@@ -125,6 +130,18 @@ jobs:
             echo "::error::Missing in the '${{ github.ref_type == 'tag' && 'production' || 'development' }}' environment:$missing. See docs/deployment.md."
             exit 1
           fi
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Every app and Edge Function value, checked before anything changes.
+      - name: Check the app and function settings
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: node scripts/ci/sync-env.mjs check
 
       - uses: supabase/setup-cli@v3.0.1
         if: env.APP_ONLY != 'true'
@@ -147,28 +164,43 @@ jobs:
         if: env.APP_ONLY != 'true'
         run: supabase db push
 
+      - name: Sync Edge Function secrets
+        if: env.APP_ONLY != 'true'
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: node scripts/ci/sync-env.mjs supabase
+
       - name: Deploy Edge Functions
         if: env.APP_ONLY != 'true'
         run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
 
-      - uses: actions/setup-node@v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
       - run: npm ci
 
-      # Variables come from the Vercel project: Production for a release tag,
-      # Preview scoped to the main branch for development. The Supabase URL and
-      # keys are compiled into the build, so each environment is built
-      # separately, from the same commit.
+      # Writes the GitHub values into the Vercel project: Production for a
+      # release tag, Preview scoped to the main branch for development. Vercel's
+      # own redeploy and rollback then use the same values.
+      - name: Sync app variables to Vercel
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: node scripts/ci/sync-env.mjs vercel
+
+      # The Supabase URL and keys are compiled into the build, so each
+      # environment is built separately, from the same commit.
       - name: Build the app
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
         run: |
           if [ "$VERCEL_ENV" = "production" ]; then
             npx --yes vercel@65.5.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
           else
             npx --yes vercel@65.5.0 pull --yes --environment=preview --git-branch=main --token="$VERCEL_TOKEN"
           fi
+          # Vercel never returns sensitive values, so the build gets them from
+          # GitHub directly.
+          node scripts/ci/sync-env.mjs build-env
           npx --yes vercel@65.5.0 build --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
 
       - name: Deploy the app
