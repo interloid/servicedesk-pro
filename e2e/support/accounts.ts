@@ -13,13 +13,13 @@ export const ACCOUNTS = {
   proAdmin: "admin@cedar.seed.test",
   proAgent: "agent@cedar.seed.test",
   proBilling: "billing@cedar.seed.test",
-  proCustomer: "customer1@cedar.seed.test",
+  proCustomer: "dana.whitfield@northfieldclinic.example",
   freeAdmin: "admin@bluepeak.seed.test",
   businessAdmin: "admin@juniper.seed.test",
   businessManager: "manager@juniper.seed.test",
   businessAgent: "agent@juniper.seed.test",
   businessBilling: "billing@juniper.seed.test",
-  businessCustomer: "customer1@juniper.seed.test",
+  businessCustomer: "jasmine.patel@gulfcoastfab.example",
 } as const;
 
 export type AccountName = keyof typeof ACCOUNTS;

@@ -26,7 +26,7 @@ test.describe("tenant isolation", () => {
   });
 
   test("another workspace's ticket id finds nothing", async ({ page }) => {
-    const foreignId = await ticketIdOf("customer1@juniper.seed.test");
+    const foreignId = await ticketIdOf("jasmine.patel@gulfcoastfab.example");
 
     await page.goto(`/${PRO_TENANT}/tickets/${foreignId}`);
 
