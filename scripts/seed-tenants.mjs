@@ -14,13 +14,22 @@
  *   Preview (default, reads only):
  *     node --env-file=.env.local scripts/seed-tenants.mjs [--count 15]
  *
- *   Write (every account gets DEFAULT_PASSWORD unless SEED_PASSWORD is set):
+ *   Write (every demo account gets SEED_PASSWORD):
  *     node --env-file=.env.local scripts/seed-tenants.mjs \
  *       --apply --project-ref <ref> [--count 15]
  *
  *   Remove everything this script created:
  *     node --env-file=.env.local scripts/seed-tenants.mjs \
  *       --clean --project-ref <ref>
+ *
+ * Passwords (rules in scripts/seed-guard.mjs; neither is ever printed):
+ *   SEED_PASSWORD            shared by every demo account. Optional on a local
+ *                            stack (falls back to the committed default);
+ *                            required, non-default and at least 12 characters
+ *                            on any hosted project, or nothing is written.
+ *   PLATFORM_ADMIN_PASSWORD  the platform admin's, never the shared one. Same
+ *                            rule on a hosted project when the account is new;
+ *                            locally a random one is printed once if unset.
  *
  * The data itself (fictional US companies, people and ticket conversations) is in
  * scripts/seed-data.mjs.
@@ -49,6 +58,11 @@ import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 import {
+  MIN_HOSTED_PASSWORD_LENGTH,
+  isHostedSupabaseUrl,
+  resolveSeedPasswords,
+} from "./seed-guard.mjs";
+import {
   MAX_TENANTS,
   MIN_TENANTS,
   SLUG_PREFIX,
@@ -62,7 +76,6 @@ import {
 } from "./seed-data.mjs";
 
 const DAY_MS = 86_400_000;
-const DEFAULT_PASSWORD = "test@123";
 
 const PLATFORM_ADMIN_EMAIL = "platform-admin@servicedesk-pro.com";
 const PLATFORM_ADMIN_NAME = "Platform Admin";
@@ -125,7 +138,7 @@ const supabase = createClient(url, serviceKey, {
 
 const hostname = new URL(url).hostname;
 const projectRef = hostname.split(".")[0];
-const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+const isLocal = !isHostedSupabaseUrl(url);
 
 /** Writes must name the project they target, so .env.local can't pick it silently. */
 function requireProjectRef() {
@@ -262,7 +275,7 @@ async function createAuthUser(email, fullName, password, seedTenant) {
  * seed password -- PLATFORM_ADMIN_PASSWORD, or a random one printed once.
  * Access itself still comes from PLATFORM_ADMIN_EMAILS, not from this account.
  */
-async function ensurePlatformAdmin() {
+async function platformAdminExists() {
   for (let page = 1; ; page++) {
     const { data, error } = await supabase.auth.admin.listUsers({
       page,
@@ -270,14 +283,17 @@ async function ensurePlatformAdmin() {
     });
     if (error) throw error;
     if (data.users.some((user) => user.email === PLATFORM_ADMIN_EMAIL)) {
-      return { created: false };
+      return true;
     }
-    if (data.users.length < 200) break;
+    if (data.users.length < 200) return false;
   }
+}
 
-  const password =
-    process.env.PLATFORM_ADMIN_PASSWORD ??
-    randomBytes(18).toString("base64url");
+/** adminPassword: from resolveSeedPasswords; undefined means generate one. */
+async function ensurePlatformAdmin(exists, adminPassword) {
+  if (exists) return { created: false };
+
+  const password = adminPassword ?? randomBytes(18).toString("base64url");
   const { data, error } = await supabase.auth.admin.createUser({
     email: PLATFORM_ADMIN_EMAIL,
     password,
@@ -300,7 +316,7 @@ async function ensurePlatformAdmin() {
 
   return {
     created: true,
-    password: process.env.PLATFORM_ADMIN_PASSWORD ? null : password,
+    password: adminPassword ? null : password,
   };
 }
 
@@ -727,9 +743,28 @@ if (!has("apply")) {
 
 requireProjectRef();
 
-const password = process.env.SEED_PASSWORD ?? DEFAULT_PASSWORD;
+// Checked before the first write: on a hosted project the committed default
+// would let anyone reading this repository sign in as every demo account.
+const adminExists = await platformAdminExists();
+const {
+  seedPassword: password,
+  adminPassword,
+  usingDefault,
+  errors: passwordErrors,
+} = resolveSeedPasswords(process.env, { hosted: !isLocal, adminExists });
+if (passwordErrors.length > 0) {
+  console.error(
+    `Refusing to write to ${isLocal ? "the local stack" : `hosted project "${projectRef}"`}:\n` +
+      passwordErrors.map((problem) => `  - ${problem}`).join("\n") +
+      `\nOn a hosted project set SEED_PASSWORD (and PLATFORM_ADMIN_PASSWORD, if the\n` +
+      `platform admin doesn't exist yet) to different random values of at least\n` +
+      `${MIN_HOSTED_PASSWORD_LENGTH} characters, for example from \`openssl rand -base64 18\`.\n` +
+      `Nothing was written.`,
+  );
+  process.exit(1);
+}
 
-const platformAdmin = await ensurePlatformAdmin();
+const platformAdmin = await ensurePlatformAdmin(adminExists, adminPassword);
 console.log(
   platformAdmin.created
     ? `  ok  platform admin ${PLATFORM_ADMIN_EMAIL} (no workspace)`
@@ -761,7 +796,11 @@ for (const spec of todo) {
 
 printCredentials(todo);
 if (todo.length > 0) {
-  console.log(`Password for all of the above: ${password}`);
+  console.log(
+    usingDefault
+      ? "Password for all of the above: the local default in scripts/seed-guard.mjs."
+      : "Password for all of the above: the SEED_PASSWORD you set.",
+  );
 }
 if (platformAdmin.password) {
   console.log(

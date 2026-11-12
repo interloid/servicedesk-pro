@@ -581,9 +581,11 @@ The data lives in `scripts/seed-data.mjs`: 15 **fictional** US companies, each w
 
 ### Demo accounts
 
-Every account uses the same password: `SEED_PASSWORD` if set when seeding, otherwise the default in `scripts/seed-tenants.mjs`. Use a strong `SEED_PASSWORD` for any deployed environment.
+Every account uses the same password: `SEED_PASSWORD` if set when seeding. On the local stack it falls back to the default in `scripts/seed-guard.mjs`. For any hosted project, `SEED_PASSWORD` is **required**: at least 12 characters and not the default, for example `openssl rand -base64 18`. Without it the script exits before writing anything, because the default is public in this repository. The script never prints the password.
 
-**Platform console:** the seed also creates `platform-admin@servicedesk-pro.com`, which belongs to no workspace, so signing in lands on `/platform`. Add it to `PLATFORM_ADMIN_EMAILS` to grant access. It never gets the shared seed password: set `PLATFORM_ADMIN_PASSWORD` before seeding, or the seed prints a random one once. `--clean` leaves it in place, and re-seeding doesn't change its password.
+Share a hosted project's `SEED_PASSWORD` with demo viewers through a password manager or vault share, not in chat, issues, pull requests or this README. To change it, or to fix accounts seeded earlier with the default, run `--clean` and then `--apply`: existing seed tenants are skipped, so their accounts keep the password they were created with.
+
+**Platform console:** the seed also creates `platform-admin@servicedesk-pro.com`, which belongs to no workspace, so signing in lands on `/platform`. Add it to `PLATFORM_ADMIN_EMAILS` to grant access. It never gets the shared seed password: `PLATFORM_ADMIN_PASSWORD` must differ from `SEED_PASSWORD`. On a hosted project, set a strong `PLATFORM_ADMIN_PASSWORD` before the first seed (same rule as above); locally, if it's unset, the seed prints a random one once. `--clean` leaves it in place, and re-seeding doesn't change its password.
 
 **Juniper Ridge Energy** (`/seed-juniper`, Business plan, Houston, TX). This is the best workspace for a full demo, because every feature is on:
 
@@ -607,7 +609,7 @@ Good to know:
 - Existing seed tenants are skipped, so run `--clean` before `--apply` to rebuild them.
 - Staff accounts use `*.seed.test` addresses and customers use `*.example`. Neither can receive mail. Seeded accounts carry a `seed_tenant` tag, which is how `--clean` finds them.
 - Seeded PayPal IDs don't exist at PayPal, so changing plan or cancelling on a seeded workspace fails.
-- Never list a seeded account in `PLATFORM_ADMIN_EMAILS` outside local and test stacks.
+- Never list a seeded demo account (`*.seed.test` or `*.example`) in `PLATFORM_ADMIN_EMAILS` outside local and test stacks. The deploy's env check refuses them.
 
 ## Deployment
 
