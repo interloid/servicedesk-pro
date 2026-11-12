@@ -1,0 +1,109 @@
+# Deploys on every push to main (production) and develop (development).
+#
+# Order, so new app code never runs against an old schema:
+#   1. CI checks (ci.yml)
+#   2. Database migrations   supabase db push
+#   3. Edge Functions        supabase functions deploy
+#   4. App                   Vercel CLI (Vercel's own Git deploys are off for
+#                            these two branches, see vercel.json)
+#
+# Each branch deploys to its own GitHub environment, and each environment holds
+# its own Supabase project and Vercel settings. Setup: docs/deployment.md.
+name: Deploy
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy per branch at a time, and never cancel one halfway through a
+# migration.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    if: github.ref_name == 'main' || github.ref_name == 'develop'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: checks
+    if: github.ref_name == 'main' || github.ref_name == 'develop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+      url: ${{ steps.app.outputs.url }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_ENV: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
+      APP_DOMAIN_ALIAS: ${{ vars.APP_DOMAIN_ALIAS }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Check the environment is configured
+        run: |
+          missing=""
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF \
+                      VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing in the '${{ github.ref_name == 'main' && 'production' || 'development' }}' environment:$missing. See docs/deployment.md."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.122.0
+
+      - name: Link the Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # Fails here, before anything changes, if the project has migrations this
+      # repository doesn't (for example a change made in the dashboard).
+      - name: Migrations, dry run
+        run: |
+          supabase migration list
+          supabase db push --dry-run
+
+      - name: Apply migrations
+        run: supabase db push
+
+      - name: Deploy Edge Functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Environment variables come from the Vercel project: Production for main,
+      # Preview scoped to the develop branch for develop.
+      - name: Build the app
+        run: |
+          npx --yes vercel@65.5.0 pull --yes --environment="$VERCEL_ENV" \
+            --git-branch="${{ github.ref_name }}" --token="$VERCEL_TOKEN"
+          npx --yes vercel@65.5.0 build --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
+
+      - name: Deploy the app
+        id: app
+        run: |
+          url=$(npx --yes vercel@65.5.0 deploy --prebuilt --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          # Development only: point a fixed domain at the newest build.
+          if [ "$VERCEL_ENV" = "preview" ] && [ -n "$APP_DOMAIN_ALIAS" ]; then
+            npx --yes vercel@65.5.0 alias set "$url" "$APP_DOMAIN_ALIAS" --token="$VERCEL_TOKEN"
+            echo "url=https://$APP_DOMAIN_ALIAS" >> "$GITHUB_OUTPUT"
+          fi

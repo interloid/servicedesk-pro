@@ -1,0 +1,86 @@
+# Checks for every pull request, and the gate in front of every deploy
+# (deploy.yml calls this workflow first and stops if it fails).
+name: CI
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, types, tests, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+      # Placeholder values only: the build must not reach a real project, and
+      # no Sentry token is present, so no source maps are uploaded.
+      - name: Production build
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_APP_DOMAIN: localhost:3000
+          NEXT_PUBLIC_SITE_NAME: ServiceDesk
+          NEXT_PUBLIC_SITE_DESCRIPTION: Customer support and help desk management platform
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+
+  authz:
+    name: Authorization suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # The runner image ships PostgreSQL server binaries, which run.sh finds
+      # under /usr/lib/postgresql. Skipped on a branch without the suite.
+      - name: Run npm run test:authz
+        if: hashFiles('supabase/tests/authz/run.sh') != ''
+        run: bash supabase/tests/authz/run.sh
+
+  security:
+    name: Dependency and secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Production dependencies have no high or critical advisories
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: No verified secrets in the commits being checked
+        uses: trufflesecurity/trufflehog@v3.99.7
+        with:
+          extra_args: --results=verified,unknown
