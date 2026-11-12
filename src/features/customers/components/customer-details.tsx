@@ -523,11 +523,7 @@ function ContactRow({
 }
 
 /**
- * Every row is a link to the ticket list, because the agent app has no ticket
- * page of its own yet -- /tickets is still a "coming soon" stub. It is one href
- * for the whole list rather than one per ticket, and when /tickets/[id] exists
- * this becomes `/${tenant}/tickets/${ticket.id}` per row with nothing else to
- * change here.
+ * Every row links to its ticket (`/${tenant}/tickets/${ticket.id}`).
  *
  * The link is the subject, stretched over the row with an ::after, so the
  * whole row is clickable while the table keeps its semantics and there is one

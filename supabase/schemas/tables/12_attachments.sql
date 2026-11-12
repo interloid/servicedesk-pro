@@ -15,13 +15,9 @@ create table if not exists public.attachments
         on delete cascade,
 
     ticket_id uuid
-        not null
-        references public.tickets(id)
-        on delete cascade,
+        not null,
 
-    message_id uuid
-        references public.ticket_messages(id)
-        on delete cascade,
+    message_id uuid,
 
     storage_path text
         not null,
@@ -58,7 +54,19 @@ create table if not exists public.attachments
         check (size >= 0),
 
     constraint uq_storage_path
-        unique(storage_path)
+        unique(storage_path),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint attachments_ticket_id_fkey
+        foreign key (tenant_id, ticket_id)
+        references public.tickets (tenant_id, id)
+        on delete cascade,
+
+    constraint attachments_message_id_fkey
+        foreign key (tenant_id, message_id)
+        references public.ticket_messages (tenant_id, id)
+        on delete cascade
 );
 
 comment on table public.attachments is

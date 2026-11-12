@@ -11,10 +11,12 @@ ENABLE ROW LEVEL SECURITY;
 -- SELECT
 -- Users can view:
 -- 1. Their own profile
--- 2. Users belonging to the current tenant
---    (any membership status — the team screen renders
---    invited and disabled members too, so their names
---    and emails must be visible to their tenant)
+-- 2. As staff, users belonging to the current tenant
+--    (any membership status: the team screen renders
+--    invited and disabled members too)
+-- Customers see only their own row; the portal reads
+-- staff names through the service role. SEC-029,
+-- migration 20261112120000.
 -- =====================================================
 
 CREATE POLICY "users_select"
@@ -24,11 +26,19 @@ TO authenticated
 USING (
     id = auth.uid()
 
-    OR EXISTS (
-        SELECT 1
-        FROM public.memberships m
-        WHERE m.user_id = public.users.id
-          AND m.tenant_id = public.current_tenant_id()
+    OR (
+        public.current_tenant_role() IN (
+            'tenant_admin',
+            'manager',
+            'agent',
+            'billing_admin'
+        )
+        AND EXISTS (
+            SELECT 1
+            FROM public.memberships m
+            WHERE m.user_id = public.users.id
+              AND m.tenant_id = public.current_tenant_id()
+        )
     )
 );
 

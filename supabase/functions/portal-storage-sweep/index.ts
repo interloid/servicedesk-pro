@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isServiceRole } from "../_shared/service-role.ts";
 
 // Deletes staged attachment uploads that were never filed.
 //
@@ -46,28 +47,6 @@ const REMOVE_BATCH_SIZE = 100;
 
 /** One page of a storage listing, and of the tenants query. Both are paged. */
 const PAGE_LIMIT = 1000;
-
-function isServiceRole(req: Request): boolean {
-  const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
-
-  if (!token) {
-    return false;
-  }
-
-  if (token === SERVICE_ROLE_KEY) {
-    return true;
-  }
-
-  // The gateway has already verified the signature; read the role claim.
-  try {
-    const payload = JSON.parse(
-      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
-    );
-    return payload?.role === "service_role";
-  } catch {
-    return false;
-  }
-}
 
 type StoredEntry = {
   name: string;
@@ -172,7 +151,7 @@ Deno.serve(async (req) => {
     return Response.json({ ok: false }, { status: 405 });
   }
 
-  if (!isServiceRole(req)) {
+  if (!isServiceRole(req, SERVICE_ROLE_KEY)) {
     return Response.json({ ok: false }, { status: 401 });
   }
 

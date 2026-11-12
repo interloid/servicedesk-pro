@@ -28,6 +28,11 @@ create table if not exists public.business_hours
         default now(),
 
     updated_at timestamptz
-        default now()
+        default now(),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint business_hours_tenant_id_id_key
+        unique (tenant_id, id)
 );
 

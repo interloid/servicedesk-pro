@@ -40,9 +40,7 @@ create table if not exists public.invoices
     invoice_type text
         check (invoice_type in ('recurring', 'one_time')),
 
-    subscription_id uuid
-        references public.subscriptions(id)
-        on delete set null,
+    subscription_id uuid,
 
     paypal_subscription_id text,
 
@@ -81,7 +79,14 @@ create table if not exists public.invoices
         default now(),
 
     constraint chk_invoice_amount
-        check(amount>=0)
+        check(amount>=0),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint invoices_subscription_id_fkey
+        foreign key (tenant_id, subscription_id)
+        references public.subscriptions (tenant_id, id)
+        on delete set null (subscription_id)
 );
 
 create index idx_invoice_tenant

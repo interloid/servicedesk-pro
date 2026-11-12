@@ -32,14 +32,12 @@ create table if not exists public.tickets
         default 'normal',
 
     requester_customer_id uuid
-        not null
-        references public.customers(id),
+        not null,
 
     assignee_user_id uuid
         references public.users(id),
 
-    sla_policy_id uuid
-        references public.sla_policies(id),
+    sla_policy_id uuid,
 
     first_response_at timestamptz,
 
@@ -68,7 +66,20 @@ create table if not exists public.tickets
         default now(),
 
     constraint uq_ticket_number
-        unique (tenant_id, number)
+        unique (tenant_id, number),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint tickets_tenant_id_id_key
+        unique (tenant_id, id),
+
+    constraint tickets_requester_customer_id_fkey
+        foreign key (tenant_id, requester_customer_id)
+        references public.customers (tenant_id, id),
+
+    constraint tickets_sla_policy_id_fkey
+        foreign key (tenant_id, sla_policy_id)
+        references public.sla_policies (tenant_id, id)
 );
 
 comment on table public.tickets is

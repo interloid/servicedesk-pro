@@ -10,8 +10,7 @@ CREATE TABLE IF NOT EXISTS public.sla_events
     tenant_id UUID NOT NULL
         REFERENCES public.tenants(id) ON DELETE CASCADE,
 
-    ticket_id UUID NOT NULL
-        REFERENCES public.tickets(id) ON DELETE CASCADE,
+    ticket_id UUID NOT NULL,
 
     type public.sla_event_type NOT NULL,
 
@@ -32,8 +31,7 @@ CREATE TABLE IF NOT EXISTS public.sla_events
     target_mins INTEGER,
 
     -- The calendar it counts in; null means wall-clock (24/7).
-    business_hours_id UUID
-        REFERENCES public.business_hours(id) ON DELETE SET NULL,
+    business_hours_id UUID,
 
     -- Set while the ticket is Pending / On hold; due_at is re-derived from
     -- remaining_secs on resume.
@@ -49,7 +47,22 @@ CREATE TABLE IF NOT EXISTS public.sla_events
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT uq_ticket_sla_type
-        UNIQUE (ticket_id, type)
+        UNIQUE (ticket_id, type),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint sla_events_tenant_id_id_key
+        unique (tenant_id, id),
+
+    constraint sla_events_ticket_id_fkey
+        foreign key (tenant_id, ticket_id)
+        references public.tickets (tenant_id, id)
+        on delete cascade,
+
+    constraint sla_events_business_hours_id_fkey
+        foreign key (tenant_id, business_hours_id)
+        references public.business_hours (tenant_id, id)
+        on delete set null (business_hours_id)
 );
 
 CREATE INDEX idx_sla_events_ticket

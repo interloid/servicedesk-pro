@@ -25,14 +25,10 @@ create table if not exists public.csat_ratings
         on delete cascade,
 
     ticket_id uuid
-        not null
-        references public.tickets(id)
-        on delete cascade,
+        not null,
 
     customer_id uuid
-        not null
-        references public.customers(id)
-        on delete cascade,
+        not null,
 
     -- Who handled it at the moment of rating. Snapshotted rather than joined
     -- through tickets.assignee_user_id, because reassigning a ticket later must
@@ -63,7 +59,19 @@ create table if not exists public.csat_ratings
         default now(),
 
     constraint uq_csat_per_resolution
-        unique (ticket_id, resolved_at)
+        unique (ticket_id, resolved_at),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint csat_ratings_ticket_id_fkey
+        foreign key (tenant_id, ticket_id)
+        references public.tickets (tenant_id, id)
+        on delete cascade,
+
+    constraint csat_ratings_customer_id_fkey
+        foreign key (tenant_id, customer_id)
+        references public.customers (tenant_id, id)
+        on delete cascade
 );
 
 comment on table public.csat_ratings is

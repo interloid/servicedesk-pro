@@ -18,9 +18,7 @@ create table if not exists public.sla_policy_targets
         on delete cascade,
 
     policy_id uuid
-        not null
-        references public.sla_policies(id)
-        on delete cascade,
+        not null,
 
     priority_scope public.ticket_priority
         not null,
@@ -70,7 +68,14 @@ create table if not exists public.sla_policy_targets
         unique (policy_id, priority_scope),
 
     constraint chk_sla_resolution_ge_first_response
-        check (resolution_mins >= first_response_mins)
+        check (resolution_mins >= first_response_mins),
+
+    -- Tenant-consistent keys (SEC-032, migration 20261112130000): a reference
+    -- to another workspace-owned row must stay in the same workspace.
+    constraint sla_policy_targets_policy_id_fkey
+        foreign key (tenant_id, policy_id)
+        references public.sla_policies (tenant_id, id)
+        on delete cascade
 );
 
 comment on table public.sla_policy_targets is

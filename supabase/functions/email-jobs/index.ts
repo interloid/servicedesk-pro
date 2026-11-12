@@ -5,6 +5,7 @@ import {
   PermanentEmailError,
   sendEmail,
 } from "../_shared/gmail.ts";
+import { isServiceRole } from "../_shared/service-role.ts";
 
 import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { invitationEmailHtml, roleWithArticle } from "./invitation-template.ts";
@@ -122,28 +123,6 @@ function mentionsToNames(body: string): string {
 /** 30s, 2m, 8m, 32m… capped at an hour. */
 function retryDelayMs(attempts: number): number {
   return Math.min(30_000 * 4 ** Math.max(0, attempts - 1), 60 * 60 * 1000);
-}
-
-function isServiceRole(req: Request): boolean {
-  const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
-
-  if (!token) {
-    return false;
-  }
-
-  if (token === SERVICE_ROLE_KEY) {
-    return true;
-  }
-
-  // The gateway has already verified the signature; read the role claim.
-  try {
-    const payload = JSON.parse(
-      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
-    );
-    return payload?.role === "service_role";
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -612,7 +591,7 @@ Deno.serve(async (req) => {
     return Response.json({ ok: false }, { status: 405 });
   }
 
-  if (!isServiceRole(req)) {
+  if (!isServiceRole(req, SERVICE_ROLE_KEY)) {
     return Response.json({ ok: false }, { status: 401 });
   }
 

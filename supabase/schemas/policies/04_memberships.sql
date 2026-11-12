@@ -7,7 +7,8 @@ ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
 
 -- =====================================================
 -- SELECT
--- Tenant members can view memberships
+-- Staff can view the tenant's memberships; a customer
+-- sees only their own. SEC-029, migration 20261112120000.
 -- =====================================================
 
 CREATE POLICY "memberships_select"
@@ -16,6 +17,15 @@ FOR SELECT
 TO authenticated
 USING (
     tenant_id = public.current_tenant_id()
+    AND (
+        user_id = auth.uid()
+        OR public.current_tenant_role() IN (
+            'tenant_admin',
+            'manager',
+            'agent',
+            'billing_admin'
+        )
+    )
 );
 
 -- =====================================================

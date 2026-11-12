@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createPayPalTokenProvider } from "../_shared/paypal-auth.ts";
+import { isServiceRole } from "../_shared/service-role.ts";
 import {
   activatePendingAgreement,
   applySubscriptionPlan,
@@ -785,11 +786,17 @@ Deno.serve(async (req) => {
     );
   }
 
-  // No secret check here on purpose: the function runs behind the gateway with
-  // verify_jwt = true, and pg_cron calls it with the service role key as a
-  // bearer token (see the note on [functions.reconcile-subscriptions] in
-  // supabase/config.toml). An x-cron-secret header was tried before and
+  // pg_cron calls this with the service role key as a bearer token (see the
+  // note on [functions.reconcile-subscriptions] in supabase/config.toml).
+  // verify_jwt only proves a token is genuine, and any signed-in user's token is,
+  // so the role is checked here too. An x-cron-secret header was tried before and
   // arrived empty, which 401'd every scheduled run.
+  if (!isServiceRole(req, SERVICE_ROLE_KEY)) {
+    return Response.json(
+      { success: false, message: "Unauthorized" },
+      { status: 401 },
+    );
+  }
 
   const summary = {
     examined: 0,
