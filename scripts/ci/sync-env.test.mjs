@@ -67,6 +67,15 @@ describe("resolveValues", () => {
     );
   });
 
+  it("refuses seeded demo accounts as platform admins", () => {
+    const input = complete();
+    input.vars.PLATFORM_ADMIN_EMAILS =
+      "ops@example.com, Admin@Juniper.seed.test,jasmine.patel@gulfcoastfab.example";
+    expect(resolveValues(input).errors.join()).toMatch(
+      /seeded demo accounts \(admin@juniper\.seed\.test, jasmine\.patel@gulfcoastfab\.example\)/,
+    );
+  });
+
   it("refuses an app pointed at another Supabase project", () => {
     const input = complete();
     input.vars.NEXT_PUBLIC_SUPABASE_URL =

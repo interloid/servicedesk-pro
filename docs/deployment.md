@@ -138,7 +138,12 @@ Unscoped Preview variables in Vercel (used by pull-request previews) aren't touc
    2. Update `plans.code` in the dev database to the sandbox plan IDs (the seed has production IDs).
    3. Register `https://<dev-ref>.supabase.co/functions/v1/paypal-webhook` as the webhook URL.
    4. Set `PAYPAL_WEBHOOK_ID` in the GitHub `development` environment, then run **Actions → Deploy** on `main`.
-5. Optional: load demo data with `node --env-file=<dev env file> scripts/seed-tenants.mjs --apply --project-ref <dev ref>`.
+5. Optional: load demo data with `node --env-file=<dev env file> scripts/seed-tenants.mjs --apply --project-ref <dev ref>`. On a hosted project the script refuses to write unless the env file sets:
+   - `SEED_PASSWORD`: a fresh random value (at least 12 characters, not the local default, e.g. `openssl rand -base64 18`). Every demo account gets it.
+   - `PLATFORM_ADMIN_PASSWORD`: a different random value, needed the first time, when the platform admin account is created.
+
+   Keep both in the Local/Dev vault only; the app doesn't read them, so they don't belong in GitHub environments or Vercel. Share `SEED_PASSWORD` with demo viewers through a password manager or vault share, never in chat, issues, pull requests or the README, and never share `PLATFORM_ADMIN_PASSWORD`. To rotate it, or to fix accounts seeded with the old default, run `--clean` and then `--apply` with the new value: existing seed tenants are skipped, so their accounts keep the password they were created with.
+
 6. Check it end to end: open the dev URL, create a workspace at `/setup`, raise a ticket, confirm the email reaches the test inbox, and make a sandbox payment.
 
 ## 3. Production setup (deployed by release tags)

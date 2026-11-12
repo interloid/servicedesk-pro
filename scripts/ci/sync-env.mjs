@@ -128,6 +128,20 @@ export function resolveValues({ secrets, vars, deployEnv, appOnly }) {
     );
   }
 
+  // Seeded demo accounts share a password handed to demo viewers, so none of
+  // them may open the platform console of a deployed environment.
+  const seeded = (values.get("PLATFORM_ADMIN_EMAILS") ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(
+      (entry) => entry.endsWith(".seed.test") || entry.endsWith(".example"),
+    );
+  if (seeded.length > 0) {
+    errors.push(
+      `PLATFORM_ADMIN_EMAILS lists seeded demo accounts (${seeded.join(", ")}). Use a real admin's login.`,
+    );
+  }
+
   // Development never moves real money.
   if (
     deployEnv === "development" &&
