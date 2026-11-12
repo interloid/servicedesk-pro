@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { getSessionTenantSlug } from "@/features/tenancy/services/tenant-resolver";
+import {
+  type EmailDelivery,
+  inviteEmailNotice,
+} from "@/lib/email/recipient-allow-list";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 
 import {
@@ -17,6 +21,7 @@ import type { TeamActionResult } from "@/features/team/types/team";
 import {
   changeMemberRole,
   changeMemberStatus,
+  getActorOrNull,
   inviteMember,
   removeMember,
   resendInvite,
@@ -53,6 +58,20 @@ async function revalidateTeam() {
   revalidatePath(tenantPath(slug, TENANT_ROUTES.SETTINGS.TEAM));
 }
 
+/** What to tell the inviter when the email was captured or held back. */
+async function noticeFor(delivery: EmailDelivery, email?: string) {
+  const actor = await getActorOrNull();
+
+  return inviteEmailNotice(
+    delivery,
+    email,
+    actor && {
+      tenantSlug: actor.tenantSlug,
+      isTenantAdmin: actor.role === "Tenant Admin",
+    },
+  );
+}
+
 export async function inviteMemberAction(
   values: unknown,
 ): Promise<TeamActionResult> {
@@ -67,9 +86,9 @@ export async function inviteMemberAction(
   }
 
   try {
-    await inviteMember(parsed.data);
+    const delivery = await inviteMember(parsed.data);
     await revalidateTeam();
-    return { ok: true };
+    return { ok: true, notice: await noticeFor(delivery, parsed.data.email) };
   } catch (error) {
     return toFailure(
       error,
@@ -93,9 +112,9 @@ export async function resendInviteAction(
   }
 
   try {
-    await resendInvite(parsed.data);
+    const delivery = await resendInvite(parsed.data);
     await revalidateTeam();
-    return { ok: true };
+    return { ok: true, notice: await noticeFor(delivery) };
   } catch (error) {
     return toFailure(
       error,

@@ -9,11 +9,27 @@
 //
 // The access token is cached in module scope (isolates are reused across
 // requests) and refreshed shortly before it expires.
+//
+// EMAIL_ALLOWED_RECIPIENTS and EMAIL_DEMO_OUTBOX (optional) decide whether a
+// recipient gets real mail (see email-policy.ts). sendEmail only ever sends:
+// callers capture into the Demo outbox (demo-outbox.ts) before calling it, and
+// anything else that reaches it for a recipient who isn't "send" is refused.
+
+import {
+  deliveryFor,
+  type EmailDelivery,
+  parseFlag,
+  parseRecipientAllowList,
+} from "./email-policy.ts";
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")?.trim();
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")?.trim();
 const GOOGLE_REFRESH_TOKEN = Deno.env.get("GOOGLE_REFRESH_TOKEN")?.trim();
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL")?.trim();
+const ALLOWED_RECIPIENTS = parseRecipientAllowList(
+  Deno.env.get("EMAIL_ALLOWED_RECIPIENTS"),
+);
+const DEMO_OUTBOX = parseFlag(Deno.env.get("EMAIL_DEMO_OUTBOX"));
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_SEND_URL =
@@ -59,6 +75,18 @@ const EMAIL_ADDRESS =
 
 /** Printable ASCII only: safe to put in a header as it is. */
 const PLAIN_HEADER_TEXT = /^[\x20-\x7e]*$/;
+
+/** False when EMAIL_ALLOWED_RECIPIENTS is set and doesn't cover `email`. */
+export function deliveryForRecipient(email: string): EmailDelivery {
+  return deliveryFor(email, ALLOWED_RECIPIENTS, DEMO_OUTBOX);
+}
+
+/** Permanent, so an email job fails at once with the reason, no retries. */
+export function refusedRecipientError(): PermanentEmailError {
+  return new PermanentEmailError(
+    "Recipient is not in EMAIL_ALLOWED_RECIPIENTS; not sent.",
+  );
+}
 
 let gmailConfig: GmailConfig | null = null;
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -331,6 +359,11 @@ async function gmailError(response: Response): Promise<Error> {
 }
 
 export async function sendEmail(message: EmailMessage): Promise<void> {
+  // Last line of defence: a path that forgot to capture can't deliver.
+  if (deliveryForRecipient(message.to) !== "send") {
+    throw refusedRecipientError();
+  }
+
   const config = getGmailConfig();
 
   if (!EMAIL_ADDRESS.test(message.to)) {

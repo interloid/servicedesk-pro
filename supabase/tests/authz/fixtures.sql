@@ -142,6 +142,10 @@ BEGIN
         INSERT INTO public.csat_ratings (tenant_id, ticket_id, customer_id, score, resolved_at)
         VALUES (v_tenant, v_ticket, v_customer, 5, now());
 
+        INSERT INTO public.demo_outbox (tenant_id, kind, recipient, subject, html)
+        VALUES (v_tenant, 'team_invitation', format('new@%s.authz.test', w.slug),
+                'You''ve been invited', '<p>Accept: https://example.test/invite</p>');
+
         INSERT INTO public.sla_policy_customers (tenant_id, policy_id, customer_id)
         VALUES (v_tenant, authz.id(w.key || '_policy'), v_customer);
 

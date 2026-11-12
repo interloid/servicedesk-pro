@@ -1,3 +1,4 @@
+import type { EmailNotice } from "@/lib/email/email-notice";
 import { MembershipRole } from "@/types/team-members";
 
 export const TEAM_ROLE_VALUES = [
@@ -217,6 +218,8 @@ export interface TeamActionResult<T = undefined> {
   data?: T;
   failureCode?: TeamFailureCode;
   message?: string;
+  /** On success: shown instead of the usual toast (email captured or held back). */
+  notice?: EmailNotice;
 }
 
 export type TeamStatusCounts = Record<TeamStatus, number>;

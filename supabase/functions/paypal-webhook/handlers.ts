@@ -1,4 +1,5 @@
 import { getPlatformBrand } from "../_shared/platform-brand.ts";
+import { deliveryForRecipient } from "../_shared/gmail.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateInvoicePdf } from "./pdf.ts";
 import { uploadInvoicePdf, getInvoiceSignedUrl } from "./storage.ts";
@@ -257,11 +258,19 @@ async function emailInvoiceOnce({
   amount: number;
   currency: string;
 }) {
-  const recipients = await resolveInvoiceRecipients(tenantId);
+  const resolved = await resolveInvoiceRecipients(tenantId);
+  // Refused by EMAIL_ALLOWED_RECIPIENTS (a demo without the outbox): skipped
+  // here, not failed in sendEmail, so PayPal doesn't redeliver the event over
+  // and over. With the Demo outbox on, the rest are captured, not skipped.
+  const recipients = resolved.filter(
+    (r) => deliveryForRecipient(r.email) !== "refuse",
+  );
 
   if (recipients.length === 0) {
     console.warn(
-      `No active tenant/billing admin found for tenant ${tenantId}; invoice email skipped.`,
+      resolved.length === 0
+        ? `No active tenant/billing admin found for tenant ${tenantId}; invoice email skipped.`
+        : `Invoice recipients for tenant ${tenantId} are outside EMAIL_ALLOWED_RECIPIENTS; invoice email skipped.`,
     );
     return;
   }
@@ -295,6 +304,8 @@ async function emailInvoiceOnce({
     for (const recipient of recipients) {
       try {
         await sendInvoiceEmail({
+          admin,
+          tenantId,
           customerEmail: recipient.email,
           customerName: recipient.name,
           invoiceNumber,

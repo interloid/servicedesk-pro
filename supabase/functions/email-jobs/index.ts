@@ -1,6 +1,18 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { PermanentEmailError, sendEmail } from "../_shared/gmail.ts";
+import {
+  deliveryForRecipient,
+  PermanentEmailError,
+  refusedRecipientError,
+  sendEmail,
+} from "../_shared/gmail.ts";
+import {
+  captureEmail,
+  deliverEmail,
+  signInLinkFacts,
+  withheldLinkEmail,
+} from "../_shared/demo-outbox.ts";
+import { mayCaptureSignInLink } from "../_shared/email-policy.ts";
 import { isServiceRole } from "../_shared/service-role.ts";
 
 import { getPlatformBrand } from "../_shared/platform-brand.ts";
@@ -28,6 +40,10 @@ import {
 //
 // claim_email_jobs hands each job to one caller (SKIP LOCKED), so the two can
 // run at the same time without sending anything twice.
+//
+// Demo outbox (EMAIL_DEMO_OUTBOX): mail for anyone outside
+// EMAIL_ALLOWED_RECIPIENTS is stored in public.demo_outbox instead of sent,
+// and the job counts as sent. See _shared/demo-outbox.ts.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.trim();
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
@@ -57,6 +73,7 @@ type EmailJob = {
   payload: Record<string, unknown>;
   attempts: number;
   max_attempts: number;
+  tenant_id: string | null;
 };
 
 type TeamInvitationPayload = {
@@ -142,15 +159,22 @@ async function isRegistered(userId: string): Promise<boolean> {
  * anyone who has gets a magic link generated WITHOUT sending, carried in our
  * own invitation email through Gmail.
  */
-async function sendTeamInvitation({
-  userId,
-  email,
-  name,
-  role,
-  tenantId,
-  redirectTo,
-  metadata,
-}: TeamInvitationPayload): Promise<void> {
+async function sendTeamInvitation(
+  invite: TeamInvitationPayload,
+): Promise<void> {
+  const { userId, email, name, role, tenantId, redirectTo, metadata } = invite;
+
+  // Up front: Supabase's own invite email never passes through sendEmail.
+  const delivery = deliveryForRecipient(email);
+
+  if (delivery === "refuse") {
+    throw refusedRecipientError();
+  }
+
+  if (delivery === "capture") {
+    return captureTeamInvitation(invite);
+  }
+
   if (!(await isRegistered(userId))) {
     const { error } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { ...(name ? { full_name: name } : {}), ...metadata },
@@ -178,34 +202,139 @@ async function sendTeamInvitation({
     );
   }
 
+  await sendEmail(
+    await invitationEmail({ email, role, tenantId, link: actionLink }),
+  );
+}
+
+async function workspaceName(tenantId: string): Promise<string> {
   const { data: tenant } = await admin
     .from("tenants")
     .select("name")
     .eq("id", tenantId)
     .maybeSingle();
 
-  const workspace = (tenant?.name as string | undefined) ?? "your team";
+  return (tenant?.name as string | undefined) ?? "your team";
+}
 
-  await sendEmail({
+async function invitationEmail({
+  email,
+  role,
+  tenantId,
+  link,
+}: {
+  email: string;
+  role: string;
+  tenantId: string;
+  link: string;
+}) {
+  const workspace = await workspaceName(tenantId);
+
+  return {
     to: email,
     subject: `You've been invited to ${workspace}`,
     html: invitationEmailHtml({
       workspace,
       role,
-      link: actionLink,
+      link,
       platformName: (await getPlatformBrand(admin)).platformName,
     }),
     text: `You've been invited to join ${workspace} as ${roleWithArticle(
       role,
-    )}.\n\nAccept the invitation: ${actionLink}\n\nThis link works once and expires in 1 hour. If it has expired, ask your admin to resend the invite.`,
-  });
+    )}.\n\nAccept the invitation: ${link}\n\nThis link works once and expires in 1 hour. If it has expired, ask your admin to resend the invite.`,
+  };
 }
 
-/** Supabase's "Reset password" template. A 429 is thrown and retried. */
+/**
+ * Demo outbox: the same invitation, stored instead of sent. The accept link
+ * comes from generateLink, which returns it without sending anything -- and
+ * only for an account the invite itself created (see mayCaptureSignInLink).
+ */
+async function captureTeamInvitation({
+  userId,
+  email,
+  name,
+  role,
+  tenantId,
+  redirectTo,
+  metadata,
+}: TeamInvitationPayload): Promise<void> {
+  const { data: found, error } = await admin.auth.admin.getUserById(userId);
+
+  if (error || !found.user) {
+    throw new Error(`getUserById failed: ${error?.message ?? "no such user"}`);
+  }
+
+  const facts = await signInLinkFacts(admin, {
+    kind: "team_invitation",
+    tenantId,
+    email,
+    user: found.user,
+    createdNow: false,
+  });
+
+  if (!mayCaptureSignInLink(facts)) {
+    const workspace = await workspaceName(tenantId);
+
+    await captureEmail(
+      admin,
+      { tenantId, kind: "team_invitation", linkWithheld: true },
+      withheldLinkEmail({
+        to: email,
+        subject: `You've been invited to ${workspace}`,
+        intro: `You've been invited to join ${workspace} as ${roleWithArticle(role)}.`,
+      }),
+    );
+    return;
+  }
+
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: {
+      data: { ...(name ? { full_name: name } : {}), ...metadata },
+      redirectTo,
+    },
+  });
+
+  const actionLink = link?.properties?.action_link;
+
+  if (linkError || !actionLink) {
+    throw new Error(
+      `generateLink failed: ${linkError?.message ?? "no action_link"}`,
+    );
+  }
+
+  await captureEmail(
+    admin,
+    { tenantId, kind: "team_invitation" },
+    await invitationEmail({ email, role, tenantId, link: actionLink }),
+  );
+}
+
+/**
+ * Supabase's "Reset password" template. A 429 is thrown and retried.
+ *
+ * Never captured: a reset link signs in as an account that already exists.
+ * The app tells the person asking instead, and doesn't queue it.
+ */
 async function sendPasswordReset({
   email,
   redirectTo,
 }: PasswordResetPayload): Promise<void> {
+  const delivery = deliveryForRecipient(email);
+
+  if (delivery === "refuse") {
+    throw refusedRecipientError();
+  }
+
+  if (delivery === "capture") {
+    console.info(
+      "[email-jobs] password_reset not sent: demo outbox recipient, and reset links are never stored.",
+    );
+    return;
+  }
+
   const { error } = await admin.auth.resetPasswordForEmail(email, {
     redirectTo,
   });
@@ -231,13 +360,41 @@ async function sendPasswordReset({
  * until the link in THIS email is clicked, and clicking it is the proof of
  * address. The Next.js side has already turned team emails away.
  */
-async function sendPortalSignIn({
-  email,
-  redirectTo,
-  tenantName,
-  invited = false,
-  ticketNumber = null,
-}: PortalSignInPayload): Promise<void> {
+async function sendPortalSignIn(
+  {
+    email,
+    redirectTo,
+    tenantName,
+    invited = false,
+    ticketNumber = null,
+  }: PortalSignInPayload,
+  job: EmailJob,
+): Promise<void> {
+  // Before the account is created, not only before the send.
+  const delivery = deliveryForRecipient(email);
+
+  if (delivery === "refuse") {
+    throw refusedRecipientError();
+  }
+
+  const copy = portalSignInEmailCopy({
+    workspace: tenantName,
+    invited,
+    ticketNumber,
+  });
+  const capture = {
+    tenantId: job.tenant_id,
+    kind: invited
+      ? ("customer_invitation" as const)
+      : ("portal_sign_in" as const),
+  };
+
+  if (delivery === "capture" && !job.tenant_id) {
+    throw new PermanentEmailError(
+      "Demo outbox: portal sign-in job has no workspace; not sent.",
+    );
+  }
+
   const { error: createError } = await admin.auth.admin.createUser({
     email,
     email_confirm: true,
@@ -267,13 +424,7 @@ async function sendPortalSignIn({
 
   const signInLink = url.toString();
 
-  const copy = portalSignInEmailCopy({
-    workspace: tenantName,
-    invited,
-    ticketNumber,
-  });
-
-  await sendEmail({
+  const message = {
     to: email,
     subject: copy.subject,
     html: portalSignInEmailHtml({
@@ -283,7 +434,38 @@ async function sendPortalSignIn({
       ticketNumber,
     }),
     text: `${copy.bodyText}: ${signInLink}\n\n${copy.note}`,
+  };
+
+  if (delivery === "send") {
+    await sendEmail(message);
+    return;
+  }
+
+  // Demo outbox. The link was only generated, never sent; it is stored only
+  // for a customer account confined to this workspace.
+  const facts = await signInLinkFacts(admin, {
+    kind: "portal_sign_in",
+    tenantId: job.tenant_id!,
+    email,
+    user: link.user ?? null,
+    createdNow: !createError,
   });
+
+  // No user in the response: nothing to judge by, so no link.
+  if (link.user && mayCaptureSignInLink(facts)) {
+    await captureEmail(admin, capture, message);
+    return;
+  }
+
+  await captureEmail(
+    admin,
+    { ...capture, linkWithheld: true },
+    withheldLinkEmail({
+      to: email,
+      subject: copy.subject,
+      intro: copy.bodyText,
+    }),
+  );
 }
 
 /**
@@ -291,9 +473,10 @@ async function sendPortalSignIn({
  * the recipient has email on for its event. Everything is read at send time;
  * a notification already read in the app, or deleted, is not emailed.
  */
-async function sendNotification({
-  notificationId,
-}: NotificationPayload): Promise<void> {
+async function sendNotification(
+  { notificationId }: NotificationPayload,
+  job: EmailJob,
+): Promise<void> {
   const { data: notification, error } = await admin
     .from("notifications")
     .select(
@@ -338,17 +521,22 @@ async function sendNotification({
 
   const workspace = tenant?.name ?? "ServiceDesk";
 
-  await sendEmail({
-    to: user.email,
-    subject: `[${workspace}] ${title}`,
-    html: notificationEmailHtml({ workspace, title, body, link }),
-    text: [title, body, link ? `View ticket: ${link}` : ""]
-      .filter(Boolean)
-      .join("\n\n"),
-  });
+  await deliverEmail(
+    admin,
+    { tenantId: job.tenant_id, kind: "notification" },
+    {
+      to: user.email,
+      subject: `[${workspace}] ${title}`,
+      html: notificationEmailHtml({ workspace, title, body, link }),
+      text: [title, body, link ? `View ticket: ${link}` : ""]
+        .filter(Boolean)
+        .join("\n\n"),
+    },
+  );
 }
 
 type CustomerTicket = {
+  tenantId: string;
   number: number;
   subject: string;
   status: string;
@@ -367,7 +555,7 @@ async function loadCustomerTicket(
   const { data: ticket, error } = await admin
     .from("tickets")
     .select(
-      "number, subject, status, customer:customers(email), tenant:tenants(name, slug)",
+      "tenant_id, number, subject, status, customer:customers(email), tenant:tenants(name, slug)",
     )
     .eq("id", ticketId)
     .maybeSingle();
@@ -388,6 +576,7 @@ async function loadCustomerTicket(
   }
 
   return {
+    tenantId: ticket.tenant_id as string,
     number: ticket.number as number,
     subject: ticket.subject as string,
     status: ticket.status as string,
@@ -413,23 +602,27 @@ async function sendCustomerTicketEmail(
     note: string;
   },
 ): Promise<void> {
-  await sendEmail({
-    to: ticket.email,
-    subject: content.subject,
-    html: customerTicketEmailHtml({
-      workspace: ticket.workspace,
-      link: ticket.link,
-      ...content,
-    }),
-    text: [
-      content.intro,
-      content.quote ?? "",
-      ticket.link ? `${content.buttonLabel}: ${ticket.link}` : "",
-      content.note,
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-  });
+  await deliverEmail(
+    admin,
+    { tenantId: ticket.tenantId, kind: "customer_ticket" },
+    {
+      to: ticket.email,
+      subject: content.subject,
+      html: customerTicketEmailHtml({
+        workspace: ticket.workspace,
+        link: ticket.link,
+        ...content,
+      }),
+      text: [
+        content.intro,
+        content.quote ?? "",
+        ticket.link ? `${content.buttonLabel}: ${ticket.link}` : "",
+        content.note,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    },
+  );
 }
 
 /** The confirmation for a new request, portal or raised by an agent. */
@@ -511,7 +704,10 @@ async function sendCustomerTicketResolved({
   });
 }
 
-const HANDLERS: Record<string, (payload: never) => Promise<void>> = {
+const HANDLERS: Record<
+  string,
+  (payload: never, job: EmailJob) => Promise<void>
+> = {
   team_invitation: sendTeamInvitation,
   password_reset: sendPasswordReset,
   portal_sign_in: sendPortalSignIn,
@@ -531,7 +727,7 @@ async function runJob(job: EmailJob): Promise<boolean> {
       throw new PermanentEmailError(`No handler for email kind "${job.kind}"`);
     }
 
-    await handler(job.payload as never);
+    await handler(job.payload as never, job);
 
     await admin
       .from("email_jobs")

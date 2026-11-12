@@ -1,5 +1,7 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 import type { PlatformBrand } from "../_shared/platform-brand.ts";
-import { sendEmail } from "../_shared/gmail.ts";
+import { deliverEmail } from "../_shared/demo-outbox.ts";
 
 // Every value interpolated into the HTML body is escaped. customerName comes
 // from users.full_name, which the user edits freely, so it must not be able to
@@ -14,6 +16,8 @@ function escapeHtml(value: string): string {
 }
 
 export async function sendInvoiceEmail({
+  admin,
+  tenantId,
   customerEmail,
   customerName,
   invoiceNumber,
@@ -22,6 +26,9 @@ export async function sendInvoiceEmail({
   signedUrl,
   brand,
 }: {
+  admin: SupabaseClient;
+  /** Whose Demo outbox holds it when the recipient is captured. */
+  tenantId: string;
   customerEmail: string;
   customerName: string;
   invoiceNumber: string;
@@ -39,13 +46,17 @@ export async function sendInvoiceEmail({
 
   const amountPaid = `${currency} ${Number(amount).toFixed(2)}`;
 
-  // Sent through Gmail (see _shared/gmail.ts). A failure throws, which
-  // emailInvoiceOnce in handlers.ts counts against this recipient.
-  await sendEmail({
-    to: customerEmail,
-    subject: `Invoice ${invoiceNumber}`,
-    text: `Hi ${customerName},\n\nThank you for your payment. Your invoice has been generated successfully.\n\nInvoice: ${invoiceNumber}\nAmount paid: ${amountPaid}\nPayment status: Paid\n\nView invoice: ${signedUrl}\n\nIf the link does not work, you can access your invoice from your ${brand.platformName} billing account.\n\nThank you for choosing ${brand.platformName}.`,
-    html: `
+  // Sent through Gmail (see _shared/gmail.ts), or stored in the Demo outbox
+  // (_shared/demo-outbox.ts). A failure throws, which emailInvoiceOnce in
+  // handlers.ts counts against this recipient.
+  await deliverEmail(
+    admin,
+    { tenantId, kind: "invoice" },
+    {
+      to: customerEmail,
+      subject: `Invoice ${invoiceNumber}`,
+      text: `Hi ${customerName},\n\nThank you for your payment. Your invoice has been generated successfully.\n\nInvoice: ${invoiceNumber}\nAmount paid: ${amountPaid}\nPayment status: Paid\n\nView invoice: ${signedUrl}\n\nIf the link does not work, you can access your invoice from your ${brand.platformName} billing account.\n\nThank you for choosing ${brand.platformName}.`,
+      html: `
         <div style="max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:Arial,sans-serif;background:white">
           <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb">
             <strong style="font-size:20px;color:#111827">${safeBrand}</strong>
@@ -85,5 +96,6 @@ export async function sendInvoiceEmail({
           </div>
         </div>
         `,
-  });
+    },
+  );
 }

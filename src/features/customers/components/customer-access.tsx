@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { showEmailNotice } from "@/lib/email/email-notice";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -138,7 +140,8 @@ export function CustomerAccessMenu({
           return;
         }
 
-        toast.success(action.success);
+        if (result.notice) showEmailNotice(result.notice);
+        else toast.success(action.success);
       } catch (error) {
         console.error("[customers] access action failed", error);
         toast.error(`${action.failure} Check your connection and try again.`);

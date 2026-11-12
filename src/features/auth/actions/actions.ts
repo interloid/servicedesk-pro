@@ -19,6 +19,7 @@ import {
 import type { ActionResult, LoginSuccess } from "@/features/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { passwordResetDemoNotice } from "@/lib/email/recipient-allow-list";
 import { getTenantClaims } from "../claims";
 import { isPlatformAdminEmail } from "@/features/platform-admin/services/platform-access";
 
@@ -196,6 +197,9 @@ export async function resetPasswordAction(values: ForgotPasswordValues) {
     };
   }
 
+  const demoNotice = passwordResetDemoNotice(validatedFields.data.email);
+  if (demoNotice) return { success: true, demoNotice };
+
   const result = await sendPasswordResetLink(validatedFields.data);
 
   if (!result.success) {
@@ -234,6 +238,9 @@ export async function resetTenantPasswordAction(
       error: "Invalid email format provided.",
     };
   }
+
+  const demoNotice = passwordResetDemoNotice(validatedFields.data.email);
+  if (demoNotice) return { success: true, demoNotice };
 
   const result = await sendTenantPasswordResetLink(validatedFields.data, slug);
 

@@ -323,6 +323,50 @@ export type Database = {
           },
         ];
       };
+      demo_outbox: {
+        Row: {
+          created_at: string;
+          html: string;
+          id: string;
+          kind: string;
+          link_withheld: boolean;
+          recipient: string;
+          subject: string;
+          tenant_id: string;
+          text: string;
+        };
+        Insert: {
+          created_at?: string;
+          html: string;
+          id?: string;
+          kind: string;
+          link_withheld?: boolean;
+          recipient: string;
+          subject: string;
+          tenant_id: string;
+          text?: string;
+        };
+        Update: {
+          created_at?: string;
+          html?: string;
+          id?: string;
+          kind?: string;
+          link_withheld?: boolean;
+          recipient?: string;
+          subject?: string;
+          tenant_id?: string;
+          text?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "demo_outbox_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       email_jobs: {
         Row: {
           attempts: number;

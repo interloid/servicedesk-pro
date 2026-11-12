@@ -5,6 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { showEmailNotice } from "@/lib/email/email-notice";
+
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,6 +116,11 @@ export function InviteMemberModal({
             result.message ?? `We couldn't send the invite to ${values.email}.`,
             { id: toastId },
           );
+          return;
+        }
+
+        if (result.notice) {
+          showEmailNotice(result.notice, toastId);
           return;
         }
 
