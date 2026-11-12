@@ -5,6 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Share2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+
+import { showEmailNotice } from "@/lib/email/email-notice";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -74,7 +76,7 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
         }
 
         if (result.notice) {
-          toast.warning(result.notice, { id: toastId });
+          showEmailNotice(result.notice, toastId);
           return;
         }
 

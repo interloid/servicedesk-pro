@@ -5,6 +5,7 @@ import type { MembershipRole } from "@/types/team-members";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { enqueueEmail } from "@/lib/email/email-queue";
+import type { EmailDelivery } from "@/lib/email/recipient-allow-list";
 import {
   createAuditedAdminClient,
   createSupabaseAdminClient,
@@ -443,10 +444,10 @@ async function inviteRedirectTo(
   return `${origin}${tenantPath(slug, TENANT_ROUTES.RESET_PASSWORD)}?${LINK_ACTION_PARAM}=${LINK_ACTIONS.INVITE}`;
 }
 
-/** Resolves to whether the invitation email was queued (see enqueueEmail). */
+/** Resolves to what happens to the invitation email (see enqueueEmail). */
 export async function inviteMember(
   values: InviteMemberValues,
-): Promise<boolean> {
+): Promise<EmailDelivery> {
   const actor = await requireActor();
 
   assertRole(
@@ -483,8 +484,8 @@ export async function inviteMember(
  * An existing account is only invited, and is refused when it already belongs
  * to another workspace. Shared by the Team page and the signup wizard, so the
  * two can't drift apart again. The seat trigger still re-checks the limit.
- * Resolves to whether the email was queued: false when the demo's
- * EMAIL_ALLOWED_RECIPIENTS held it back (the invite still stands).
+ * Resolves to what happens to the email (see enqueueEmail): sent, captured
+ * in the Demo outbox, or refused. The invite stands either way.
  */
 export async function addInvitedStaffMember(values: {
   tenantId: string;
@@ -492,7 +493,7 @@ export async function addInvitedStaffMember(values: {
   inviterId: string;
   email: string;
   role: TeamRole;
-}): Promise<boolean> {
+}): Promise<EmailDelivery> {
   const actor = {
     tenantId: values.tenantId,
     tenantSlug: values.tenantSlug,
@@ -706,7 +707,7 @@ async function queueTeamInvitation({
   role: TeamRole;
   tenantId: string;
   slug: string | null;
-}): Promise<boolean> {
+}): Promise<EmailDelivery> {
   try {
     return await enqueueEmail(
       "team_invitation",
@@ -733,10 +734,10 @@ type InviteRow = {
   user: { email: string | null; full_name: string | null } | null;
 };
 
-/** Resolves to whether the invitation email was queued (see enqueueEmail). */
+/** Resolves to what happens to the invitation email (see enqueueEmail). */
 export async function resendInvite(
   values: ResendInviteValues,
-): Promise<boolean> {
+): Promise<EmailDelivery> {
   const supabase = await createSupabaseServerClient();
   const actor = await requireActor();
   assertRole(

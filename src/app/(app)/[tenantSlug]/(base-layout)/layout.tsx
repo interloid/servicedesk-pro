@@ -9,6 +9,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { NotificationsProvider } from "@/features/notifications/components/notifications-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WorkspaceStatusWatcher } from "@/features/platform-admin/components/workspace-status-watcher";
+import { demoOutboxEnabled } from "@/lib/email/recipient-allow-list";
 import { getShellIdentity } from "@/lib/identity";
 import { APP_ROUTES } from "@/lib/routes";
 import { isStaffRole } from "@/lib/tenancy";
@@ -67,7 +68,7 @@ export default async function DashboardLayout({
           />
           <GlobalShortcuts role={identity.user.role} />
           <div className="flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
-            <AppSidebar identity={identity} />
+            <AppSidebar identity={identity} demoOutbox={demoOutboxEnabled()} />
 
             <div className="flex flex-1 flex-col min-w-0 h-full w-full">
               <AppHeader identity={identity} />

@@ -1,5 +1,5 @@
 import { getPlatformBrand } from "../_shared/platform-brand.ts";
-import { isRecipientAllowedByConfig } from "../_shared/gmail.ts";
+import { deliveryForRecipient } from "../_shared/gmail.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateInvoicePdf } from "./pdf.ts";
 import { uploadInvoicePdf, getInvoiceSignedUrl } from "./storage.ts";
@@ -259,10 +259,11 @@ async function emailInvoiceOnce({
   currency: string;
 }) {
   const resolved = await resolveInvoiceRecipients(tenantId);
-  // Outside EMAIL_ALLOWED_RECIPIENTS (a demo): skipped here, not failed in
-  // sendEmail, so PayPal doesn't redeliver the event over and over.
-  const recipients = resolved.filter((r) =>
-    isRecipientAllowedByConfig(r.email),
+  // Refused by EMAIL_ALLOWED_RECIPIENTS (a demo without the outbox): skipped
+  // here, not failed in sendEmail, so PayPal doesn't redeliver the event over
+  // and over. With the Demo outbox on, the rest are captured, not skipped.
+  const recipients = resolved.filter(
+    (r) => deliveryForRecipient(r.email) !== "refuse",
   );
 
   if (recipients.length === 0) {
@@ -303,6 +304,8 @@ async function emailInvoiceOnce({
     for (const recipient of recipients) {
       try {
         await sendInvoiceEmail({
+          admin,
+          tenantId,
           customerEmail: recipient.email,
           customerName: recipient.name,
           invoiceNumber,

@@ -62,6 +62,12 @@ export function ForgotPasswordForm() {
         return;
       }
 
+      if ("demoNotice" in response && response.demoNotice) {
+        // A demo that only emails approved addresses: say so, not "sent".
+        toast.info(response.demoNotice, { duration: 10_000 });
+        return;
+      }
+
       toast.success("Reset link sent. Check your inbox.");
       setSent(true);
     });

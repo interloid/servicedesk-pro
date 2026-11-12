@@ -48,7 +48,8 @@ export const MANIFEST = [
     secret: true,
   },
   // App: platform console
-  { name: "PLATFORM_ADMIN_EMAILS", to: "app" },
+  // Both: the functions keep platform admins' sign-in links out of the Demo outbox.
+  { name: "PLATFORM_ADMIN_EMAILS", to: "both" },
   { name: "SUPABASE_MANAGEMENT_TOKEN", to: "app", secret: true },
   { name: "SUPABASE_PROJECT_REF", to: "app" },
   // App: payments and monitoring
@@ -83,8 +84,9 @@ export const MANIFEST = [
   },
   { name: "FROM_EMAIL", to: "functions", required: true },
   { name: "FRONTEND_URL", to: "functions", required: true },
-  // Both: the functions enforce it, the app tells the inviter.
+  // Both: the functions enforce them, the app tells the person who asked.
   { name: "EMAIL_ALLOWED_RECIPIENTS", to: "both" },
+  { name: "EMAIL_DEMO_OUTBOX", to: "both" },
 ];
 
 const LIVE_PAYPAL = "https://api-m.paypal.com";

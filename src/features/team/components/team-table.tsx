@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useTransition } from "react";
 import { toast } from "sonner";
+
+import { type EmailNotice, showEmailNotice } from "@/lib/email/email-notice";
 import {
   ChevronLeft,
   ChevronRight,
@@ -180,8 +182,8 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
             (result as { message?: string }).message ?? `${failure} Try again.`;
           toast.error(message);
         } else {
-          const notice = (result as { notice?: string } | null)?.notice;
-          if (notice) toast.warning(notice);
+          const notice = (result as { notice?: EmailNotice } | null)?.notice;
+          if (notice) showEmailNotice(notice);
           else toast.success(success);
           onDone?.();
         }

@@ -127,6 +127,20 @@ describe("only", () => {
       "FROM_EMAIL",
     ]);
   });
+
+  it("sends the demo email settings and admin list to both", () => {
+    const names = [
+      "EMAIL_ALLOWED_RECIPIENTS",
+      "EMAIL_DEMO_OUTBOX",
+      "PLATFORM_ADMIN_EMAILS",
+    ];
+    for (const name of names) {
+      const entry = MANIFEST.find((e) => e.name === name);
+      expect(entry, name).toMatchObject({ to: "both" });
+      expect(entry.secret, name).toBeFalsy();
+      expect(entry.required, name).toBeFalsy();
+    }
+  });
 });
 
 describe("planVercel", () => {

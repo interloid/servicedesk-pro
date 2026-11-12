@@ -3,6 +3,17 @@ import { redirect } from "next/navigation";
 
 import { PortalCheckEmail } from "@/features/portal/components/portal-check-email";
 import { PORTAL_ROUTES, portalPath } from "@/features/portal/portal";
+import { emailDelivery } from "@/lib/email/recipient-allow-list";
+
+// From the address and settings alone, like every other demo notice: it says
+// nothing about whether an account exists or an email was actually stored.
+const DEMO_NOTES = {
+  send: undefined,
+  capture:
+    "Demo: this email doesn't go to a real inbox. It's in this workspace's Demo outbox, which its Tenant Admin can open.",
+  refuse:
+    "Demo: sign-in emails only go to approved addresses, so none was sent to this one.",
+} as const;
 
 export const metadata: Metadata = {
   title: "Check your inbox",
@@ -37,6 +48,7 @@ export default async function PortalCheckEmailPage({
       tenantSlug={tenantSlug}
       email={email}
       afterRequest={afterRequest}
+      demoNote={DEMO_NOTES[emailDelivery(email)]}
     />
   );
 }

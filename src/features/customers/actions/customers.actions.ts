@@ -12,12 +12,16 @@ import {
   setCustomerPortalAccess,
 } from "@/features/customers/services/customer-invite.service";
 import { getSessionTenantSlug } from "@/features/tenancy/services/tenant-resolver";
-import { inviteNotEmailedNotice } from "@/lib/email/recipient-allow-list";
+import type { EmailNotice } from "@/lib/email/email-notice";
+import {
+  type EmailDelivery,
+  inviteEmailNotice,
+} from "@/lib/email/recipient-allow-list";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 
 export type InviteCustomerResult =
-  /** `notice`: shown instead of the usual toast (e.g. email held back). */
-  | { ok: true; notice?: string }
+  /** `notice`: shown instead of the usual toast (email captured or held back). */
+  | { ok: true; notice?: EmailNotice }
   | {
       ok: false;
       failureCode: CustomerInviteFailure | "validation";
@@ -37,10 +41,10 @@ export async function inviteCustomerAction(
     };
   }
 
-  let emailed: boolean;
+  let delivery: EmailDelivery;
 
   try {
-    emailed = await inviteCustomer(parsed.data);
+    delivery = await inviteCustomer(parsed.data);
   } catch (error) {
     return toFailure(
       error,
@@ -50,9 +54,15 @@ export async function inviteCustomerAction(
 
   await revalidateCustomers();
 
-  return emailed
-    ? { ok: true }
-    : { ok: true, notice: inviteNotEmailedNotice(parsed.data.email) };
+  return { ok: true, notice: await noticeFor(delivery, parsed.data.email) };
+}
+
+/** Customer invites are Tenant Admin only, so the notice may link the outbox. */
+async function noticeFor(delivery: EmailDelivery, email?: string) {
+  return inviteEmailNotice(delivery, email, {
+    tenantSlug: await getSessionTenantSlug(),
+    isTenantAdmin: true,
+  });
 }
 
 /** The list and every customer page under it (`layout` covers the detail). */
@@ -118,17 +128,15 @@ export async function inviteExistingCustomerAction(
     };
   }
 
-  let emailed: boolean;
+  let delivery: EmailDelivery;
 
   try {
-    emailed = await inviteExistingCustomer(parsed.data.customerId);
+    delivery = await inviteExistingCustomer(parsed.data.customerId);
   } catch (error) {
     return toFailure(error, "We couldn't send that invite. Try again.");
   }
 
   await revalidateCustomers();
 
-  return emailed
-    ? { ok: true }
-    : { ok: true, notice: inviteNotEmailedNotice() };
+  return { ok: true, notice: await noticeFor(delivery) };
 }

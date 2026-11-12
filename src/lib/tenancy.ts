@@ -176,6 +176,7 @@ export const TENANT_ROUTES = {
     DATA: "/settings/data",
     NOTIFICATIONS: "/settings/notifications",
     AUDIT: "/settings/audit",
+    DEMO_OUTBOX: "/settings/demo-outbox",
   },
 
   ACCOUNT: {
@@ -202,6 +203,7 @@ export const SHIPPED_TENANT_ROUTES: ReadonlySet<string> = new Set<string>([
   TENANT_ROUTES.SETTINGS.BRANDING,
   TENANT_ROUTES.SETTINGS.NOTIFICATIONS,
   TENANT_ROUTES.SETTINGS.AUDIT,
+  TENANT_ROUTES.SETTINGS.DEMO_OUTBOX,
   TENANT_ROUTES.ACCOUNT.BILLING,
   TENANT_ROUTES.ACCOUNT.PLANS,
 ]);

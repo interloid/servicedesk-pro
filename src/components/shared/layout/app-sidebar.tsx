@@ -24,6 +24,7 @@ import {
   User,
   BadgeDollarSign,
   Lock,
+  Inbox,
 } from "lucide-react";
 
 import {
@@ -75,7 +76,14 @@ interface NavSection {
   items: NavItem[];
 }
 
-export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
+export function AppSidebar({
+  identity,
+  demoOutbox = false,
+}: {
+  identity: ShellIdentity | null;
+  /** EMAIL_DEMO_OUTBOX is on: list the Demo outbox (Tenant Admins only). */
+  demoOutbox?: boolean;
+}) {
   const pathname = usePathname();
   const params = useParams();
 
@@ -199,6 +207,16 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
           roles: ["tenant_admin", "manager"],
           locked: !identity?.org.auditLogs,
         },
+        ...(demoOutbox
+          ? [
+              {
+                label: "Demo outbox",
+                href: TENANT_ROUTES.SETTINGS.DEMO_OUTBOX,
+                icon: Inbox,
+                roles: ["tenant_admin"] as MembershipRole[],
+              },
+            ]
+          : []),
       ],
     },
 

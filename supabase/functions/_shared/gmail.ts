@@ -10,14 +10,17 @@
 // The access token is cached in module scope (isolates are reused across
 // requests) and refreshed shortly before it expires.
 //
-// EMAIL_ALLOWED_RECIPIENTS (optional): when set, mail goes only to the listed
-// addresses and @domains (see recipient-filter.ts). Every send path checks
-// it: sendEmail here, and email-jobs before each Supabase Auth email.
+// EMAIL_ALLOWED_RECIPIENTS and EMAIL_DEMO_OUTBOX (optional) decide whether a
+// recipient gets real mail (see email-policy.ts). sendEmail only ever sends:
+// callers capture into the Demo outbox (demo-outbox.ts) before calling it, and
+// anything else that reaches it for a recipient who isn't "send" is refused.
 
 import {
-  isRecipientAllowed,
+  deliveryFor,
+  type EmailDelivery,
+  parseFlag,
   parseRecipientAllowList,
-} from "./recipient-filter.ts";
+} from "./email-policy.ts";
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")?.trim();
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")?.trim();
@@ -26,6 +29,7 @@ const FROM_EMAIL = Deno.env.get("FROM_EMAIL")?.trim();
 const ALLOWED_RECIPIENTS = parseRecipientAllowList(
   Deno.env.get("EMAIL_ALLOWED_RECIPIENTS"),
 );
+const DEMO_OUTBOX = parseFlag(Deno.env.get("EMAIL_DEMO_OUTBOX"));
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_SEND_URL =
@@ -73,20 +77,15 @@ const EMAIL_ADDRESS =
 const PLAIN_HEADER_TEXT = /^[\x20-\x7e]*$/;
 
 /** False when EMAIL_ALLOWED_RECIPIENTS is set and doesn't cover `email`. */
-export function isRecipientAllowedByConfig(email: string): boolean {
-  return isRecipientAllowed(email, ALLOWED_RECIPIENTS);
+export function deliveryForRecipient(email: string): EmailDelivery {
+  return deliveryFor(email, ALLOWED_RECIPIENTS, DEMO_OUTBOX);
 }
 
-/**
- * Refuses a recipient outside EMAIL_ALLOWED_RECIPIENTS. Permanent, so an
- * email job fails at once with the reason instead of retrying.
- */
-export function assertRecipientAllowed(email: string): void {
-  if (!isRecipientAllowedByConfig(email)) {
-    throw new PermanentEmailError(
-      "Recipient is not in EMAIL_ALLOWED_RECIPIENTS; not sent.",
-    );
-  }
+/** Permanent, so an email job fails at once with the reason, no retries. */
+export function refusedRecipientError(): PermanentEmailError {
+  return new PermanentEmailError(
+    "Recipient is not in EMAIL_ALLOWED_RECIPIENTS; not sent.",
+  );
 }
 
 let gmailConfig: GmailConfig | null = null;
@@ -360,7 +359,10 @@ async function gmailError(response: Response): Promise<Error> {
 }
 
 export async function sendEmail(message: EmailMessage): Promise<void> {
-  assertRecipientAllowed(message.to);
+  // Last line of defence: a path that forgot to capture can't deliver.
+  if (deliveryForRecipient(message.to) !== "send") {
+    throw refusedRecipientError();
+  }
 
   const config = getGmailConfig();
 

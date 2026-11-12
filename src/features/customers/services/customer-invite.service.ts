@@ -5,6 +5,7 @@ import type { InviteCustomerValues } from "@/features/customers/schemas/customer
 import { PORTAL_ROUTES, portalPath } from "@/features/portal/portal";
 import { getActorOrNull } from "@/features/team/services/team.service";
 import { enqueueEmail } from "@/lib/email/email-queue";
+import type { EmailDelivery } from "@/lib/email/recipient-allow-list";
 import {
   createAuditedAdminClient,
   createSupabaseAdminClient,
@@ -65,12 +66,12 @@ function fail(message: string, error: { message?: string } | null) {
  * Inviting someone whose invitation is still pending sends it again, so this
  * doubles as "Resend invite".
  *
- * Resolves to whether the email was queued: false when the demo's
- * EMAIL_ALLOWED_RECIPIENTS held it back (the invite still stands).
+ * Resolves to what happens to the email (see enqueueEmail): sent, captured
+ * in the Demo outbox, or refused. The invite stands either way.
  */
 export async function inviteCustomer(
   values: InviteCustomerValues,
-): Promise<boolean> {
+): Promise<EmailDelivery> {
   const actor = await getActorOrNull();
 
   if (!actor || actor.role !== "Tenant Admin") {
@@ -487,7 +488,7 @@ export async function setCustomerPortalAccess(
  */
 export async function inviteExistingCustomer(
   customerId: string,
-): Promise<boolean> {
+): Promise<EmailDelivery> {
   const actor = await requireTenantAdmin();
   const { customer } = await resolveCustomerAccount(actor.tenantId, customerId);
 

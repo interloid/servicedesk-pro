@@ -64,13 +64,17 @@ Set each of these in both `development` and `production`, with that environment'
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                          | Variable | Yes      | Vercel         |
 | `SUPABASE_SERVICE_ROLE_KEY`                                                                                                          | Secret   | Yes      | Vercel         |
 | `NEXT_PUBLIC_TWITTER_HANDLE`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Variable | No       | Vercel         |
-| `PLATFORM_ADMIN_EMAILS`                                                                                                              | Either   | No       | Vercel         |
+| `PLATFORM_ADMIN_EMAILS`                                                                                                              | Either   | No       | Both           |
 | `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                     | Secret   | No       | Vercel         |
 | `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                         | Variable | Yes      | Edge Functions |
 | `PAYPAL_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`                                                               | Secret   | Yes      | Edge Functions |
-| `EMAIL_ALLOWED_RECIPIENTS` (set it in development)                                                                                   | Variable | No       | Both           |
+| `EMAIL_ALLOWED_RECIPIENTS`, `EMAIL_DEMO_OUTBOX` (set both in development)                                                            | Variable | No       | Both           |
 
-`EMAIL_ALLOWED_RECIPIENTS` limits every outbound email (invites, sign-in links, password resets, notifications, invoices) to its comma-separated addresses and `@domain` entries, for example `you@example.com, @example.org`. Set it in `development` to the team's own addresses or domain, so visitors to the public demo can't use invites to email strangers. Mail to anyone else isn't sent: the Edge Functions refuse it, and the app tells the inviter that no email went out. Leave it empty in production to email anyone.
+`EMAIL_ALLOWED_RECIPIENTS` limits every outbound email (invites, sign-in links, password resets, notifications, invoices) to its comma-separated addresses and `@domain` entries, for example `you@example.com, @example.org`. Mail to anyone else isn't sent. `EMAIL_DEMO_OUTBOX=true` stores that mail instead, in the workspace's **Demo outbox** (Settings → Demo outbox, Tenant Admins only), so visitors to an open demo can sign up with any address, invite people and follow every email without anything reaching a stranger's inbox. With the outbox on and no list, every email is stored.
+
+What the outbox never holds: password reset links, and sign-in or invite links for accounts that aren't new to that workspace (a member or customer of another workspace, a confirmed account, or anyone on `PLATFORM_ADMIN_EMAILS`). Those emails are stored with the link replaced by a note. The functions need `PLATFORM_ADMIN_EMAILS` to make that check, and store no links at all without it.
+
+For `development`, set `EMAIL_DEMO_OUTBOX=true` and `EMAIL_ALLOWED_RECIPIENTS` to the team's own addresses or `@domain`. Leave both empty in production to email anyone. Run a full **Actions → Deploy** after changing them, not an app-only one, so the Edge Functions get them too.
 
 `SUPABASE_PROJECT_REF` also reaches the app. The deploy also checks that `NEXT_PUBLIC_SUPABASE_URL` belongs to `SUPABASE_PROJECT_REF`, and that development never uses live PayPal. An optional value left empty in GitHub is left as it is in Vercel. To change a value, edit it in GitHub and run **Actions → Deploy** (on `main` for development, on the release tag for production).
 
@@ -117,9 +121,9 @@ All of these go in the GitHub `development` environment; the deploy writes them 
 - `NEXT_PUBLIC_SITE_NAME` and `NEXT_PUBLIC_SITE_DESCRIPTION`.
 - PayPal **sandbox**: `PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID`, and the same client ID as `NEXT_PUBLIC_PAYPAL_CLIENT_ID`.
 - A **test** Gmail account: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` and `FROM_EMAIL`.
-- `EMAIL_ALLOWED_RECIPIENTS`, set to the team's own addresses or `@domain`, so the public demo only emails people you know.
+- `EMAIL_DEMO_OUTBOX=true` and `EMAIL_ALLOWED_RECIPIENTS` set to the team's own addresses or `@domain`: the team gets real mail, and every other email lands in the workspace's Demo outbox instead of a stranger's inbox.
 - `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN`, pointing at a separate Sentry environment or project.
-- `PLATFORM_ADMIN_EMAILS`, set to a real admin's login, never a seeded demo account.
+- `PLATFORM_ADMIN_EMAILS`, set to a real admin's login, never a seeded demo account. The Demo outbox stores no sign-in links until it reaches the Edge Functions.
 
 Unscoped Preview variables in Vercel (used by pull-request previews) aren't touched by the deploy. If pull-request previews are on, unscoped Preview variables apply to them. Point those at the dev project, never production. A preview runs the PR's code before its migrations are applied, so expect schema-changing PRs to look broken there.
 

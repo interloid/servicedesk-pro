@@ -6,7 +6,7 @@ import {
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { inviteNotEmailedNotice } from "@/lib/email/recipient-allow-list";
+import { inviteEmailNotice } from "@/lib/email/recipient-allow-list";
 import {
   EMAIL_ALREADY_REGISTERED_MESSAGE,
   signUpWithPkce,
@@ -172,7 +172,7 @@ export async function registerTenant(payload: RegisterInput) {
       if (!inviteEmail) continue;
 
       try {
-        const emailed = await addInvitedStaffMember({
+        const delivery = await addInvitedStaffMember({
           tenantId: provisioned.tenant_id,
           tenantSlug: provisioned.tenant_slug,
           inviterId: userId,
@@ -180,12 +180,16 @@ export async function registerTenant(payload: RegisterInput) {
           role: ONBOARDING_ROLE_LABEL[invite.role],
         });
 
+        // The person signing up becomes the workspace's Tenant Admin.
+        const notice = inviteEmailNotice(delivery, inviteEmail, {
+          tenantSlug: provisioned.tenant_slug,
+          isTenantAdmin: true,
+        });
+
         invitationResults.push({
           email: inviteEmail,
           status: "invited",
-          message: emailed
-            ? "Invitation sent successfully."
-            : inviteNotEmailedNotice(inviteEmail),
+          message: notice?.message ?? "Invitation sent successfully.",
         });
       } catch (error) {
         invitationResults.push(invitationFailure(inviteEmail, error));

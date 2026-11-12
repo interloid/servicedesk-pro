@@ -34,11 +34,14 @@ export function PortalCheckEmail({
   tenantSlug,
   email,
   afterRequest = false,
+  demoNote,
 }: {
   tenantSlug: string;
   email: string;
   /** Arrived from a ticket filed signed out: the link sets up the account. */
   afterRequest?: boolean;
+  /** On a demo: where the email went instead of an inbox. */
+  demoNote?: string;
 }) {
   const router = useRouter();
 
@@ -109,6 +112,15 @@ export function PortalCheckEmail({
             : "The link signs you in wherever you open it, and works once. If it has expired, come back here and send a new one."}
         </span>
       </p>
+
+      {demoNote ? (
+        <Alert className="mt-5 rounded-[10px] px-3.5 py-3">
+          <CircleAlert className="size-4.5" aria-hidden />
+          <AlertDescription className="text-sm leading-[1.55]">
+            {demoNote}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {error ? (
         <Alert
