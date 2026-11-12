@@ -43,7 +43,7 @@ test("a customer raises a request and replies to it", async ({ page }) => {
 });
 
 test("a customer cannot read another customer's request", async ({ page }) => {
-  const otherId = await ticketIdOf("customer2@cedar.seed.test");
+  const otherId = await ticketIdOf("marcus.bell@baysidept.example");
   expect(otherId).not.toBe(await ticketIdOf(ACCOUNTS.proCustomer));
 
   await page.goto(`/${PRO_TENANT}/portal/requests/${otherId}`);
