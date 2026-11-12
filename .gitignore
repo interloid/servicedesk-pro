@@ -57,3 +57,4 @@ skills-lock.json
 
 # Test folders at any level, including supabase/tests
 tests
+.env*
