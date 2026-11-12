@@ -155,7 +155,7 @@ Development is an open demo: anyone can sign up at `/setup`. **Actions → Demo 
 
 **What it deletes**
 
-1. **Visitor workspaces:** every workspace whose slug doesn't start with `seed-` and that is older than the grace period (2 hours by default). Deleting the `tenants` row cascades to every table in `public` (tickets, messages, customers, memberships, invoices, subscriptions, SLA policies, audit logs and the rest), so one delete per workspace is the whole job. There is no separate deprovision function.
+1. **Visitor workspaces:** every workspace whose slug doesn't start with `seed-` and that is older than the grace period (2 hours by default). Deleting the `tenants` row cascades to every table in `public` (tickets, messages, customers, memberships, invoices, subscriptions, SLA policies, audit logs and the rest), so deleting that row is the whole job. There is no separate deprovision function.
 2. **Their files:** Storage doesn't cascade, so everything under `<workspace id>/` in the `ticket-attachments`, `avatars`, `branding` and `invoices` buckets is removed through the Storage API.
 3. **Seeded workspaces:** `seed-tenants.mjs --clean` removes them with anything visitors changed in them, and their files go too. `seed-tenants.mjs --apply` rebuilds them at the end.
 4. **Visitor accounts:** Auth users that belong to no remaining workspace (no membership and no portal-customer link).
@@ -183,7 +183,7 @@ Development is an open demo: anyone can sign up at `/setup`. **Actions → Demo 
 
 It also uses values the deploy already needs: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`, `PRODUCTION_PROJECT_REF` and `PLATFORM_ADMIN_EMAILS`.
 
-**Safety.** The script refuses to run, even as a dry run, unless `DEMO_RESET_ALLOWED` is `true`, the Supabase URL is `https://<SUPABASE_PROJECT_REF>.supabase.co`, and that ref isn't `PRODUCTION_PROJECT_REF`. A custom Supabase domain can't be checked, so it is refused. `--apply` also needs `--project-ref <ref>`. The workflow only ever uses the `development` environment, and it shares the `deploy-development` concurrency group, so it never runs during a development deploy. Logs and the run summary show counts and workspace slugs, never email addresses or passwords.
+**Safety.** The script refuses to run, even as a dry run, unless `DEMO_RESET_ALLOWED` is `true`, the Supabase URL is `https://<SUPABASE_PROJECT_REF>.supabase.co`, and that ref isn't `PRODUCTION_PROJECT_REF`. A custom Supabase domain can't be checked, so it is refused. `--apply` also needs `--project-ref <ref>`. The workflow only ever uses the `development` environment, and it shares the `deploy-development` concurrency group, so it never runs during a development deploy. The run summary shows counts only. The log shows counts and workspace slugs, plus the seeded demo accounts that `seed-tenants.mjs` prints, but never a visitor's address or any password.
 
 **Run it by hand, dry run first:**
 

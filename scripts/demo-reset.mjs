@@ -4,7 +4,7 @@
  *
  *   1. Visitor workspaces (any slug not starting seed-) created more than the
  *      grace period ago are deleted. Every public table cascades from
- *      public.tenants, so one delete per workspace removes its tickets,
+ *      public.tenants, so deleting the workspace row removes its tickets,
  *      customers, memberships, invoices, subscriptions and the rest.
  *   2. Their Storage objects are removed (Storage does not cascade): everything
  *      under `<tenant id>/` in the ticket-attachments, avatars, branding and
@@ -120,10 +120,13 @@ async function must(promise, label) {
 /** Every row, a page at a time: a short read would make members look orphaned. */
 async function selectAll(build, label) {
   const rows = [];
-  for (let from = 0; ; from += PAGE) {
+  // Advance by what came back and stop on an empty page, so a project whose
+  // max_rows is below PAGE still reads everything.
+  for (let from = 0; ;) {
     const page = await must(build().range(from, from + PAGE - 1), label);
+    if (page.length === 0) return rows;
     rows.push(...page);
-    if (page.length < PAGE) return rows;
+    from += page.length;
   }
 }
 
@@ -357,7 +360,7 @@ let failures = 0;
 // 1-2. Visitor workspaces, then their files.
 for (const ids of chunk(
   workspaces.deleted.map((t) => t.id),
-  50,
+  10,
 )) {
   await must(
     supabase.from("tenants").delete().in("id", ids),
@@ -403,7 +406,13 @@ try {
     .map((t) => t.id);
   const after = await planAccounts(await listAllUsers(), alive);
   usersKept = Object.values(after.kept).reduce((a, b) => a + b, 0);
-  await releaseReferences(after.remove.map((user) => user.id));
+  try {
+    await releaseReferences(after.remove.map((user) => user.id));
+  } catch (error) {
+    // Only matters for the few users still referenced; deleteUser reports those.
+    failures++;
+    console.error(`Clearing account references failed: ${error.message}`);
+  }
   for (const user of after.remove) {
     const { error } = await supabase.auth.admin.deleteUser(user.id);
     if (error) {

@@ -25,7 +25,9 @@ permissions:
   contents: read
 
 # Same group as the development deploy in deploy.yml, so a reset never runs
-# while migrations or a deploy are in progress, and neither is cancelled.
+# while migrations or a deploy are in progress, and neither is cancelled
+# halfway. GitHub keeps only the newest pending run in a group, so a pending
+# reset and a pending deploy can displace each other.
 concurrency:
   group: deploy-development
   cancel-in-progress: false
