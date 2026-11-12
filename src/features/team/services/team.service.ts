@@ -443,7 +443,10 @@ async function inviteRedirectTo(
   return `${origin}${tenantPath(slug, TENANT_ROUTES.RESET_PASSWORD)}?${LINK_ACTION_PARAM}=${LINK_ACTIONS.INVITE}`;
 }
 
-export async function inviteMember(values: InviteMemberValues): Promise<void> {
+/** Resolves to whether the invitation email was queued (see enqueueEmail). */
+export async function inviteMember(
+  values: InviteMemberValues,
+): Promise<boolean> {
   const actor = await requireActor();
 
   assertRole(
@@ -465,7 +468,7 @@ export async function inviteMember(values: InviteMemberValues): Promise<void> {
     throw seatLimitError(seats);
   }
 
-  await addInvitedStaffMember({
+  return addInvitedStaffMember({
     tenantId: actor.tenantId,
     tenantSlug: actor.tenantSlug,
     inviterId: actor.userId,
@@ -480,6 +483,8 @@ export async function inviteMember(values: InviteMemberValues): Promise<void> {
  * An existing account is only invited, and is refused when it already belongs
  * to another workspace. Shared by the Team page and the signup wizard, so the
  * two can't drift apart again. The seat trigger still re-checks the limit.
+ * Resolves to whether the email was queued: false when the demo's
+ * EMAIL_ALLOWED_RECIPIENTS held it back (the invite still stands).
  */
 export async function addInvitedStaffMember(values: {
   tenantId: string;
@@ -487,7 +492,7 @@ export async function addInvitedStaffMember(values: {
   inviterId: string;
   email: string;
   role: TeamRole;
-}): Promise<void> {
+}): Promise<boolean> {
   const actor = {
     tenantId: values.tenantId,
     tenantSlug: values.tenantSlug,
@@ -681,7 +686,7 @@ export async function addInvitedStaffMember(values: {
   // 7. Mail last: always the team invitation, never a sign-in email. Queued,
   // so the invite answers without waiting on the auth API and Resend; the
   // queue retries a failed send, and "Resend invite" queues a fresh one.
-  await queueTeamInvitation({
+  return queueTeamInvitation({
     userId: authUserId,
     email,
     name,
@@ -701,9 +706,9 @@ async function queueTeamInvitation({
   role: TeamRole;
   tenantId: string;
   slug: string | null;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
-    await enqueueEmail(
+    return await enqueueEmail(
       "team_invitation",
       { ...invite, redirectTo: await inviteRedirectTo(slug) },
       {
@@ -728,7 +733,10 @@ type InviteRow = {
   user: { email: string | null; full_name: string | null } | null;
 };
 
-export async function resendInvite(values: ResendInviteValues): Promise<void> {
+/** Resolves to whether the invitation email was queued (see enqueueEmail). */
+export async function resendInvite(
+  values: ResendInviteValues,
+): Promise<boolean> {
   const supabase = await createSupabaseServerClient();
   const actor = await requireActor();
   assertRole(
@@ -778,7 +786,7 @@ export async function resendInvite(values: ResendInviteValues): Promise<void> {
   }
 
   // Same email as the first invite: the team invitation, never a sign-in link.
-  await queueTeamInvitation({
+  return queueTeamInvitation({
     userId: member.user_id,
     email,
     name: member.user?.full_name || email.split("@")[0] || "Team member",

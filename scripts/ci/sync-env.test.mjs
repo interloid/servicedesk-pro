@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   MANIFEST,
   mergeDotenv,
+  only,
   planVercel,
   resolveValues,
 } from "./sync-env.mjs";
@@ -100,6 +101,31 @@ describe("resolveValues", () => {
     const { values, errors } = resolveValues({ ...input, appOnly: true });
     expect(errors).toEqual([]);
     expect(values.has("PAYPAL_BASE_URL")).toBe(false);
+  });
+
+  it("keeps a setting for both targets in an app-only deploy", () => {
+    const input = complete();
+    input.vars.EMAIL_ALLOWED_RECIPIENTS = "@example.com";
+    const { values } = resolveValues({ ...input, appOnly: true });
+    expect(values.get("EMAIL_ALLOWED_RECIPIENTS")).toBe("@example.com");
+  });
+});
+
+describe("only", () => {
+  it("sends a setting for both targets to the app and the functions", () => {
+    const values = new Map([
+      ["EMAIL_ALLOWED_RECIPIENTS", "@example.com"],
+      ["NEXT_PUBLIC_SITE_NAME", "Desk"],
+      ["FROM_EMAIL", "desk@example.com"],
+    ]);
+    expect([...only(values, "app").keys()]).toEqual([
+      "EMAIL_ALLOWED_RECIPIENTS",
+      "NEXT_PUBLIC_SITE_NAME",
+    ]);
+    expect([...only(values, "functions").keys()]).toEqual([
+      "EMAIL_ALLOWED_RECIPIENTS",
+      "FROM_EMAIL",
+    ]);
   });
 });
 

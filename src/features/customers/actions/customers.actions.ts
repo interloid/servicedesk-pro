@@ -12,10 +12,12 @@ import {
   setCustomerPortalAccess,
 } from "@/features/customers/services/customer-invite.service";
 import { getSessionTenantSlug } from "@/features/tenancy/services/tenant-resolver";
+import { inviteNotEmailedNotice } from "@/lib/email/recipient-allow-list";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 
 export type InviteCustomerResult =
-  | { ok: true }
+  /** `notice`: shown instead of the usual toast (e.g. email held back). */
+  | { ok: true; notice?: string }
   | {
       ok: false;
       failureCode: CustomerInviteFailure | "validation";
@@ -35,8 +37,10 @@ export async function inviteCustomerAction(
     };
   }
 
+  let emailed: boolean;
+
   try {
-    await inviteCustomer(parsed.data);
+    emailed = await inviteCustomer(parsed.data);
   } catch (error) {
     return toFailure(
       error,
@@ -46,7 +50,9 @@ export async function inviteCustomerAction(
 
   await revalidateCustomers();
 
-  return { ok: true };
+  return emailed
+    ? { ok: true }
+    : { ok: true, notice: inviteNotEmailedNotice(parsed.data.email) };
 }
 
 /** The list and every customer page under it (`layout` covers the detail). */
@@ -112,13 +118,17 @@ export async function inviteExistingCustomerAction(
     };
   }
 
+  let emailed: boolean;
+
   try {
-    await inviteExistingCustomer(parsed.data.customerId);
+    emailed = await inviteExistingCustomer(parsed.data.customerId);
   } catch (error) {
     return toFailure(error, "We couldn't send that invite. Try again.");
   }
 
   await revalidateCustomers();
 
-  return { ok: true };
+  return emailed
+    ? { ok: true }
+    : { ok: true, notice: inviteNotEmailedNotice() };
 }

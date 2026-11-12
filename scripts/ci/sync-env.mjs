@@ -27,8 +27,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
- * Every deployed setting. `to`: "app" (Vercel) or "functions" (Supabase Edge
- * Function secrets). `secret`: must be a GitHub secret, never a variable,
+ * Every deployed setting. `to`: "app" (Vercel), "functions" (Supabase Edge
+ * Function secrets) or "both". `secret`: must be a GitHub secret, never a variable,
  * because variables are printed in logs. `required`: the deploy stops without it.
  */
 export const MANIFEST = [
@@ -83,6 +83,8 @@ export const MANIFEST = [
   },
   { name: "FROM_EMAIL", to: "functions", required: true },
   { name: "FRONTEND_URL", to: "functions", required: true },
+  // Both: the functions enforce it, the app tells the inviter.
+  { name: "EMAIL_ALLOWED_RECIPIENTS", to: "both" },
 ];
 
 const LIVE_PAYPAL = "https://api-m.paypal.com";
@@ -97,7 +99,7 @@ export function resolveValues({ secrets, vars, deployEnv, appOnly }) {
   const missing = [];
 
   for (const entry of MANIFEST) {
-    if (appOnly && entry.to !== "app") continue;
+    if (appOnly && entry.to === "functions") continue;
 
     const fromSecret = secrets[entry.name] ?? "";
     const fromVar = vars[entry.name] ?? "";
@@ -217,8 +219,11 @@ function resolveOrExit(args) {
   return values;
 }
 
-function only(values, to) {
-  const names = new Set(MANIFEST.filter((e) => e.to === to).map((e) => e.name));
+/** The values bound for "app" or "functions"; "both" goes to each. */
+export function only(values, to) {
+  const names = new Set(
+    MANIFEST.filter((e) => e.to === to || e.to === "both").map((e) => e.name),
+  );
   return new Map([...values].filter(([name]) => names.has(name)));
 }
 

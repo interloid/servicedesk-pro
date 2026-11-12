@@ -138,7 +138,8 @@ export function CustomerAccessMenu({
           return;
         }
 
-        toast.success(action.success);
+        if (result.notice) toast.warning(result.notice);
+        else toast.success(action.success);
       } catch (error) {
         console.error("[customers] access action failed", error);
         toast.error(`${action.failure} Check your connection and try again.`);

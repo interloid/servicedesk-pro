@@ -64,10 +64,13 @@ function fail(message: string, error: { message?: string } | null) {
  *
  * Inviting someone whose invitation is still pending sends it again, so this
  * doubles as "Resend invite".
+ *
+ * Resolves to whether the email was queued: false when the demo's
+ * EMAIL_ALLOWED_RECIPIENTS held it back (the invite still stands).
  */
 export async function inviteCustomer(
   values: InviteCustomerValues,
-): Promise<void> {
+): Promise<boolean> {
   const actor = await getActorOrNull();
 
   if (!actor || actor.role !== "Tenant Admin") {
@@ -235,7 +238,7 @@ export async function inviteCustomer(
   ).toString();
 
   try {
-    await enqueueEmail(
+    return await enqueueEmail(
       "portal_sign_in",
       { email, redirectTo, tenantName: tenant.name, invited: true },
       {
@@ -484,11 +487,11 @@ export async function setCustomerPortalAccess(
  */
 export async function inviteExistingCustomer(
   customerId: string,
-): Promise<void> {
+): Promise<boolean> {
   const actor = await requireTenantAdmin();
   const { customer } = await resolveCustomerAccount(actor.tenantId, customerId);
 
-  await inviteCustomer({
+  return inviteCustomer({
     email: customer.email,
     fullName: customer.full_name,
     company: customer.company ?? undefined,

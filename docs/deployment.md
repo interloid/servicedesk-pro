@@ -68,6 +68,9 @@ Set each of these in both `development` and `production`, with that environment'
 | `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                     | Secret   | No       | Vercel         |
 | `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                         | Variable | Yes      | Edge Functions |
 | `PAYPAL_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`                                                               | Secret   | Yes      | Edge Functions |
+| `EMAIL_ALLOWED_RECIPIENTS` (set it in development)                                                                                   | Variable | No       | Both           |
+
+`EMAIL_ALLOWED_RECIPIENTS` limits every outbound email (invites, sign-in links, password resets, notifications, invoices) to its comma-separated addresses and `@domain` entries, for example `you@example.com, @example.org`. Set it in `development` to the team's own addresses or domain, so visitors to the public demo can't use invites to email strangers. Mail to anyone else isn't sent: the Edge Functions refuse it, and the app tells the inviter that no email went out. Leave it empty in production to email anyone.
 
 `SUPABASE_PROJECT_REF` also reaches the app. The deploy also checks that `NEXT_PUBLIC_SUPABASE_URL` belongs to `SUPABASE_PROJECT_REF`, and that development never uses live PayPal. An optional value left empty in GitHub is left as it is in Vercel. To change a value, edit it in GitHub and run **Actions → Deploy** (on `main` for development, on the release tag for production).
 
@@ -114,6 +117,7 @@ All of these go in the GitHub `development` environment; the deploy writes them 
 - `NEXT_PUBLIC_SITE_NAME` and `NEXT_PUBLIC_SITE_DESCRIPTION`.
 - PayPal **sandbox**: `PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID`, and the same client ID as `NEXT_PUBLIC_PAYPAL_CLIENT_ID`.
 - A **test** Gmail account: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` and `FROM_EMAIL`.
+- `EMAIL_ALLOWED_RECIPIENTS`, set to the team's own addresses or `@domain`, so the public demo only emails people you know.
 - `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN`, pointing at a separate Sentry environment or project.
 - `PLATFORM_ADMIN_EMAILS`, set to a real admin's login, never a seeded demo account.
 

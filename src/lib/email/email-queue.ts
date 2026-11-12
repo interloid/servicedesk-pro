@@ -1,5 +1,6 @@
 import "server-only";
 
+import { canEmailRecipient } from "@/lib/email/recipient-allow-list";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import type { TeamRole } from "@/features/team/types/team";
@@ -63,6 +64,9 @@ export type EmailJobKind = keyof EmailJobPayloads;
  * Throws if the job can't be written, so the caller can tell the user the
  * mail won't go out.
  *
+ * Returns false, queueing nothing, when EMAIL_ALLOWED_RECIPIENTS (a demo)
+ * doesn't cover the recipient; the function would refuse it anyway.
+ *
  * `dedupeKey` names the recipient: a job for the same kind and key that is
  * still waiting is reused (and brought forward) rather than doubled, and an
  * earlier failed one is cleared.
@@ -71,7 +75,14 @@ export async function enqueueEmail<K extends EmailJobKind>(
   kind: K,
   payload: EmailJobPayloads[K],
   { tenantId, dedupeKey }: { tenantId?: string; dedupeKey?: string } = {},
-): Promise<void> {
+): Promise<boolean> {
+  if (!canEmailRecipient(payload.email)) {
+    console.info(
+      `[email-queue] ${kind} not queued: recipient is outside EMAIL_ALLOWED_RECIPIENTS.`,
+    );
+    return false;
+  }
+
   const admin = createSupabaseAdminClient();
 
   if (dedupeKey) {
@@ -96,7 +107,7 @@ export async function enqueueEmail<K extends EmailJobKind>(
         .eq("id", waiting[0].id)
         .eq("status", "pending");
 
-      return;
+      return true;
     }
 
     await admin
@@ -117,4 +128,6 @@ export async function enqueueEmail<K extends EmailJobKind>(
     console.error("[email-queue] enqueue failed:", error.message);
     throw new Error("Couldn't queue the email.");
   }
+
+  return true;
 }

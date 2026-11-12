@@ -1,4 +1,5 @@
 import { getPlatformBrand } from "../_shared/platform-brand.ts";
+import { isRecipientAllowedByConfig } from "../_shared/gmail.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateInvoicePdf } from "./pdf.ts";
 import { uploadInvoicePdf, getInvoiceSignedUrl } from "./storage.ts";
@@ -257,11 +258,18 @@ async function emailInvoiceOnce({
   amount: number;
   currency: string;
 }) {
-  const recipients = await resolveInvoiceRecipients(tenantId);
+  const resolved = await resolveInvoiceRecipients(tenantId);
+  // Outside EMAIL_ALLOWED_RECIPIENTS (a demo): skipped here, not failed in
+  // sendEmail, so PayPal doesn't redeliver the event over and over.
+  const recipients = resolved.filter((r) =>
+    isRecipientAllowedByConfig(r.email),
+  );
 
   if (recipients.length === 0) {
     console.warn(
-      `No active tenant/billing admin found for tenant ${tenantId}; invoice email skipped.`,
+      resolved.length === 0
+        ? `No active tenant/billing admin found for tenant ${tenantId}; invoice email skipped.`
+        : `Invoice recipients for tenant ${tenantId} are outside EMAIL_ALLOWED_RECIPIENTS; invoice email skipped.`,
     );
     return;
   }

@@ -217,6 +217,8 @@ export interface TeamActionResult<T = undefined> {
   data?: T;
   failureCode?: TeamFailureCode;
   message?: string;
+  /** On success: shown instead of the usual toast (e.g. email held back). */
+  notice?: string;
 }
 
 export type TeamStatusCounts = Record<TeamStatus, number>;

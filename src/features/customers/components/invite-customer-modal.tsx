@@ -73,6 +73,11 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
           return;
         }
 
+        if (result.notice) {
+          toast.warning(result.notice, { id: toastId });
+          return;
+        }
+
         toast.success(`Portal link sent to ${email}.`, { id: toastId });
       } catch (error) {
         console.error("[customers] inviteCustomerAction failed", error);

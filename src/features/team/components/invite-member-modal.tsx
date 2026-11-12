@@ -117,6 +117,11 @@ export function InviteMemberModal({
           return;
         }
 
+        if (result.notice) {
+          toast.warning(result.notice, { id: toastId });
+          return;
+        }
+
         toast.success(
           `Invite sent to ${values.email}. They'll join as ${roleWithArticle(values.role)} once they accept.`,
           { id: toastId },

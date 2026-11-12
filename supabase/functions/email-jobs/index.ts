@@ -1,6 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { PermanentEmailError, sendEmail } from "../_shared/gmail.ts";
+import {
+  assertRecipientAllowed,
+  PermanentEmailError,
+  sendEmail,
+} from "../_shared/gmail.ts";
 
 import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { invitationEmailHtml, roleWithArticle } from "./invitation-template.ts";
@@ -172,6 +176,9 @@ async function sendTeamInvitation({
   redirectTo,
   metadata,
 }: TeamInvitationPayload): Promise<void> {
+  // Up front: Supabase's own invite email never passes through sendEmail.
+  assertRecipientAllowed(email);
+
   if (!(await isRegistered(userId))) {
     const { error } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { ...(name ? { full_name: name } : {}), ...metadata },
@@ -227,6 +234,8 @@ async function sendPasswordReset({
   email,
   redirectTo,
 }: PasswordResetPayload): Promise<void> {
+  assertRecipientAllowed(email);
+
   const { error } = await admin.auth.resetPasswordForEmail(email, {
     redirectTo,
   });
@@ -259,6 +268,9 @@ async function sendPortalSignIn({
   invited = false,
   ticketNumber = null,
 }: PortalSignInPayload): Promise<void> {
+  // Before the account is created, not only before the send.
+  assertRecipientAllowed(email);
+
   const { error: createError } = await admin.auth.admin.createUser({
     email,
     email_confirm: true,

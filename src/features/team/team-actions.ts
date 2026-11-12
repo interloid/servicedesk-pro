@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSessionTenantSlug } from "@/features/tenancy/services/tenant-resolver";
+import { inviteNotEmailedNotice } from "@/lib/email/recipient-allow-list";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 
 import {
@@ -67,9 +68,11 @@ export async function inviteMemberAction(
   }
 
   try {
-    await inviteMember(parsed.data);
+    const emailed = await inviteMember(parsed.data);
     await revalidateTeam();
-    return { ok: true };
+    return emailed
+      ? { ok: true }
+      : { ok: true, notice: inviteNotEmailedNotice(parsed.data.email) };
   } catch (error) {
     return toFailure(
       error,
@@ -93,9 +96,11 @@ export async function resendInviteAction(
   }
 
   try {
-    await resendInvite(parsed.data);
+    const emailed = await resendInvite(parsed.data);
     await revalidateTeam();
-    return { ok: true };
+    return emailed
+      ? { ok: true }
+      : { ok: true, notice: inviteNotEmailedNotice() };
   } catch (error) {
     return toFailure(
       error,

@@ -180,7 +180,9 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
             (result as { message?: string }).message ?? `${failure} Try again.`;
           toast.error(message);
         } else {
-          toast.success(success);
+          const notice = (result as { notice?: string } | null)?.notice;
+          if (notice) toast.warning(notice);
+          else toast.success(success);
           onDone?.();
         }
       } catch (error) {
