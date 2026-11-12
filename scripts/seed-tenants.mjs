@@ -6,7 +6,8 @@
  *   Pro       15 staff, the plan's full seat limit
  *   Business  4 staff (Tenant Admin, Manager, Agent, Billing Admin)
  *
- *   Tickets   10 per customer, covering every status, with their conversations
+ *   Tickets   10 per customer (a different set for each of the two), covering
+ *             every status, with descriptions and conversation threads
  *   Invoices  12 monthly invoices covering every status on paid plans. Free
  *             tenants get none, since nothing is ever charged.
  *
@@ -21,13 +22,18 @@
  *     node --env-file=.env.local scripts/seed-tenants.mjs \
  *       --clean --project-ref <ref>
  *
- * Seeded rows are recognised by slug (seed-*) and email (*.seed.test), which is
- * what --clean deletes by. .test never resolves, so nothing can reach a real
- * inbox. Tenants that already exist are skipped, so re-running is safe, but they
- * keep what they had: run --clean first to rebuild them with this data.
+ * The data itself (fictional US companies, people and ticket conversations) is in
+ * scripts/seed-data.mjs.
+ *
+ * Seeded rows are recognised by slug (seed-*), and seeded accounts by the
+ * seed_tenant tag in their user metadata (older seeds: a *.seed.test email),
+ * which is what --clean deletes by. Staff emails end in .seed.test and customer
+ * emails in .example; neither resolves, so nothing can reach a real inbox.
+ * Tenants that already exist are skipped, so re-running is safe, but they keep
+ * what they had: run --clean first to rebuild them with this data.
  *
  * Ticket triggers queue real mail, which the email-jobs cron would try to send
- * to these .test addresses. Seeded staff get email alerts switched off before
+ * to these addresses. Seeded staff get email alerts switched off before
  * any ticket exists (that also covers later SLA alerts), and the customer mail
  * the inserts queue is deleted straight after them. A cron run landing inside
  * that gap can still try a few, which only bounce.
@@ -38,311 +44,34 @@
  * these rows. Changing plan or cancelling on a seeded tenant in the UI WILL
  * call PayPal and fail.
  */
+import { randomBytes } from "node:crypto";
+
 import { createClient } from "@supabase/supabase-js";
 
-const SLUG_PREFIX = "seed-";
-const EMAIL_SUFFIX = ".seed.test";
-const MIN_TENANTS = 10;
-const MAX_TENANTS = 15;
+import {
+  MAX_TENANTS,
+  MIN_TENANTS,
+  SLUG_PREFIX,
+  STAFF_BY_PLAN,
+  STAFF_EMAIL_SUFFIX,
+  TENANTS,
+  TICKET_PLANS,
+  fillTemplate,
+  firstName,
+  peopleFor,
+} from "./seed-data.mjs";
+
 const DAY_MS = 86_400_000;
 const DEFAULT_PASSWORD = "test@123";
 
-// The first 10 alone still cover every plan + status pair below.
-const TENANTS = [
-  {
-    key: "aurora",
-    name: "Aurora Logistics",
-    plan: "Free",
-    status: "trialing",
-    tz: "Asia/Kolkata",
-  },
-  {
-    key: "bluepeak",
-    name: "Bluepeak Software",
-    plan: "Free",
-    status: "active",
-    tz: "Europe/London",
-  },
-  {
-    key: "cedar",
-    name: "Cedar Health Group",
-    plan: "Pro",
-    status: "active",
-    tz: "America/New_York",
-  },
-  {
-    key: "dunmore",
-    name: "Dunmore Retail",
-    plan: "Business",
-    status: "active",
-    tz: "America/Chicago",
-  },
-  {
-    key: "ember",
-    name: "Ember Hospitality",
-    plan: "Pro",
-    status: "past_due",
-    tz: "Asia/Dubai",
-  },
-  {
-    key: "fernhill",
-    name: "Fernhill Education",
-    plan: "Business",
-    status: "past_due",
-    tz: "Asia/Kolkata",
-  },
-  {
-    key: "granite",
-    name: "Granite Finance",
-    plan: "Pro",
-    status: "cancelled",
-    tz: "Europe/Berlin",
-  },
-  {
-    key: "harbor",
-    name: "Harbor Freight Lines",
-    plan: "Business",
-    status: "expired",
-    tz: "America/Los_Angeles",
-  },
-  {
-    key: "ivory",
-    name: "Ivory Legal Partners",
-    plan: "Pro",
-    status: "active",
-    tz: "Asia/Singapore",
-  },
-  {
-    key: "juniper",
-    name: "Juniper Energy",
-    plan: "Business",
-    status: "active",
-    tz: "Australia/Sydney",
-  },
-  {
-    key: "kestrel",
-    name: "Kestrel Media",
-    plan: "Free",
-    status: "active",
-    tz: "Asia/Kolkata",
-  },
-  {
-    key: "lumen",
-    name: "Lumen Insurance",
-    plan: "Pro",
-    status: "active",
-    tz: "Europe/Paris",
-  },
-  {
-    key: "meridian",
-    name: "Meridian Manufacturing",
-    plan: "Business",
-    status: "active",
-    tz: "Asia/Tokyo",
-  },
-  {
-    key: "nimbus",
-    name: "Nimbus Travel",
-    plan: "Free",
-    status: "trialing",
-    tz: "Asia/Dubai",
-  },
-  {
-    key: "orchard",
-    name: "Orchard Foods",
-    plan: "Pro",
-    status: "active",
-    tz: "America/Toronto",
-  },
-];
-
-const FIRST_NAMES = [
-  "Aarav",
-  "Maya",
-  "Liam",
-  "Sofia",
-  "Noah",
-  "Priya",
-  "Ethan",
-  "Zara",
-  "Lucas",
-  "Anika",
-  "Omar",
-  "Elena",
-  "Kiran",
-  "Hana",
-  "Mateo",
-  "Nora",
-  "Ravi",
-  "Chloe",
-  "Samir",
-  "Ingrid",
-  "Tariq",
-  "Lena",
-  "Arjun",
-  "Isla",
-  "Diego",
-  "Mei",
-  "Felix",
-  "Divya",
-  "Hugo",
-  "Amara",
-];
-
-const LAST_NAMES = [
-  "Sharma",
-  "Okafor",
-  "Bennett",
-  "Rossi",
-  "Nakamura",
-  "Iyer",
-  "Fischer",
-  "Haddad",
-  "Silva",
-  "Larsen",
-  "Menon",
-  "Novak",
-  "Reyes",
-  "Kaur",
-  "Dubois",
-  "Tanaka",
-  "Mensah",
-  "Walsh",
-  "Petrov",
-  "Nair",
-  "Costa",
-  "Lindgren",
-  "Rahman",
-  "Moreau",
-  "Ortiz",
-];
-
-const CUSTOMER_COMPANIES = [
-  "Halden Works",
-  "Quillon Labs",
-  "Tessera Group",
-  "Marlow & Finch",
-  "Pinecrest Co",
-  "Vantor Systems",
-  "Ashgrove Ltd",
-  "Corvid Analytics",
-  "Solenne Studio",
-  "Brightwater Inc",
-];
-
-const ROLE_LABELS = {
-  tenant_admin: "Tenant Admin",
-  manager: "Manager",
-  agent: "Agent",
-  billing_admin: "Billing Admin",
-};
-
-const OWNER = { local: "admin", role: "tenant_admin" };
-const CORE_STAFF = [
-  OWNER,
-  { local: "manager", role: "manager" },
-  { local: "agent", role: "agent" },
-  { local: "billing", role: "billing_admin" },
-];
-
-// Pro fills all 15 seats: the core four, 2 more managers and 9 more agents.
-const PRO_EXTRA_MANAGERS = [2, 3].map((n) => ({
-  local: `manager${n}`,
-  role: "manager",
-}));
-const PRO_EXTRA_AGENTS = Array.from({ length: 9 }, (_, i) => ({
-  local: `agent${i + 2}`,
-  role: "agent",
-}));
-
-const STAFF_BY_PLAN = {
-  Free: [OWNER, { local: "agent", role: "agent" }],
-  Pro: [...CORE_STAFF, ...PRO_EXTRA_MANAGERS, ...PRO_EXTRA_AGENTS],
-  Business: CORE_STAFF,
-};
+const PLATFORM_ADMIN_EMAIL = "platform-admin@servicedesk-pro.com";
+const PLATFORM_ADMIN_NAME = "Platform Admin";
 
 // The plan really must have room: a roster over the limit would hit the seat
 // trigger, and one that merely differs would no longer test the limit asked for.
 const EXPECTED_SEAT_LIMITS = { Free: 2, Pro: 15 };
 
-const CUSTOMER_LOCALS = ["customer1", "customer2"];
-
 const HOUR_MS = 3_600_000;
-const PRIORITIES = ["low", "normal", "high", "urgent"];
-
-// One customer's 10 tickets: every status at least once. Ages are hours before
-// the seed runs. resolved_at stays under the default 4-day auto-close, so
-// sla_tick doesn't turn the resolved ones into closed the moment it next runs.
-const TICKET_PLAN = [
-  {
-    subject: "Cannot log in after password reset",
-    status: "new",
-    age: 1,
-  },
-  {
-    subject: "Question about exporting our data",
-    status: "new",
-    age: 3,
-  },
-  {
-    subject: "Dashboard loads very slowly in the morning",
-    status: "open",
-    age: 5,
-  },
-  {
-    subject: "Email notifications arrive twice",
-    status: "open",
-    age: 30,
-    customerFollowUp: true,
-  },
-  {
-    subject: "Need a copy of last quarter's report",
-    status: "pending",
-    age: 6,
-  },
-  {
-    subject: "Attachment upload fails on large files",
-    status: "pending",
-    age: 50,
-  },
-  {
-    subject: "Integration stopped syncing overnight",
-    status: "on_hold",
-    age: 8,
-    internalNote: true,
-  },
-  {
-    subject: "Wrong timezone on ticket timestamps",
-    status: "resolved",
-    age: 72,
-    resolvedAgo: 20,
-    customerFollowUp: true,
-  },
-  {
-    subject: "Please add a teammate to our account",
-    status: "resolved",
-    age: 96,
-    resolvedAgo: 30,
-  },
-  {
-    subject: "Portal link in the welcome email is broken",
-    status: "closed",
-    age: 240,
-    resolvedAgo: 216,
-    closedAgo: 120,
-    customerFollowUp: true,
-  },
-];
-
-const AGENT_REPLIES = {
-  open: "Thanks for reporting this. I'm looking into it and will update you here.",
-  pending:
-    "Could you send us a little more detail? We'll carry on as soon as we hear back.",
-  on_hold:
-    "We've passed this to our engineering team and will update you once they respond.",
-  resolved: "This should be fixed now. Let us know if you still see the issue.",
-  closed: "This is sorted on our side, so we're closing this ticket.",
-};
 
 const INVOICE_MONTHS = 12;
 
@@ -407,34 +136,6 @@ function requireProjectRef() {
       `If that is intended, add --project-ref ${projectRef}`,
   );
   process.exit(1);
-}
-
-function peopleFor(spec, tenantIndex) {
-  const person = (slot) => {
-    const n = tenantIndex * 6 + slot;
-    const first = FIRST_NAMES[n % FIRST_NAMES.length];
-    const last = LAST_NAMES[(n * 7 + tenantIndex) % LAST_NAMES.length];
-    return `${first} ${last}`;
-  };
-  const email = (local) => `${local}@${spec.key}${EMAIL_SUFFIX}`;
-  const roster = STAFF_BY_PLAN[spec.plan];
-
-  return {
-    staff: roster.map((staff, slot) => ({
-      ...staff,
-      label: ROLE_LABELS[staff.role],
-      email: email(staff.local),
-      fullName: person(slot),
-    })),
-    customers: CUSTOMER_LOCALS.map((local, i) => ({
-      email: email(local),
-      fullName: person(roster.length + i),
-      company:
-        CUSTOMER_COMPANIES[(tenantIndex * 2 + i) % CUSTOMER_COMPANIES.length],
-      // 555-01xx numbers are reserved for fiction.
-      phone: `+1-202-555-01${String(tenantIndex * 2 + i).padStart(2, "0")}`,
-    })),
-  };
 }
 
 const daysFromNow = (days) =>
@@ -543,15 +244,64 @@ async function existingSlugs() {
   return new Set(data.map((row) => row.slug));
 }
 
-async function createAuthUser(email, fullName, password) {
+/** seedTenant tags the account, which is what --clean finds it by. */
+async function createAuthUser(email, fullName, password, seedTenant) {
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name: fullName },
+    user_metadata: { full_name: fullName, seed_tenant: seedTenant },
   });
   if (error) throw new Error(`createUser ${email}: ${error.message}`);
   return data.user.id;
+}
+
+/**
+ * The platform console operator: in no workspace, so sign-in lands on
+ * /platform, and untagged, so --clean leaves it alone. It never gets the shared
+ * seed password -- PLATFORM_ADMIN_PASSWORD, or a random one printed once.
+ * Access itself still comes from PLATFORM_ADMIN_EMAILS, not from this account.
+ */
+async function ensurePlatformAdmin() {
+  for (let page = 1; ; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error) throw error;
+    if (data.users.some((user) => user.email === PLATFORM_ADMIN_EMAIL)) {
+      return { created: false };
+    }
+    if (data.users.length < 200) break;
+  }
+
+  const password =
+    process.env.PLATFORM_ADMIN_PASSWORD ??
+    randomBytes(18).toString("base64url");
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: PLATFORM_ADMIN_EMAIL,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: PLATFORM_ADMIN_NAME },
+  });
+  if (error)
+    throw new Error(`createUser ${PLATFORM_ADMIN_EMAIL}: ${error.message}`);
+
+  // Audit rows name their actor through public.users, so the console's own
+  // writes need the row even though no workspace does.
+  await must(
+    supabase.from("users").upsert({
+      id: data.user.id,
+      email: PLATFORM_ADMIN_EMAIL,
+      full_name: PLATFORM_ADMIN_NAME,
+    }),
+    `users ${PLATFORM_ADMIN_EMAIL}`,
+  );
+
+  return {
+    created: true,
+    password: process.env.PLATFORM_ADMIN_PASSWORD ? null : password,
+  };
 }
 
 async function must(promise, label) {
@@ -566,7 +316,12 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
   const [owner, ...team] = staff;
   const plan = plans.get(spec.plan);
 
-  const ownerId = await createAuthUser(owner.email, owner.fullName, password);
+  const ownerId = await createAuthUser(
+    owner.email,
+    owner.fullName,
+    password,
+    spec.key,
+  );
 
   // The real signup path: tenant, trial subscription, owner, business hours,
   // default SLA and system saved views. It is also the only way to set
@@ -596,6 +351,7 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
       person.email,
       person.fullName,
       password,
+      spec.key,
     );
 
     await must(
@@ -638,7 +394,7 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
   );
 
   const customerRows = [];
-  for (const customer of customers) {
+  for (const [index, customer] of customers.entries()) {
     const userId = await addPerson(customer, "customer");
     const row = await must(
       supabase
@@ -658,7 +414,7 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
         .single(),
       `customer ${customer.email}`,
     );
-    customerRows.push(row);
+    customerRows.push({ ...row, ...customer, plan: TICKET_PLANS[index] });
   }
 
   // Keeps subscriptions and tenants in step, the same call billing uses.
@@ -688,10 +444,19 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
     );
   }
 
-  const agentIds = staff
+  const agents = staff
     .filter((member) => member.role === "agent")
-    .map((member) => staffIds.get(member.local));
-  const ticketCount = await seedTickets(tenantId, customerRows, agentIds, slug);
+    .map((member) => ({
+      id: staffIds.get(member.local),
+      fullName: member.fullName,
+    }));
+  const ticketCount = await seedTickets(
+    tenantId,
+    spec,
+    customerRows,
+    agents,
+    slug,
+  );
   const invoiceCount =
     Number(plan.price_month) > 0
       ? await seedInvoices(tenantId, spec, plan, owner.email, slug)
@@ -701,87 +466,69 @@ async function seedTenant(spec, tenantIndex, plans, timezones, password) {
 }
 
 /** Tickets go in as one statement per tenant; the number trigger handles that. */
-async function seedTickets(tenantId, customerRows, agentIds, slug) {
+async function seedTickets(tenantId, spec, customerRows, agents, slug) {
   const planned = customerRows.flatMap((customer, c) =>
-    TICKET_PLAN.map((item, i) => ({ item, customer, c, i })),
+    customer.plan.map((item, i) => {
+      // New tickets are still in the queue, with nobody on them.
+      const agent =
+        item.status === "new"
+          ? null
+          : agents[(c * customer.plan.length + i) % agents.length];
+      const values = {
+        customer: firstName(customer.fullName),
+        agent: agent ? firstName(agent.fullName) : "",
+        company: customer.company,
+        tenant: spec.name,
+      };
+      return { item, customer, agent, values };
+    }),
   );
 
   const tickets = await must(
     supabase
       .from("tickets")
       .insert(
-        planned.map(({ item, customer, c, i }) => ({
+        planned.map(({ item, customer, agent, values }) => ({
           tenant_id: tenantId,
-          subject: item.subject,
-          description: `${item.subject}. Reported through the customer portal. Please take a look when you can.`,
+          subject: fillTemplate(item.subject, values),
+          description: fillTemplate(item.description, values),
           status: item.status,
-          priority: PRIORITIES[(i + c) % PRIORITIES.length],
+          priority: item.priority,
           requester_customer_id: customer.id,
-          // New tickets are still in the queue, with nobody on them.
-          assignee_user_id:
-            item.status === "new"
-              ? null
-              : agentIds[(c * TICKET_PLAN.length + i) % agentIds.length],
+          assignee_user_id: agent?.id ?? null,
           created_at: hoursAgo(item.age),
           resolved_at: item.resolvedAgo ? hoursAgo(item.resolvedAgo) : null,
           closed_at: item.closedAgo ? hoursAgo(item.closedAgo) : null,
         })),
       )
-      .select("id, subject, status, assignee_user_id, requester_customer_id"),
+      .select("id, subject, requester_customer_id"),
     `tickets ${slug}`,
   );
 
-  const messages = tickets.flatMap((ticket) => {
-    if (ticket.status === "new") return [];
-
-    const item = TICKET_PLAN.find((t) => t.subject === ticket.subject);
-    // Every row carries every key: a bulk insert sends null for a missing one.
-    const base = {
-      tenant_id: tenantId,
-      ticket_id: ticket.id,
-      visibility: "public",
-    };
-    // Staged inside the ticket's life: first answer an hour in, the rest later.
-    const repliedAt = hoursAgo(item.age - 1);
-    const laterAt = hoursAgo(item.age - 2);
-    const rows = [
-      {
-        ...base,
-        author_type: "agent",
-        author_id: ticket.assignee_user_id,
-        body: AGENT_REPLIES[ticket.status],
-        created_at: repliedAt,
-      },
-    ];
-    if (item.customerFollowUp) {
-      rows.push({
-        ...base,
-        author_type: "customer",
-        author_id: ticket.requester_customer_id,
-        body:
-          ticket.status === "open"
-            ? "Thanks. It happened again this morning, if that helps."
-            : "Thanks, that worked for us.",
-        created_at: laterAt,
-      });
-    }
-    if (item.internalNote) {
-      rows.push({
-        ...base,
-        author_type: "agent",
-        author_id: ticket.assignee_user_id,
-        body: "Waiting on engineering. Check in with them before replying again.",
-        visibility: "internal",
-        created_at: laterAt,
-      });
-    }
-    return rows;
-  });
-
-  await must(
-    supabase.from("ticket_messages").insert(messages),
-    `ticket_messages ${slug}`,
+  // Matched on requester and subject, which are unique within a tenant.
+  const ticketIdFor = new Map(
+    tickets.map((t) => [`${t.requester_customer_id}|${t.subject}`, t.id]),
   );
+  const messages = planned.flatMap(({ item, customer, agent, values }) =>
+    item.thread.map((message) => ({
+      tenant_id: tenantId,
+      ticket_id: ticketIdFor.get(
+        `${customer.id}|${fillTemplate(item.subject, values)}`,
+      ),
+      author_type: message.by === "customer" ? "customer" : "agent",
+      author_id: message.by === "customer" ? customer.id : agent.id,
+      body: fillTemplate(message.body, values),
+      visibility: message.by === "note" ? "internal" : "public",
+      created_at: hoursAgo(item.age - message.at),
+    })),
+  );
+
+  if (messages.length > 0) {
+    await must(
+      supabase.from("ticket_messages").insert(messages),
+      `ticket_messages ${slug}`,
+    );
+  }
 
   await must(
     supabase.from("email_jobs").delete().eq("tenant_id", tenantId),
@@ -873,7 +620,11 @@ async function listSeedAuthUsers() {
     });
     if (error) throw error;
     found.push(
-      ...data.users.filter((user) => user.email?.endsWith(EMAIL_SUFFIX)),
+      ...data.users.filter(
+        (user) =>
+          user.user_metadata?.seed_tenant ||
+          user.email?.endsWith(STAFF_EMAIL_SUFFIX),
+      ),
     );
     if (data.users.length < 200) return found;
   }
@@ -886,11 +637,15 @@ async function removeSeedData({ slugs } = {}) {
     : query.like("slug", `${SLUG_PREFIX}%`);
   const tenants = await must(query.select("slug"), "delete tenants");
 
-  const domains = slugs?.map(
-    (slug) => `@${slug.slice(SLUG_PREFIX.length)}${EMAIL_SUFFIX}`,
-  );
+  const keys = slugs?.map((slug) => slug.slice(SLUG_PREFIX.length));
   const users = (await listSeedAuthUsers()).filter(
-    (user) => !domains || domains.some((d) => user.email.endsWith(d)),
+    (user) =>
+      !keys ||
+      keys.some(
+        (key) =>
+          user.user_metadata?.seed_tenant === key ||
+          user.email?.endsWith(`@${key}${STAFF_EMAIL_SUFFIX}`),
+      ),
   );
   for (const user of users) {
     const { error } = await supabase.auth.admin.deleteUser(user.id);
@@ -908,8 +663,11 @@ function printPlan(specs, plans) {
       subscription: spec.status,
       seat_limit: plans.get(spec.plan).seat_limit,
       staff: STAFF_BY_PLAN[spec.plan].length,
-      customers: CUSTOMER_LOCALS.length,
-      tickets: CUSTOMER_LOCALS.length * TICKET_PLAN.length,
+      customers: spec.customers.length,
+      tickets: spec.customers.reduce(
+        (sum, _, i) => sum + TICKET_PLANS[i].length,
+        0,
+      ),
       invoices:
         Number(plans.get(spec.plan).price_month) > 0 ? INVOICE_MONTHS : 0,
     })),
@@ -971,6 +729,13 @@ requireProjectRef();
 
 const password = process.env.SEED_PASSWORD ?? DEFAULT_PASSWORD;
 
+const platformAdmin = await ensurePlatformAdmin();
+console.log(
+  platformAdmin.created
+    ? `  ok  platform admin ${PLATFORM_ADMIN_EMAIL} (no workspace)`
+    : `  --  platform admin ${PLATFORM_ADMIN_EMAIL} already there, left as is`,
+);
+
 for (const spec of todo) {
   const slug = `${SLUG_PREFIX}${spec.key}`;
   try {
@@ -997,4 +762,9 @@ for (const spec of todo) {
 printCredentials(todo);
 if (todo.length > 0) {
   console.log(`Password for all of the above: ${password}`);
+}
+if (platformAdmin.password) {
+  console.log(
+    `\nPlatform admin ${PLATFORM_ADMIN_EMAIL} password (shown once, store it now): ${platformAdmin.password}`,
+  );
 }

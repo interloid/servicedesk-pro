@@ -15,7 +15,7 @@ import {
   seededTicketId,
 } from "../support/db";
 
-const CUSTOMER = "customer1@juniper.seed.test";
+const CUSTOMER = "jasmine.patel@gulfcoastfab.example";
 const TICKET = "Integration stopped syncing overnight";
 
 type Route = {
