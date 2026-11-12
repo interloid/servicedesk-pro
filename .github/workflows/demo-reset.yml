@@ -1,0 +1,83 @@
+# Nightly reset of the public development demo (scripts/demo-reset.mjs):
+# deletes visitor workspaces and accounts, then rebuilds the seeded workspaces.
+#
+#   schedule           02:00 UTC, applies the reset
+#   workflow_dispatch  a dry run unless "dry run" is unticked
+#
+# Development only: the environment is fixed below, and the script itself
+# refuses to run unless DEMO_RESET_ALLOWED is "true" and the Supabase URL is
+# SUPABASE_PROJECT_REF's project. Until DEMO_RESET_ALLOWED is set the job skips
+# itself, so it stays green before setup. Setup: docs/deployment.md.
+name: Demo reset
+
+on:
+  schedule:
+    # The time on /setup's notice (src/features/onboarding/components/demo-notice.tsx).
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: only print what would be deleted"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Same group as the development deploy in deploy.yml, so a reset never runs
+# while migrations or a deploy are in progress, and neither is cancelled.
+concurrency:
+  group: deploy-development
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: development
+    env:
+      DEMO_RESET_ALLOWED: ${{ vars.DEMO_RESET_ALLOWED }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      PRODUCTION_PROJECT_REF: ${{ vars.PRODUCTION_PROJECT_REF }}
+      # The deploy accepts these as either a variable or a secret.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS || secrets.PLATFORM_ADMIN_EMAILS }}
+      DEMO_RESET_KEEP_EMAILS: ${{ vars.DEMO_RESET_KEEP_EMAILS || secrets.DEMO_RESET_KEEP_EMAILS }}
+      DEMO_RESET_GRACE_HOURS: ${{ vars.DEMO_RESET_GRACE_HOURS }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SEED_PASSWORD: ${{ secrets.SEED_PASSWORD }}
+      PLATFORM_ADMIN_PASSWORD: ${{ secrets.PLATFORM_ADMIN_PASSWORD }}
+      # Scheduled runs apply; a manual run applies only with dry run unticked.
+      MODE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)) && 'apply' || 'dry-run' }}
+    steps:
+      - name: Check the reset is switched on
+        id: enabled
+        run: |
+          if [ "$DEMO_RESET_ALLOWED" != "true" ]; then
+            echo "::notice::DEMO_RESET_ALLOWED is not 'true' in the development environment; skipping the demo reset."
+            echo "Demo reset skipped: DEMO_RESET_ALLOWED is not set." >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7.0.1
+        if: steps.enabled.outputs.run == 'true'
+
+      - uses: actions/setup-node@v7.1.0
+        if: steps.enabled.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+        if: steps.enabled.outputs.run == 'true'
+
+      - name: Reset the demo (${{ env.MODE }})
+        if: steps.enabled.outputs.run == 'true'
+        run: |
+          if [ "$MODE" = "apply" ]; then
+            node scripts/demo-reset.mjs --apply --project-ref "$SUPABASE_PROJECT_REF"
+          else
+            node scripts/demo-reset.mjs
+          fi

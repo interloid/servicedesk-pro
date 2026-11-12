@@ -65,6 +65,7 @@ import {
 import {
   MAX_TENANTS,
   MIN_TENANTS,
+  PLATFORM_ADMIN_EMAIL,
   SLUG_PREFIX,
   STAFF_BY_PLAN,
   STAFF_EMAIL_SUFFIX,
@@ -77,7 +78,6 @@ import {
 
 const DAY_MS = 86_400_000;
 
-const PLATFORM_ADMIN_EMAIL = "platform-admin@servicedesk-pro.com";
 const PLATFORM_ADMIN_NAME = "Platform Admin";
 
 // The plan really must have room: a roster over the limit would hit the seat

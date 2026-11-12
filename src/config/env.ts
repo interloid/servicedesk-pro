@@ -22,6 +22,9 @@ const clientSchema = z.object({
     (value) => (value === "" ? undefined : value),
     z.string().min(1).optional(),
   ),
+
+  // "true" on the public demo only; anything else means off.
+  NEXT_PUBLIC_DEMO_MODE: z.string().optional(),
 });
 
 const parsed = clientSchema.safeParse({
@@ -33,6 +36,7 @@ const parsed = clientSchema.safeParse({
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   NEXT_PUBLIC_PAYPAL_CLIENT_ID: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+  NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE,
 });
 
 if (!parsed.success) {

@@ -221,6 +221,25 @@ describe("manifest", () => {
     expect(new Set(MANIFEST.map((e) => e.name))).toEqual(new Set(deployed));
   });
 
+  it("ignores settings only the demo reset job reads", () => {
+    // SEED_PASSWORD and friends live in the development environment for
+    // demo-reset.yml. The deploy must neither require nor sync them.
+    const input = complete();
+    const jobOnly = {
+      SEED_PASSWORD: "x",
+      PLATFORM_ADMIN_PASSWORD: "y",
+      DEMO_RESET_ALLOWED: "true",
+      DEMO_RESET_KEEP_EMAILS: "@example.com",
+      DEMO_RESET_GRACE_HOURS: "2",
+    };
+    Object.assign(input.secrets, jobOnly);
+    const { values, errors } = resolveValues(input);
+    expect(errors).toEqual([]);
+    for (const name of Object.keys(jobOnly)) {
+      expect(values.has(name), name).toBe(false);
+    }
+  });
+
   it("never marks a browser-visible value as secret", () => {
     for (const entry of MANIFEST) {
       if (entry.name.startsWith("NEXT_PUBLIC_")) {

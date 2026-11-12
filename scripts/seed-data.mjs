@@ -17,6 +17,9 @@ export const CUSTOMER_EMAIL_TLD = ".example";
 export const MIN_TENANTS = 10;
 export const MAX_TENANTS = 15;
 
+/** The platform console account: in no workspace, never tagged seed_tenant. */
+export const PLATFORM_ADMIN_EMAIL = "platform-admin@servicedesk-pro.com";
+
 // The first 10 alone cover every plan + subscription status pair.
 // key -> slug "seed-<key>" and staff logins "<role>@<key>.seed.test".
 export const TENANTS = [

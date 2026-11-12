@@ -38,6 +38,7 @@ export const MANIFEST = [
   { name: "NEXT_PUBLIC_SITE_NAME", to: "app", required: true },
   { name: "NEXT_PUBLIC_SITE_DESCRIPTION", to: "app", required: true },
   { name: "NEXT_PUBLIC_TWITTER_HANDLE", to: "app" },
+  { name: "NEXT_PUBLIC_DEMO_MODE", to: "app" },
   // App: Supabase
   { name: "NEXT_PUBLIC_SUPABASE_URL", to: "app", required: true },
   { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", to: "app", required: true },

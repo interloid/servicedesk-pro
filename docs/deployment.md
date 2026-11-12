@@ -55,19 +55,22 @@ Rules:
 
 Set each of these in both `development` and `production`, with that environment's values. The deploy stops before changing anything if a required one is missing, and lists every missing name.
 
-| Name                                                                                                                                 | Kind     | Required | Goes to        |
-| ------------------------------------------------------------------------------------------------------------------------------------ | -------- | -------- | -------------- |
-| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN`                                                                      | Secret   | Yes      | The deploy     |
-| `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`                                                                         | Variable | Yes      | The deploy     |
-| `APP_DOMAIN_ALIAS` (development only)                                                                                                | Variable | No       | The deploy     |
-| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_DESCRIPTION`                            | Variable | Yes      | Vercel         |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                          | Variable | Yes      | Vercel         |
-| `SUPABASE_SERVICE_ROLE_KEY`                                                                                                          | Secret   | Yes      | Vercel         |
-| `NEXT_PUBLIC_TWITTER_HANDLE`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Variable | No       | Vercel         |
-| `PLATFORM_ADMIN_EMAILS`                                                                                                              | Either   | No       | Vercel         |
-| `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                     | Secret   | No       | Vercel         |
-| `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                         | Variable | Yes      | Edge Functions |
-| `PAYPAL_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`                                                               | Secret   | Yes      | Edge Functions |
+| Name                                                                                                                                 | Kind     | Required | Goes to                             |
+| ------------------------------------------------------------------------------------------------------------------------------------ | -------- | -------- | ----------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN`                                                                      | Secret   | Yes      | The deploy                          |
+| `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`                                                                         | Variable | Yes      | The deploy                          |
+| `APP_DOMAIN_ALIAS` (development only)                                                                                                | Variable | No       | The deploy                          |
+| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_DESCRIPTION`                            | Variable | Yes      | Vercel                              |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                          | Variable | Yes      | Vercel                              |
+| `SUPABASE_SERVICE_ROLE_KEY`                                                                                                          | Secret   | Yes      | Vercel                              |
+| `NEXT_PUBLIC_TWITTER_HANDLE`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Variable | No       | Vercel                              |
+| `NEXT_PUBLIC_DEMO_MODE` (development only)                                                                                           | Variable | No       | Vercel                              |
+| `DEMO_RESET_ALLOWED`, `DEMO_RESET_KEEP_EMAILS`, `DEMO_RESET_GRACE_HOURS` (development only)                                          | Variable | No       | [Demo reset](#e-nightly-demo-reset) |
+| `SEED_PASSWORD`, `PLATFORM_ADMIN_PASSWORD` (development only)                                                                        | Secret   | No       | [Demo reset](#e-nightly-demo-reset) |
+| `PLATFORM_ADMIN_EMAILS`                                                                                                              | Either   | No       | Vercel                              |
+| `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                     | Secret   | No       | Vercel                              |
+| `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                         | Variable | Yes      | Edge Functions                      |
+| `PAYPAL_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`                                                               | Secret   | Yes      | Edge Functions                      |
 
 `SUPABASE_PROJECT_REF` also reaches the app. The deploy also checks that `NEXT_PUBLIC_SUPABASE_URL` belongs to `SUPABASE_PROJECT_REF`, and that development never uses live PayPal. An optional value left empty in GitHub is left as it is in Vercel. To change a value, edit it in GitHub and run **Actions → Deploy** (on `main` for development, on the release tag for production).
 
@@ -142,9 +145,61 @@ Unscoped Preview variables in Vercel (used by pull-request previews) aren't touc
    - `SEED_PASSWORD`: a fresh random value (at least 12 characters, not the local default, e.g. `openssl rand -base64 18`). Every demo account gets it.
    - `PLATFORM_ADMIN_PASSWORD`: a different random value, needed the first time, when the platform admin account is created.
 
-   Keep both in the Local/Dev vault only; the app doesn't read them, so they don't belong in GitHub environments or Vercel. Share `SEED_PASSWORD` with demo viewers through a password manager or vault share, never in chat, issues, pull requests or the README, and never share `PLATFORM_ADMIN_PASSWORD`. To rotate it, or to fix accounts seeded with the old default, run `--clean` and then `--apply` with the new value: existing seed tenants are skipped, so their accounts keep the password they were created with.
+   Keep both in the Local/Dev vault. The app doesn't read them, so they never go to Vercel; the only other copy is the `development` environment's secrets, for the [nightly demo reset](#e-nightly-demo-reset), which the deploy ignores. Share `SEED_PASSWORD` with demo viewers through a password manager or vault share, never in chat, issues, pull requests or the README, and never share `PLATFORM_ADMIN_PASSWORD`. To rotate it, or to fix accounts seeded with the old default, run `--clean` and then `--apply` with the new value: existing seed tenants are skipped, so their accounts keep the password they were created with.
 
 6. Check it end to end: open the dev URL, create a workspace at `/setup`, raise a ticket, confirm the email reaches the test inbox, and make a sandbox payment.
+
+### E. Nightly demo reset
+
+Development is an open demo: anyone can sign up at `/setup`. **Actions → Demo reset** (`.github/workflows/demo-reset.yml`, running `scripts/demo-reset.mjs`) puts it back to the seeded state every night at 02:00 UTC.
+
+**What it deletes**
+
+1. **Visitor workspaces:** every workspace whose slug doesn't start with `seed-` and that is older than the grace period (2 hours by default). Deleting the `tenants` row cascades to every table in `public` (tickets, messages, customers, memberships, invoices, subscriptions, SLA policies, audit logs and the rest), so one delete per workspace is the whole job. There is no separate deprovision function.
+2. **Their files:** Storage doesn't cascade, so everything under `<workspace id>/` in the `ticket-attachments`, `avatars`, `branding` and `invoices` buckets is removed through the Storage API.
+3. **Seeded workspaces:** `seed-tenants.mjs --clean` removes them with anything visitors changed in them, and their files go too. `seed-tenants.mjs --apply` rebuilds them at the end.
+4. **Visitor accounts:** Auth users that belong to no remaining workspace (no membership and no portal-customer link).
+
+**What it keeps**
+
+- Visitor workspaces created inside the grace period, with their members.
+- Seeded accounts, which are recreated by `--apply`.
+- The seeded platform admin and everyone in `PLATFORM_ADMIN_EMAILS`.
+- Everyone on `DEMO_RESET_KEEP_EMAILS`, so the team's own logins survive.
+- Accounts created inside the grace period, even with no workspace yet, because they may be halfway through `/setup`.
+
+**PayPal:** a visitor's subscription lives in the PayPal **sandbox**. The reset never calls PayPal, so sandbox subscriptions are left behind there. That costs nothing; cancel them in the sandbox dashboard if they get in the way.
+
+**Setup.** Add these to the GitHub `development` environment. The deploy's `sync-env.mjs` only reads the names in its manifest, so none of the job-only values below reach Vercel or the Edge Functions.
+
+| Name                      | Type                | Value                                                                                                         |
+| ------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DEMO_RESET_ALLOWED`      | variable            | `true`. Until it is set, the workflow skips itself.                                                           |
+| `SEED_PASSWORD`           | secret              | The demo accounts' password (see step D5). It is checked before anything is deleted.                          |
+| `PLATFORM_ADMIN_PASSWORD` | secret              | Only needed if the platform admin account doesn't exist yet.                                                  |
+| `DEMO_RESET_KEEP_EMAILS`  | variable (optional) | Comma-separated addresses and `@domain` entries never to delete, e.g. `ops@example.com,@example.org`.         |
+| `DEMO_RESET_GRACE_HOURS`  | variable (optional) | Hours a new workspace or account is spared (default `2`).                                                     |
+| `NEXT_PUBLIC_DEMO_MODE`   | variable            | `true`, so `/setup` tells visitors their workspaces are deleted nightly. Synced to Vercel by the next deploy. |
+
+It also uses values the deploy already needs: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`, `PRODUCTION_PROJECT_REF` and `PLATFORM_ADMIN_EMAILS`.
+
+**Safety.** The script refuses to run, even as a dry run, unless `DEMO_RESET_ALLOWED` is `true`, the Supabase URL is `https://<SUPABASE_PROJECT_REF>.supabase.co`, and that ref isn't `PRODUCTION_PROJECT_REF`. A custom Supabase domain can't be checked, so it is refused. `--apply` also needs `--project-ref <ref>`. The workflow only ever uses the `development` environment, and it shares the `deploy-development` concurrency group, so it never runs during a development deploy. Logs and the run summary show counts and workspace slugs, never email addresses or passwords.
+
+**Run it by hand, dry run first:**
+
+1. **Actions → Demo reset → Run workflow** on `main`, with **Dry run** ticked (the default). The run summary lists how many workspaces, files and accounts would go. Nothing is changed.
+2. If the numbers look right, run it again with **Dry run** unticked to reset now.
+
+From a laptop, with the dev values in an env file that isn't committed:
+
+```sh
+DEMO_RESET_ALLOWED=true node --env-file=<dev env file> scripts/demo-reset.mjs            # dry run
+DEMO_RESET_ALLOWED=true node --env-file=<dev env file> scripts/demo-reset.mjs --list     # also print addresses
+DEMO_RESET_ALLOWED=true node --env-file=<dev env file> scripts/demo-reset.mjs \
+  --apply --project-ref <dev ref>                                                        # reset
+```
+
+Scheduled runs only start once the workflow is on `main`. Workspaces are reset whether or not someone is using them at 02:00 UTC; only visitor workspaces get the grace period. If the rebuild fails, the run fails, and re-running it (or `seed-tenants.mjs --apply`) finishes the job.
 
 ## 3. Production setup (deployed by release tags)
 
