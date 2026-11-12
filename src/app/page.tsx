@@ -6,10 +6,9 @@ import {
   CheckCircle2,
   Globe,
   Lock,
-  Bot,
-  Sparkles,
-  TrendingUp,
-  Cpu,
+  Clock,
+  Users,
+  ShieldCheck,
   Building2,
 } from "lucide-react";
 import { APP_ROUTES } from "@/lib/routes";
@@ -87,23 +86,20 @@ export default async function Home() {
       <main className="flex-1">
         <section className="relative px-4 sm:px-6 lg:px-8 pt-10 sm:pt-16 md:pt-24 pb-12 sm:pb-20 max-w-5xl mx-auto text-center flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/10 text-brand-accent text-xs font-semibold border border-brand-accent/20 mb-6 max-w-full">
-            <Sparkles className="w-3.5 h-3.5 text-brand-accent shrink-0" />
+            <Ticket className="w-3.5 h-3.5 text-brand-accent shrink-0" />
             <span className="truncate">
-              Next-Gen AI-Powered Support Infrastructure
+              Help desk for teams that outgrew a shared inbox
             </span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground max-w-4xl leading-[1.12]">
-            Supercharge your support with{" "}
-            <span className="text-brand-accent inline-block">
-              help desk software
-            </span>
+            Answer every customer{" "}
+            <span className="text-brand-accent inline-block">on time</span>
           </h1>
 
           <p className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl leading-relaxed">
-            The all-in-one multi-tenant helpdesk platform equipped with 2026 AI
-            copilots, automated ticket routing, and dedicated organization
-            workspaces.
+            Ticket queues, SLA targets with breach alerts, a branded customer
+            portal and reports, in a workspace of your own.
           </p>
 
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
@@ -124,21 +120,21 @@ export default async function Home() {
         </section>
 
         <section
-          id="trending-2026"
+          id="highlights"
           className="py-12 sm:py-20 lg:py-24 bg-card border-y border-border"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col items-center text-center max-w-2xl mx-auto mb-10 sm:mb-16">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-accent/10 text-brand-accent text-xs font-semibold border border-brand-accent/20 mb-3">
-                <TrendingUp className="w-3.5 h-3.5 shrink-0" /> 2026 Industry
-                Standards
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Ready on day
+                one
               </div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
-                Stay Ahead with 2026 Helpdesk Trends
+                Keep promises to your customers
               </h2>
               <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-3">
-                <PlatformName /> comes pre-configured with modern AI and
-                proactive ticket resolution standards.
+                <PlatformName /> tracks every request against the targets you
+                set, so nothing waits in a queue unnoticed.
               </p>
             </div>
 
@@ -146,15 +142,15 @@ export default async function Home() {
               <div className="p-6 sm:p-8 rounded-2xl border border-border bg-muted/40 hover:border-brand-accent/50 transition-all flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-xl bg-brand-accent/10 text-brand-accent flex items-center justify-center mb-5">
-                    <Bot className="w-5 h-5" />
+                    <Clock className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">
-                    Autonomous Agent Copilots
+                    SLA targets and breach alerts
                   </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    AI agents pre-draft response options, summarize multi-page
-                    customer histories in seconds, and resolve standard Level-1
-                    tickets autonomously.
+                    Set first-response and resolution targets for each priority.
+                    Every ticket shows the time left, and the team is alerted
+                    when a target is missed.
                   </p>
                 </div>
               </div>
@@ -162,15 +158,15 @@ export default async function Home() {
               <div className="p-6 sm:p-8 rounded-2xl border border-border bg-muted/40 hover:border-brand-accent/50 transition-all flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-xl bg-brand-accent/10 text-brand-accent flex items-center justify-center mb-5">
-                    <Cpu className="w-5 h-5" />
+                    <Users className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">
-                    Predictive SLA Breach Alerts
+                    A portal for your customers
                   </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Real-time machine learning models analyze agent queue
-                    velocity and alert supervisors before SLA breaches happen,
-                    not after.
+                    Customers raise requests, reply and follow progress in a
+                    portal with your name, logo and colors, and get an email at
+                    each update.
                   </p>
                 </div>
               </div>
@@ -178,15 +174,15 @@ export default async function Home() {
               <div className="p-6 sm:p-8 rounded-2xl border border-border bg-muted/40 hover:border-brand-accent/50 transition-all sm:col-span-2 lg:col-span-1 flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-xl bg-brand-accent/10 text-brand-accent flex items-center justify-center mb-5">
-                    <Globe className="w-5 h-5" />
+                    <ShieldCheck className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">
-                    Zero-Trust Multi-Tenancy
+                    Your data stays yours
                   </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Complete dynamic subdomain isolation, database row-level
-                    tenant security, and real-time compliance tracking out of
-                    the box.
+                    Each workspace is walled off by row-level security in the
+                    database, and an automated test suite checks that one
+                    workspace can never read or change another&apos;s data.
                   </p>
                 </div>
               </div>
@@ -201,11 +197,10 @@ export default async function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
-                Built for modern customer operations
+                Everything a support team uses every day
               </h2>
               <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-3">
-                Everything your support team needs to handle issues faster and
-                smarter.
+                From the first request to the monthly report.
               </p>
             </div>
 
@@ -215,11 +210,12 @@ export default async function Home() {
                   <Ticket className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-base sm:text-lg text-foreground mb-2">
-                  Omnichannel Ticketing
+                  Ticket queues
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Consolidate requests from email, web portals, and API
-                  integrations into a unified, prioritizeable queue.
+                  Requests from the portal and from your agents land in one
+                  queue. Assign, prioritize, add internal notes and attach
+                  files, then save the views your team uses most.
                 </p>
               </div>
 
@@ -228,14 +224,11 @@ export default async function Home() {
                   <Globe className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-base sm:text-lg text-foreground mb-2">
-                  Dedicated Tenant Domains
+                  A workspace of your own
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Give your organization its own branded subdomain (e.g.,
-                  <code className="break-all bg-background px-1.5 py-0.5 rounded border border-border/60 font-mono text-[11px] sm:text-xs">
-                    yourcompany.servicedeskpro.com
-                  </code>
-                  ).
+                  Your team and your customers sign in at your workspace&apos;s
+                  own web address, with your branding on the customer portal.
                 </p>
               </div>
 
@@ -244,11 +237,12 @@ export default async function Home() {
                   <Lock className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-base sm:text-lg text-foreground mb-2">
-                  Security & Role Control
+                  Roles and audit log
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Keep client data isolated with strict multi-tenant security
-                  policies, SSO integration, and full audit logging.
+                  Admin, manager, agent and billing roles control who sees and
+                  changes what. Sign in with email or Google, and keep an audit
+                  log of sensitive changes on Business.
                 </p>
               </div>
             </div>
@@ -264,8 +258,8 @@ export default async function Home() {
               Transparent plans for teams of any size
             </h2>
             <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-3">
-              Start free, scale with Pro, or power large enterprise operations
-              with our Business plan.
+              One monthly price per workspace. Start free, and try any paid plan
+              free for 15 days.
             </p>
           </div>
 
@@ -273,10 +267,10 @@ export default async function Home() {
             <div className="p-6 sm:p-8 rounded-2xl border border-border bg-card text-card-foreground flex flex-col justify-between shadow-xs hover:border-brand-accent/30 transition-all">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-foreground">
-                  Starter Workspace
+                  Free
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  Ideal for startups & small support teams.
+                  For small teams getting started.
                 </p>
                 <div className="mt-6 text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
                   $0
@@ -287,15 +281,15 @@ export default async function Home() {
                 <ul className="mt-6 space-y-3 text-xs sm:text-sm text-muted-foreground">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Custom Subdomain Included</span>
+                    <span>Up to 2 agent seats</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Up to 3 Agent Seats</span>
+                    <span>50 tickets and 1 GB of files</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Standard Ticket Queue & Views</span>
+                    <span>Customer portal and one SLA policy</span>
                   </li>
                 </ul>
               </div>
@@ -303,7 +297,7 @@ export default async function Home() {
                 href={APP_ROUTES.SETUP}
                 className="mt-8 w-full py-3 rounded-xl border border-border bg-muted/60 hover:bg-muted text-xs sm:text-sm font-semibold text-center text-foreground transition-colors block"
               >
-                Start Free Today
+                Start free
               </Link>
             </div>
 
@@ -313,33 +307,33 @@ export default async function Home() {
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-foreground">
-                  Pro Operations
+                  Pro
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  For growing businesses needing automation & SLAs.
+                  For growing teams that need SLAs, shared views and reports.
                 </p>
                 <div className="mt-6 text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
                   $29
                   <span className="text-xs sm:text-sm font-normal text-muted-foreground">
-                    / agent / mo
+                    / workspace / mo
                   </span>
                 </div>
                 <ul className="mt-6 space-y-3 text-xs sm:text-sm text-muted-foreground">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Unlimited Agent Seats</span>
+                    <span>Up to 15 agent seats</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Automated SLA Rules & Escalations</span>
+                    <span>Unlimited tickets and 10 GB of files</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>AI Copilot & Smart Ticket Triage</span>
+                    <span>Unlimited SLA policies and business hours</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>REST API & Webhook Access</span>
+                    <span>Shared views and your branding on the portal</span>
                   </li>
                 </ul>
               </div>
@@ -347,7 +341,7 @@ export default async function Home() {
                 href={APP_ROUTES.SETUP}
                 className="mt-8 w-full py-3 rounded-xl bg-brand-accent hover:bg-brand-accent/90 text-xs sm:text-sm font-semibold text-center text-primary-foreground transition-colors shadow-xs block"
               >
-                Start 14-Day Free Trial
+                Start 15-day free trial
               </Link>
             </div>
 
@@ -356,42 +350,42 @@ export default async function Home() {
                 <div className="flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-brand-accent shrink-0" />
                   <h3 className="text-base sm:text-lg font-bold text-foreground">
-                    Business Plan
+                    Business
                   </h3>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  Custom infrastructure for high-scale organizations.
+                  For larger teams that need an audit trail and room to grow.
                 </p>
                 <div className="mt-6 text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
                   $59
                   <span className="text-xs sm:text-sm font-normal text-muted-foreground">
-                    / agent / mo
+                    / workspace / mo
                   </span>
                 </div>
                 <ul className="mt-6 space-y-3 text-xs sm:text-sm text-muted-foreground">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Custom Domain Mapping (SSL)</span>
+                    <span>Everything in Pro</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>SAML SSO & Okta/Azure AD</span>
+                    <span>Up to 100 agent seats</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>Dedicated DB Isolation & Backup</span>
+                    <span>50 GB of files</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-brand-accent shrink-0" />
-                    <span>24/7 Priority SLA & Account Manager</span>
+                    <span>Audit log of sensitive changes</span>
                   </li>
                 </ul>
               </div>
               <Link
-                href={APP_ROUTES.LOGIN}
+                href={APP_ROUTES.SETUP}
                 className="mt-8 w-full py-3 rounded-xl border border-border bg-muted/60 hover:bg-muted text-xs sm:text-sm font-semibold text-center text-foreground transition-colors block"
               >
-                Contact Sales
+                Start 15-day free trial
               </Link>
             </div>
           </div>
@@ -408,6 +402,7 @@ export default async function Home() {
               <PlatformName /> Platform
             </span>
           </div>
+          <p>A reference build, made to demonstrate the product.</p>
           <p>
             © {new Date().getFullYear()} <PlatformName />. All rights reserved.
           </p>

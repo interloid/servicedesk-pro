@@ -82,7 +82,7 @@ export function describePlan(
       ? "For small teams getting started with help desk essentials."
       : name === "Pro"
         ? "For growing teams that need SLA policies, shared views, and reporting."
-        : "Advanced governance, AI automation, and scale for larger teams.")
+        : "For larger teams that need an audit log, more seats and more storage.")
   );
 }
 

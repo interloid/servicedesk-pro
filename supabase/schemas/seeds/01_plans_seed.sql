@@ -69,7 +69,7 @@ VALUES
 (
     'P-9ML37355RU186980YNKX3UNI',
     'Business',
-    'Advanced governance, AI automation, and scale for larger teams.',
+    'For larger teams that need an audit log, more seats and more storage.',
     59.00,
     100,
     999999,
@@ -84,8 +84,7 @@ VALUES
         "branding": true,
         "priority_support": true,
         "audit_logs": true,
-        "advanced_roles": true,
-        "ai_automation": true
+        "advanced_roles": true
     }'::jsonb,
     true,
     3
