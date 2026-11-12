@@ -449,7 +449,7 @@ Shared code is in `supabase/functions/_shared/`. Functions run on Deno, so they 
 1. Create `src/app/(app)/[tenantSlug]/(base-layout)/<route>/page.tsx`.
 2. Add the route to `TENANT_ROUTES` in `src/lib/tenancy.ts`.
 3. Add its first path segment to `RESERVED_LABELS`, and to the `tenants_slug_not_reserved` constraint with a migration. Its current copy is in `supabase/schemas/tables/03_tenants.sql`. Otherwise a workspace could claim that slug.
-4. Add a link in `src/components/shared/layout/app-sidebar.tsx`.
+4. Add a link in `src/components/shared/layout/app-sidebar.tsx`, and add the route to `SHIPPED_TENANT_ROUTES` in `src/lib/tenancy.ts`. The sidebar hides routes that aren't in that set, and a unit test fails if one has no page.
 5. If a role shouldn't see it, update the checks in `src/lib/tenancy.ts` and `role-route-guard.tsx`, and enforce the rule in RLS.
 6. Put the UI and logic in `src/features/<feature>/`.
 

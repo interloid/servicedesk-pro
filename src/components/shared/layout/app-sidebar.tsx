@@ -43,7 +43,12 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-import { stripTenantPrefix, TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
+import {
+  SHIPPED_TENANT_ROUTES,
+  stripTenantPrefix,
+  TENANT_ROUTES,
+  tenantPath,
+} from "@/lib/tenancy";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -69,20 +74,6 @@ interface NavSection {
   title: string | null;
   items: NavItem[];
 }
-
-const SHIPPED_ROUTES = new Set<string>([
-  TENANT_ROUTES.TICKETS,
-  TENANT_ROUTES.VIEWS,
-  TENANT_ROUTES.CUSTOMERS,
-  TENANT_ROUTES.SLA,
-  TENANT_ROUTES.REPORTS,
-  TENANT_ROUTES.SETTINGS.TEAM,
-  TENANT_ROUTES.SETTINGS.BRANDING,
-  TENANT_ROUTES.SETTINGS.NOTIFICATIONS,
-  TENANT_ROUTES.SETTINGS.AUDIT,
-  TENANT_ROUTES.ACCOUNT.BILLING,
-  TENANT_ROUTES.ACCOUNT.PLANS,
-]);
 
 export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
   const pathname = usePathname();
@@ -237,7 +228,7 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => hasAccess(item.roles) && SHIPPED_ROUTES.has(item.href),
+        (item) => hasAccess(item.roles) && SHIPPED_TENANT_ROUTES.has(item.href),
       ),
     }))
     .filter((section) => section.items.length > 0);
