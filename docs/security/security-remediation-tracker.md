@@ -156,7 +156,7 @@ Not merged and not applied on live, so the statuses above stay as they are until
 | SEC-032 | 20 foreign keys made tenant-consistent, `(tenant_id, x)` → `(tenant_id, id)`, and an assignee trigger                                            | `20261112130000_tenant_consistent_references.sql`. Cross-workspace message, ticket, tag, attachment, assignee and invoice writes are refused (23503 or TA001), including for the service role |
 | SEC-006 | `reconcile-subscriptions` now checks for the service role, through `_shared/service-role.ts` shared with `email-jobs` and `portal-storage-sweep` | `src/lib/edge-service-role.test.ts`. Not run against a deployed function                                                                                                                      |
 
-`npm run test:authz` result: 51 of 51 pass. With `AUTHZ_EXCLUDE="20261112120000 20261112130000"`, 22 attacks succeed, so the suite detects these issues.
+`npm run test:authz` result: 202 of 202 pass, including a read, update and delete sweep of all 24 tenant tables as tenant admin and as customer. With `AUTHZ_EXCLUDE="20261112120000 20261112130000"`, 23 attacks succeed, so the suite detects these issues.
 
 Not verified here: the signed-in app flows on top of these changes (no e2e run), Storage's handling of signed upload URLs without the avatar policies, and live data that might already cross workspaces (the migration warns and leaves such a key `NOT VALID` rather than failing).
 
