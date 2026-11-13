@@ -1696,7 +1696,7 @@ async function getPolicyFirstResponse(
   const { data: target } = await admin
     .from("sla_policy_targets")
     .select(
-      "first_response_mins, first_response_unit, first_response_business, policy:policy_id(business_hours:business_hours_id(schedule_json))",
+      "first_response_mins, first_response_unit, first_response_business, policy:sla_policies!sla_policy_targets_policy_id_fkey(business_hours:business_hours!sla_policies_business_hours_id_fkey(schedule_json))",
     )
     .eq("policy_id", policyId)
     .eq("priority_scope", priority)
