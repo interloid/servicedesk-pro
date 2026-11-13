@@ -171,6 +171,36 @@ describe("planVercel", () => {
     ]);
   });
 
+  it("uses unscoped Preview variables when the project has no Git connection", () => {
+    const existing = [
+      {
+        id: "main",
+        key: "NEXT_PUBLIC_SITE_URL",
+        target: ["preview"],
+        gitBranch: "main",
+      },
+      { id: "pr", key: "NEXT_PUBLIC_SITE_URL", target: ["preview"] },
+    ];
+    const options = { gitConnected: false };
+    expect(planVercel([], desired, "development", options)).toEqual([
+      {
+        op: "create",
+        key: "NEXT_PUBLIC_SITE_URL",
+        value: "https://dev.example.com",
+        target: ["preview"],
+        gitBranch: undefined,
+      },
+    ]);
+    expect(planVercel(existing, desired, "development", options)).toEqual([
+      {
+        op: "update",
+        key: "NEXT_PUBLIC_SITE_URL",
+        id: "pr",
+        value: "https://dev.example.com",
+      },
+    ]);
+  });
+
   it("leaves unscoped Preview variables (pull-request previews) alone", () => {
     const existing = [
       { id: "pr", key: "NEXT_PUBLIC_SITE_URL", target: ["preview"] },

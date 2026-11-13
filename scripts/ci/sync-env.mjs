@@ -165,13 +165,24 @@ export function mergeDotenv(text, values) {
  * the project's current variables. Development is Preview for branch `main`;
  * production is Production.
  *
+ * Vercel only accepts branch-scoped variables on a project connected to a Git
+ * repository. Without one (`gitConnected: false`) development is every Preview
+ * deployment instead; with no Git connection there are no pull-request
+ * previews to keep apart from it.
+ *
  * A variable shared with other environments (for example "All Environments")
  * is split: this target is removed from it, keeping its value elsewhere, and a
  * variable for this target alone is created.
  */
-export function planVercel(existing, desired, deployEnv) {
+export function planVercel(
+  existing,
+  desired,
+  deployEnv,
+  { gitConnected = true } = {},
+) {
   const target = deployEnv === "production" ? "production" : "preview";
-  const gitBranch = deployEnv === "production" ? undefined : "main";
+  const gitBranch =
+    deployEnv === "production" || !gitConnected ? undefined : "main";
   const ops = [];
 
   for (const [key, value] of desired) {
@@ -277,6 +288,8 @@ async function syncVercel(values, deployEnv) {
   };
 
   const project = `/v9/projects/${encodeURIComponent(VERCEL_PROJECT_ID)}`;
+  // `link` is the project's Git connection; branch-scoped variables need one.
+  const gitConnected = Boolean((await api("GET", project)).link);
   const { envs } = await api("GET", `/v10/projects/${VERCEL_PROJECT_ID}/env`);
   const secretNames = new Set(
     MANIFEST.filter((e) => e.secret).map((e) => e.name),
@@ -285,7 +298,9 @@ async function syncVercel(values, deployEnv) {
   // A split variable is restored if its replacement can't be created, so this
   // environment never ends up without it.
   const split = new Map();
-  for (const op of planVercel(envs, only(values, "app"), deployEnv)) {
+  for (const op of planVercel(envs, only(values, "app"), deployEnv, {
+    gitConnected,
+  })) {
     if (op.op === "untarget") {
       await api("PATCH", `${project}/env/${op.id}`, { target: op.target });
       split.set(op.key, op);
@@ -315,7 +330,11 @@ async function syncVercel(values, deployEnv) {
     }
   }
   const scope =
-    deployEnv === "production" ? "Production" : "Preview (branch main)";
+    deployEnv === "production"
+      ? "Production"
+      : gitConnected
+        ? "Preview (branch main)"
+        : "Preview (all branches; the project has no Git connection)";
   console.log(`Vercel ${scope} variables are in sync.`);
 }
 
