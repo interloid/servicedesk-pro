@@ -9,7 +9,7 @@
 -- A paid -> paid plan change revises the tenant's existing agreement, and
 -- PayPal only revises between plans of the SAME product -- a cross-product
 -- revise fails with PLAN_PRODUCT_NOT_COMPATIBLE and the upgrade cannot
--- complete. Pro and Business below are both under PROD-36684612HM716850Y.
+-- complete. Pro and Business below are both under the servicedesk-pro product.
 --
 -- This file only runs on a fresh database (`supabase db reset`). To change a
 -- code on a database that already exists, write a migration -- see
@@ -46,7 +46,7 @@ VALUES
     1
 ),
 (
-    'P-0HG79944PA599763KNKX3UAI',
+    'P-0PE25761Y7893022WNL26CCA',
     'Pro',
     'For growing teams that need SLA policies, shared views, and reporting.',
     29.00,
@@ -67,7 +67,7 @@ VALUES
     2
 ),
 (
-    'P-9ML37355RU186980YNKX3UNI',
+    'P-2T784826592139232NL26CNY',
     'Business',
     'Advanced governance, AI automation, and scale for larger teams.',
     59.00,
