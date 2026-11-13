@@ -211,7 +211,7 @@ GitHub Actions builds and deploys the app with the Vercel CLI, after the databas
 | Pull settings and variables | `vercel pull --environment=preview --git-branch=main` | `vercel pull --environment=production`                                                        |
 | Build on the GitHub runner  | `vercel build --environment=preview`                  | `vercel build --environment=production`                                                       |
 | Upload and publish          | `vercel deploy --prebuilt --environment=preview`      | `vercel deploy --prebuilt --environment=production`, which goes live on the production domain |
-| Domain                      | `vercel alias set <url> $APP_DOMAIN_ALIAS`, if set    | The production domain, automatically                                                          |
+| Domain                      | `scripts/ci/vercel-alias.mjs` → `$APP_DOMAIN_ALIAS`   | The production domain, automatically                                                          |
 
 The app is built separately for each environment from the same commit, because the Supabase URL and keys are compiled into the build.
 
