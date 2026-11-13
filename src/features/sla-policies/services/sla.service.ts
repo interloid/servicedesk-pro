@@ -883,7 +883,7 @@ export async function fetchTenantSlaPolicies(
     .select(
       // No embed on updated_by: on a database without migration
       // 20261002120000 the embed fails the whole query and the list is empty.
-      `*, business_hours:business_hours_id(${BUSINESS_HOURS_COLUMNS})`,
+      `*, business_hours:business_hours!sla_policies_business_hours_id_fkey(${BUSINESS_HOURS_COLUMNS})`,
     )
     .eq("tenant_id", tenantId)
     .order("is_default", { ascending: false })

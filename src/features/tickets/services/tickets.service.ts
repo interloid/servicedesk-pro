@@ -168,7 +168,7 @@ export const fetchTicketById = cache(
       .select(
         `
           *,
-          customers:requester_customer_id (
+          customers:customers!tickets_requester_customer_id_fkey (
             full_name,
             company,
             email,
@@ -306,7 +306,7 @@ export async function fetchTenantTickets(
     .select(
       `
         *,
-        customers:requester_customer_id (
+        customers:customers!tickets_requester_customer_id_fkey (
           full_name,
           email,
           company,
@@ -1668,7 +1668,7 @@ export async function searchTenantTickets(
         status,
         priority,
         updated_at,
-        customers:requester_customer_id (
+        customers:customers!tickets_requester_customer_id_fkey (
           full_name,
           email
         )
