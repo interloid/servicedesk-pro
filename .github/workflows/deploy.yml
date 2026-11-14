@@ -7,7 +7,9 @@
 #
 # Order within a deploy, so new app code never runs against an old schema:
 #   1. CI checks (ci.yml)
-#   2. Database migrations   supabase db push
+#   2. Database migrations   supabase db push, then the reference data the app
+#                            needs (plans, time zones, storage buckets: the
+#                            [db.seed] files in supabase/config.toml)
 #   3. Edge Functions        secrets from GitHub, then supabase functions deploy
 #   4. App                   variables from GitHub synced to Vercel, then the
 #                            Vercel CLI (Vercel's own Git deploys are off for
@@ -158,11 +160,16 @@ jobs:
         if: env.APP_ONLY != 'true'
         run: |
           supabase migration list
-          supabase db push --dry-run
+          supabase db push --dry-run --include-seed
 
-      - name: Apply migrations
+      # --include-seed then loads the reference data every environment needs
+      # (supabase/schemas/seeds/*.sql, supabase/schemas/storage/buckets.sql).
+      # Each file is safe to re-run: existing plans and time zones are left as
+      # they are (plan prices and PayPal ids are never overwritten), and buckets
+      # only have their size and type limits re-asserted.
+      - name: Apply migrations and reference data
         if: env.APP_ONLY != 'true'
-        run: supabase db push
+        run: supabase db push --include-seed
 
       - name: Sync Edge Function secrets
         if: env.APP_ONLY != 'true'

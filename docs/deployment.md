@@ -30,7 +30,7 @@ Development and production always run the same history: production is an earlier
   - **One deploy per environment at a time**, and a running deploy is never cancelled.
 - **`.github/workflows/bootstrap-development.yml`** is run by hand to set up a new development project without opening the Supabase or PayPal dashboards. It does the following:
   - applies pending migrations (on `main` only) and sets the database time zone
-  - seeds plans, time zones and storage buckets, which `db push` never runs, and checks the storage policies
+  - seeds plans, time zones and storage buckets (Deploy also loads these on every run, with `supabase db push --include-seed`), and checks the storage policies
   - sets the auth site URL, redirect URLs, email templates (`supabase/templates/`) and custom SMTP, turns on the access token hook, and enables Google sign-in
   - creates the PayPal **sandbox** product and plans once, writing their ids into `public.plans`, and registers the PayPal webhook
   - creates the Vault secrets the cron jobs need
@@ -187,7 +187,7 @@ The first release switches the live app to the production project as soon as it 
    supabase migration list    # a new project lists nothing on the remote
    supabase db push
    ```
-3. In the **SQL editor**, run the contents of `supabase/schemas/seeds/01_plans_seed.sql`, `supabase/schemas/seeds/02_timezone_seed.sql` and `supabase/schemas/storage/buckets.sql`, in that order. `db push` never runs them.
+3. Load the reference data: `supabase db push --include-seed` (the same command Deploy runs). It loads plans, time zones and storage buckets from the `[db.seed]` files in `supabase/config.toml`; existing rows are left as they are.
 4. Under **Authentication → Hooks**, enable "Customize Access Token" with `public.custom_access_token_hook`. Under **Authentication → URL Configuration**, set the production site URL and redirect URLs. Configure SMTP and Google sign-in if you use them.
 5. Create the Vault secrets, as in [development step D3](#d-first-deploy-and-one-time-database-setup), with the production ref and service-role key. Migration `20261112110000` reschedules the reconcile job with `service_role_key` and `reconcile_subscriptions_url`.
 6. In PayPal **live**, set `plans.code` of Pro and Business (seeded as `PAYPAL-PENDING-PRO` / `PAYPAL-PENDING-BUSINESS`) to your live plan IDs and `plans.paypal_product_id` to their product, register `https://<production ref>.supabase.co/functions/v1/paypal-webhook` as the webhook URL, and put its ID in the GitHub `production` environment as `PAYPAL_WEBHOOK_ID`.
