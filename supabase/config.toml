@@ -275,9 +275,10 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Auth email templates. The same files and subjects are applied to the
-# development project by .github/workflows/bootstrap-development.yml
-# (scripts/ci/bootstrap/supabase-auth.mjs templates), so local and dev match.
+# Auth email templates. Every deploy applies these sections to the hosted
+# project, together with [auth.hook.custom_access_token] and whether
+# [auth.external.google] is enabled (scripts/ci/bootstrap/supabase-auth.mjs),
+# so local, development and production send the same email.
 [auth.email.template.invite]
 subject = "You're invited to ServiceDesk Pro"
 content_path = "./supabase/templates/invite.html"

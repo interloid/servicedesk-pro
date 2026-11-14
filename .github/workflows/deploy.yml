@@ -7,9 +7,13 @@
 #
 # Order within a deploy, so new app code never runs against an old schema:
 #   1. CI checks (ci.yml)
-#   2. Database migrations   supabase db push
-#   3. Edge Functions        secrets from GitHub, then supabase functions deploy
-#   4. App                   variables from GitHub synced to Vercel, then the
+#   2. Database migrations   supabase db push, then the reference data the app
+#                            needs (plans, time zones, storage buckets: the
+#                            [db.seed] files in supabase/config.toml)
+#   3. Auth settings         what supabase/config.toml switches on (hook, Google
+#                            sign-in, email templates) plus URLs and SMTP
+#   4. Edge Functions        secrets from GitHub, then supabase functions deploy
+#   5. App                   variables from GitHub synced to Vercel, then the
 #                            Vercel CLI (Vercel's own Git deploys are off for
 #                            main, see vercel.json)
 #
@@ -158,11 +162,40 @@ jobs:
         if: env.APP_ONLY != 'true'
         run: |
           supabase migration list
-          supabase db push --dry-run
+          supabase db push --dry-run --include-seed
 
-      - name: Apply migrations
+      # --include-seed then loads the reference data every environment needs
+      # (supabase/schemas/seeds/*.sql, supabase/schemas/storage/buckets.sql).
+      # Each file is safe to re-run: existing plans and time zones are left as
+      # they are (plan prices and PayPal ids are never overwritten), and buckets
+      # only have their size and type limits re-asserted.
+      - name: Apply migrations and reference data
         if: env.APP_ONLY != 'true'
-        run: supabase db push
+        run: supabase db push --include-seed
+
+      # What supabase/config.toml switches on -- the access token hook, Google
+      # sign-in, the email templates -- plus this environment's site URL,
+      # redirect URLs and SMTP, through the Management API. Only fields that
+      # differ are written (SMTP and Google secrets are re-applied each time),
+      # and the result is read back. Runs after the migrations, so the hook
+      # function exists before the hook points at it.
+      - name: Apply auth settings
+        if: env.APP_ONLY != 'true'
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME }}
+          SUPABASE_SITE_URL: ${{ vars.SUPABASE_SITE_URL }}
+          SUPABASE_REDIRECT_URLS: ${{ vars.SUPABASE_REDIRECT_URLS }}
+          FROM_EMAIL: ${{ vars.FROM_EMAIL || secrets.FROM_EMAIL }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ vars.SMTP_USER || secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_SENDER_NAME: ${{ vars.SMTP_SENDER_NAME }}
+          SMTP_ADMIN_EMAIL: ${{ vars.SMTP_ADMIN_EMAIL }}
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ${{ vars.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID || secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID }}
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET }}
+        run: node scripts/ci/bootstrap/supabase-auth.mjs apply
 
       - name: Sync Edge Function secrets
         if: env.APP_ONLY != 'true'
