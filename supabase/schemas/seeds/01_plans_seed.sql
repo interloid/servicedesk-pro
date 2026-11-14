@@ -9,11 +9,20 @@
 -- A paid -> paid plan change revises the tenant's existing agreement, and
 -- PayPal only revises between plans of the SAME product -- a cross-product
 -- revise fails with PLAN_PRODUCT_NOT_COMPATIBLE and the upgrade cannot
--- complete. Pro and Business below are both under the servicedesk-pro product.
+-- complete. plans.paypal_product_id records that product.
 --
--- This file only runs on a fresh database (`supabase db reset`). To change a
--- code on a database that already exists, write a migration -- see
--- 20260920160000_update_paypal_plan_codes.sql.
+-- Pro and Business start with PAYPAL-PENDING-* placeholder codes. No real
+-- PayPal id is committed here:
+--   * development: the bootstrap workflow creates the sandbox product and
+--     plans once and writes their ids into `code` and `paypal_product_id`
+--     (scripts/ci/bootstrap/paypal-sandbox.mjs);
+--   * production: replace the placeholders with the live plan ids
+--     (docs/deployment.md, section 3.D).
+--
+-- Keyed on `name`, not `code`, and DO NOTHING: re-running the seed never
+-- overwrites an existing plan's price, limits or PayPal ids, and never inserts
+-- a second row for a plan whose code has since been replaced. Change an
+-- existing plan with a migration.
 
 INSERT INTO plans (
     code,
@@ -46,7 +55,7 @@ VALUES
     1
 ),
 (
-    'P-0PE25761Y7893022WNL26CCA',
+    'PAYPAL-PENDING-PRO',
     'Pro',
     'For growing teams that need SLA policies, shared views, and reporting.',
     29.00,
@@ -67,7 +76,7 @@ VALUES
     2
 ),
 (
-    'P-2T784826592139232NL26CNY',
+    'PAYPAL-PENDING-BUSINESS',
     'Business',
     'Advanced governance, AI automation, and scale for larger teams.',
     59.00,
@@ -90,18 +99,4 @@ VALUES
     true,
     3
 )
--- Re-running the seed refreshes the plan's details instead of failing on the
--- unique code. It cannot rename a code: a changed code has no conflict to
--- resolve and would insert a SECOND row for the same plan, so code changes
--- belong in a migration.
-on conflict (code) do update
-set name             = excluded.name,
-    description      = excluded.description,
-    price_month      = excluded.price_month,
-    seat_limit       = excluded.seat_limit,
-    ticket_limit     = excluded.ticket_limit,
-    storage_limit_mb = excluded.storage_limit_mb,
-    features_json    = excluded.features_json,
-    is_active        = excluded.is_active,
-    sort_order       = excluded.sort_order,
-    updated_at       = now();
+on conflict (name) do nothing;

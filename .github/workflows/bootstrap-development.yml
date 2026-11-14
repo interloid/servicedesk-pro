@@ -1,10 +1,20 @@
-# One-off setup for a new development Supabase project, run by hand from the
-# Actions tab after the first development deploy (a push to main) has applied
-# the migrations.
+# One-click setup for a new development Supabase project, run by hand from the
+# Actions tab: Actions -> Bootstrap development database -> Run workflow.
 #
-# `supabase db push` never runs seed files, so plans, time zones and storage
-# buckets are loaded here. It refuses to run against production and does
-# nothing if the plans table already has rows, so running it twice is safe.
+# It does everything the Supabase and PayPal dashboards used to be opened for:
+#   database   pending migrations, time zone, plans / time zones / buckets seeds,
+#              storage policy check, Vault secrets for the cron jobs
+#   auth       site URL, redirect URLs, email templates, custom SMTP, access
+#              token hook, Google sign-in (Management API: only those fields)
+#   PayPal     sandbox product + Pro and Business plans, created once and
+#              written into public.plans; the paypal-webhook endpoint
+#
+# Safe to run again: every step checks before it writes, nothing that exists is
+# recreated or overwritten (prices, plans, Vault secrets, a hook pointing
+# elsewhere), and the second run changes nothing. It refuses the production
+# project, and two runs never overlap. Any failed step fails the run.
+#
+# Setup and the values it reads: docs/deployment.md, section 2.
 name: Bootstrap development database
 
 on:
@@ -13,42 +23,304 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: bootstrap-development
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  seed:
+  bootstrap:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     environment: development
     env:
       # Session pooler connection string from the dev project's Connect panel.
       DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
       PRODUCTION_PROJECT_REF: ${{ vars.PRODUCTION_PROJECT_REF }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SITE_URL: ${{ vars.SUPABASE_SITE_URL || vars.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_REDIRECT_URLS: ${{ vars.SUPABASE_REDIRECT_URLS }}
+      DB_TIMEZONE: ${{ vars.DB_TIMEZONE || 'UTC' }}
+      PAYPAL_BASE_URL: ${{ vars.PAYPAL_BASE_URL || secrets.PAYPAL_BASE_URL }}
+      PGCONNECT_TIMEOUT: "15"
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_USER: ${{ vars.SMTP_USER || secrets.SMTP_USER }}
+      SMTP_SENDER_NAME: ${{ vars.SMTP_SENDER_NAME }}
+      SMTP_ADMIN_EMAIL: ${{ vars.SMTP_ADMIN_EMAIL || vars.FROM_EMAIL || secrets.FROM_EMAIL }}
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ${{ vars.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID || secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      # 1
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
 
-      - name: Refuse anything but the development project
+      # 2
+      - name: Validate required settings
+        env:
+          HAS_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+          HAS_PAYPAL_CLIENT_ID: ${{ (secrets.PAYPAL_CLIENT_ID || vars.PAYPAL_CLIENT_ID) != '' }}
+          HAS_PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET != '' }}
+          HAS_SMTP_PASS: ${{ secrets.SMTP_PASS != '' }}
+          HAS_GOOGLE_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET != '' }}
+          # Secrets set as variables show up in logs.
+          LEAKED: >-
+            ${{ vars.SUPABASE_DB_URL != '' && 'SUPABASE_DB_URL ' || '' }}${{ vars.SUPABASE_ACCESS_TOKEN != '' && 'SUPABASE_ACCESS_TOKEN ' || '' }}${{ vars.SUPABASE_DB_PASSWORD != '' && 'SUPABASE_DB_PASSWORD ' || '' }}${{ vars.SUPABASE_SERVICE_ROLE_KEY != '' && 'SUPABASE_SERVICE_ROLE_KEY ' || '' }}${{ vars.PAYPAL_CLIENT_SECRET != '' && 'PAYPAL_CLIENT_SECRET ' || '' }}${{ vars.SMTP_PASS != '' && 'SMTP_PASS ' || '' }}${{ vars.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET != '' && 'SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET' || '' }}
         run: |
-          if [ -z "$DATABASE_URL" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
-            echo "::error::Set SUPABASE_DB_URL and SUPABASE_PROJECT_REF in the development environment."
+          set -euo pipefail
+          if [ -n "${LEAKED// /}" ]; then
+            echo "::error::Set as GitHub variables, which show in logs: $LEAKED. Delete them and add them as secrets."
+            exit 1
+          fi
+          missing=""
+          for name in DATABASE_URL SUPABASE_PROJECT_REF PRODUCTION_PROJECT_REF \
+                      SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD \
+                      NEXT_PUBLIC_SUPABASE_URL SUPABASE_SITE_URL SUPABASE_REDIRECT_URLS \
+                      SMTP_HOST SMTP_PORT SMTP_USER SMTP_SENDER_NAME SMTP_ADMIN_EMAIL \
+                      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          [ "$HAS_SERVICE_ROLE_KEY" = "true" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          [ "$HAS_PAYPAL_CLIENT_ID" = "true" ] || missing="$missing PAYPAL_CLIENT_ID"
+          [ "$HAS_PAYPAL_CLIENT_SECRET" = "true" ] || missing="$missing PAYPAL_CLIENT_SECRET"
+          [ "$HAS_SMTP_PASS" = "true" ] || missing="$missing SMTP_PASS"
+          [ "$HAS_GOOGLE_SECRET" = "true" ] || missing="$missing SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET"
+          if [ -n "$missing" ]; then
+            # DATABASE_URL is the SUPABASE_DB_URL secret.
+            missing=${missing/DATABASE_URL/SUPABASE_DB_URL}
+            # SMTP_ADMIN_EMAIL falls back to FROM_EMAIL.
+            missing=${missing/SMTP_ADMIN_EMAIL/SMTP_ADMIN_EMAIL (or FROM_EMAIL)}
+            echo "::error::Missing in the 'development' environment:$missing. See docs/deployment.md, section 2."
+            exit 1
+          fi
+          echo "All required settings are present."
+
+      # 3
+      - name: Verify the development project reference
+        run: |
+          set -euo pipefail
+          if [[ ! "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]; then
+            echo "::error::SUPABASE_PROJECT_REF is not a Supabase project ref."
             exit 1
           fi
           case "$DATABASE_URL" in
             *"$SUPABASE_PROJECT_REF"*) ;;
             *) echo "::error::SUPABASE_DB_URL does not point at project $SUPABASE_PROJECT_REF."; exit 1 ;;
           esac
-          if [ -n "$PRODUCTION_PROJECT_REF" ] && [ "$SUPABASE_PROJECT_REF" = "$PRODUCTION_PROJECT_REF" ]; then
+          host=$(node -e 'console.log(new URL(process.argv[1]).hostname)' "$NEXT_PUBLIC_SUPABASE_URL")
+          if [ "$host" != "$SUPABASE_PROJECT_REF.supabase.co" ]; then
+            echo "::error::NEXT_PUBLIC_SUPABASE_URL points at $host, not project $SUPABASE_PROJECT_REF."
+            exit 1
+          fi
+          echo "Targeting development project $SUPABASE_PROJECT_REF."
+
+      # 4
+      - name: Refuse the production project
+        run: |
+          set -euo pipefail
+          if [ "$SUPABASE_PROJECT_REF" = "$PRODUCTION_PROJECT_REF" ]; then
             echo "::error::The development environment points at the production project."
             exit 1
           fi
+          case "$DATABASE_URL" in
+            *"$PRODUCTION_PROJECT_REF"*) echo "::error::SUPABASE_DB_URL names the production project."; exit 1 ;;
+          esac
+          case "${PAYPAL_BASE_URL%/}" in
+            ""|"https://api-m.sandbox.paypal.com") ;;
+            *) echo "::error::PAYPAL_BASE_URL is not the PayPal sandbox. Development never uses live PayPal."; exit 1 ;;
+          esac
+          echo "Not production."
 
-      - name: Load plans, time zones and buckets
+      # 5
+      - name: Install tools
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: supabase/setup-cli@v3.0.1
+        with:
+          version: 2.122.0
+
+      - name: Check psql
         run: |
-          plans=$(psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -c "select count(*) from public.plans")
-          if [ "$plans" != "0" ]; then
-            echo "Plans already present ($plans rows); nothing to do."
+          set -euo pipefail
+          psql --version
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -c "select 'Connected to ' || current_database()"
+
+      # 6
+      - name: Link the Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # 7
+      - name: Apply pending migrations
+        run: |
+          set -euo pipefail
+          supabase migration list
+          # Fails here if the project has migrations this commit doesn't.
+          plan=$(supabase db push --dry-run 2>&1) || { echo "$plan"; exit 1; }
+          echo "$plan"
+          if grep -qi "up to date" <<<"$plan"; then
+            echo "No pending migrations."
             exit 0
           fi
-          for f in supabase/schemas/seeds/*.sql supabase/schemas/storage/buckets.sql; do
-            echo "Loading $f"
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f "$f"
-          done
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::The project has pending migrations. Run this workflow on main (or let Deploy apply them), not on $GITHUB_REF_NAME."
+            exit 1
+          fi
+          supabase db push
+
+      # 8
+      - name: Configure the database time zone
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -v tz="$DB_TIMEZONE" <<'SQL'
+          select set_config('bootstrap.tz', :'tz', false) is not null as ok \gset
+          do $$
+          begin
+              if not exists (select 1 from pg_timezone_names where name = current_setting('bootstrap.tz')) then
+                  raise exception 'Unknown time zone %', current_setting('bootstrap.tz');
+              end if;
+          end;
+          $$;
+          select format('alter database %I set timezone to %L', current_database(), :'tz') \gexec
+          SQL
+          echo "Database time zone: $DB_TIMEZONE"
+
+      # 9
+      - name: Seed subscription plans
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f supabase/schemas/seeds/01_plans_seed.sql
+
+      # 10
+      - name: Seed time zones
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f supabase/schemas/seeds/02_timezone_seed.sql
+
+      # 11
+      - name: Create storage buckets and check policies
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f supabase/schemas/storage/buckets.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-storage.sql
+
+      # 12, 13
+      - name: Configure site URL and redirect URLs
+        run: node scripts/ci/bootstrap/supabase-auth.mjs urls
+
+      # 14
+      - name: Update auth email templates
+        run: node scripts/ci/bootstrap/supabase-auth.mjs templates
+
+      - name: Configure custom SMTP
+        env:
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: node scripts/ci/bootstrap/supabase-auth.mjs smtp
+
+      # 15
+      - name: Verify the access token hook function and grants
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-hook.sql
+
+      # 16
+      - name: Enable the custom access token hook
+        run: node scripts/ci/bootstrap/supabase-auth.mjs hook
+
+      - name: Enable Google sign-in
+        env:
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET }}
+        run: node scripts/ci/bootstrap/supabase-auth.mjs google
+
+      # 17
+      - name: Create PayPal sandbox product and plans
+        id: paypal
+        env:
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID || vars.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+          # Optional: adopt plans that already exist in the sandbox.
+          PAYPAL_PRO_PLAN_ID: ${{ vars.PAYPAL_PRO_PLAN_ID }}
+          PAYPAL_BUSINESS_PLAN_ID: ${{ vars.PAYPAL_BUSINESS_PLAN_ID }}
+        run: |
+          set -euo pipefail
+          PLANS_JSON=$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -c "
+            select coalesce(json_agg(json_build_object(
+                       'name', name, 'code', code, 'price_month', price_month,
+                       'paypal_product_id', paypal_product_id)), '[]')
+            from public.plans where name in ('Pro', 'Business')")
+          export PLANS_JSON
+          node scripts/ci/bootstrap/paypal-sandbox.mjs plans
+
+      - name: Store PayPal ids in public.plans
+        env:
+          PRODUCT_ID: ${{ steps.paypal.outputs.product_id }}
+          PRO_PLAN_ID: ${{ steps.paypal.outputs.pro_plan_id }}
+          BUSINESS_PLAN_ID: ${{ steps.paypal.outputs.business_plan_id }}
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction \
+            -v product_id="$PRODUCT_ID" -v pro="$PRO_PLAN_ID" -v business="$BUSINESS_PLAN_ID" \
+            -f scripts/ci/bootstrap/paypal-plans.sql
+
+      - name: Register the PayPal sandbox webhook
+        id: webhook
+        env:
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID || vars.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+        run: node scripts/ci/bootstrap/paypal-sandbox.mjs webhook
+
+      - name: Create Vault secrets for the cron jobs
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f scripts/ci/bootstrap/vault-secrets.sql
+
+      # 18
+      - name: Verify the bootstrap
+        env:
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET }}
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -v tz="$DB_TIMEZONE" -f scripts/ci/bootstrap/verify.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-storage.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-hook.sql
+          node scripts/ci/bootstrap/supabase-auth.mjs verify
+
+      # 19
+      - name: Bootstrap summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          PAYPAL_STATUS: ${{ steps.paypal.outputs.status }}
+          PRODUCT_ID: ${{ steps.paypal.outputs.product_id }}
+          PRO_PLAN_ID: ${{ steps.paypal.outputs.pro_plan_id }}
+          BUSINESS_PLAN_ID: ${{ steps.paypal.outputs.business_plan_id }}
+          WEBHOOK_ID: ${{ steps.webhook.outputs.webhook_id }}
+          WEBHOOK_STATUS: ${{ steps.webhook.outputs.webhook_status }}
+        run: |
+          {
+            echo "## Development bootstrap: ${JOB_STATUS}"
+            echo
+            echo "Project: \`$SUPABASE_PROJECT_REF\` · time zone \`$DB_TIMEZONE\`"
+            echo
+            echo "| PayPal sandbox | Value |"
+            echo "| --- | --- |"
+            echo "| Plans | ${PAYPAL_STATUS:-not reached} |"
+            echo "| Product | \`${PRODUCT_ID:--}\` |"
+            echo "| Pro plan | \`${PRO_PLAN_ID:--}\` |"
+            echo "| Business plan | \`${BUSINESS_PLAN_ID:--}\` |"
+            echo "| Webhook | \`${WEBHOOK_ID:--}\` (${WEBHOOK_STATUS:-not reached}) |"
+            echo
+            echo "Google sign-in: the Google OAuth client must list \`https://$SUPABASE_PROJECT_REF.supabase.co/auth/v1/callback\` as an authorized redirect URI."
+            echo
+            if [ "$JOB_STATUS" = "success" ]; then
+              echo "Every step passed, and the final verification re-read the database and the auth settings."
+              if [ "$WEBHOOK_STATUS" = "created" ]; then
+                echo
+                echo "**Next:** set \`PAYPAL_WEBHOOK_ID\` = \`$WEBHOOK_ID\` in the GitHub \`development\` environment, then run **Deploy** on \`main\`."
+              fi
+            else
+              echo "**The bootstrap did not finish.** The first failed step above says why. Fix it and run the workflow again: finished steps are skipped or left unchanged."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Bootstrap ${JOB_STATUS}. Summary written to the run page."

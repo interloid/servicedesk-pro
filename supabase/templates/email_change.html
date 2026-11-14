@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Confirm your new email address</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background: #f4f5f7;
+      font-family:
+        -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto,
+        Helvetica, Arial, sans-serif;
+      color: #1f2933;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="background: #f4f5f7; padding: 32px 16px"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            style="
+              max-width: 520px;
+              background: #ffffff;
+              border-radius: 8px;
+              padding: 32px;
+            "
+          >
+            <tr>
+              <td>
+                <p
+                  style="
+                    margin: 0 0 24px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #52606d;
+                  "
+                >
+                  ServiceDesk
+                </p>
+                <h1
+                  style="margin: 0 0 16px; font-size: 20px; line-height: 28px"
+                >
+                  Confirm your new email address
+                </h1>
+                <p style="margin: 0 0 24px; font-size: 15px; line-height: 22px">
+                  Confirm that you want to change your email address from
+                  {{ .Email }} to {{ .NewEmail }}.
+                </p>
+                <p style="margin: 0 0 24px">
+                  <a
+                    href="{{ .ConfirmationURL }}"
+                    style="
+                      display: inline-block;
+                      background: #2563eb;
+                      color: #ffffff;
+                      text-decoration: none;
+                      font-size: 15px;
+                      font-weight: 600;
+                      padding: 12px 20px;
+                      border-radius: 6px;
+                    "
+                    >Confirm email change</a
+                  >
+                </p>
+                <p
+                  style="
+                    margin: 0 0 8px;
+                    font-size: 13px;
+                    line-height: 20px;
+                    color: #52606d;
+                  "
+                >
+                  If the button doesn't work, paste this link into your browser:
+                </p>
+                <p
+                  style="
+                    margin: 0 0 24px;
+                    font-size: 13px;
+                    line-height: 20px;
+                    word-break: break-all;
+                  "
+                >
+                  <a href="{{ .ConfirmationURL }}" style="color: #2563eb"
+                    >{{ .ConfirmationURL }}</a
+                  >
+                </p>
+                <p
+                  style="
+                    margin: 0;
+                    font-size: 13px;
+                    line-height: 20px;
+                    color: #7b8794;
+                  "
+                >
+                  If you didn't ask for this change, ignore this email and
+                  contact your workspace admin.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
