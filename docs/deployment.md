@@ -30,8 +30,8 @@ Development and production always run the same history: production is an earlier
   - **One deploy per environment at a time**, and a running deploy is never cancelled.
 - **`.github/workflows/bootstrap-development.yml`** is run by hand to set up a new development project without opening the Supabase or PayPal dashboards. It does the following:
   - applies pending migrations (on `main` only) and sets the database time zone
-  - seeds plans, time zones and storage buckets, which `db push` never runs, and checks the storage policies
-  - sets the auth site URL, redirect URLs, email templates (`supabase/templates/`) and custom SMTP, turns on the access token hook, and enables Google sign-in
+  - seeds plans, time zones and storage buckets (Deploy also loads these on every run, with `supabase db push --include-seed`), and checks the storage policies
+  - applies the auth settings (site URL, redirect URLs, email templates, SMTP, access token hook, Google sign-in); Deploy applies the same on every run, from `supabase/config.toml` and the GitHub environment
   - creates the PayPal **sandbox** product and plans once, writing their ids into `public.plans`, and registers the PayPal webhook
   - creates the Vault secrets the cron jobs need
 
@@ -139,12 +139,9 @@ Unscoped Preview variables in Vercel (used by pull-request previews) aren't touc
 
 ### D. First deploy and one-time database setup
 
-1. Merge to `main`, or run **Actions → Deploy** on `main`. The deploy builds the whole schema from the migrations. This works from an empty database because migration `20260810045832` records the platform's default grants and `20260831162650` was made safe to re-run.
+1. Merge to `main`, or run **Actions → Deploy** on `main`. The deploy builds the whole schema from the migrations, loads plans, time zones and buckets, and applies the auth settings: the access token hook, Google sign-in and the email templates as `supabase/config.toml` sets them, plus the site URL, redirect URLs and SMTP from the GitHub environment. This works from an empty database because migration `20260810045832` records the platform's default grants and `20260831162650` was made safe to re-run.
 2. Run **Actions → Bootstrap development database → Run workflow** on `main`. In one run it:
-   - seeds plans, time zones and buckets
-   - sets the site URL and redirect URLs
-   - applies the email templates
-   - turns on the "Customize Access Token" hook (`public.custom_access_token_hook`), which tenant claims and RLS depend on
+   - checks the seeds, the storage policies and the access token hook's function and grants, and re-applies the auth settings (the same step Deploy runs)
    - creates the Vault secrets
    - creates the PayPal sandbox product and the Pro and Business plans, and writes their ids into `public.plans`. This happens on the first run only; later runs check them and create nothing.
    - registers `https://<dev-ref>.supabase.co/functions/v1/paypal-webhook` in the sandbox app
@@ -187,8 +184,8 @@ The first release switches the live app to the production project as soon as it 
    supabase migration list    # a new project lists nothing on the remote
    supabase db push
    ```
-3. In the **SQL editor**, run the contents of `supabase/schemas/seeds/01_plans_seed.sql`, `supabase/schemas/seeds/02_timezone_seed.sql` and `supabase/schemas/storage/buckets.sql`, in that order. `db push` never runs them.
-4. Under **Authentication → Hooks**, enable "Customize Access Token" with `public.custom_access_token_hook`. Under **Authentication → URL Configuration**, set the production site URL and redirect URLs. Configure SMTP and Google sign-in if you use them.
+3. Load the reference data: `supabase db push --include-seed` (the same command Deploy runs). It loads plans, time zones and storage buckets from the `[db.seed]` files in `supabase/config.toml`; existing rows are left as they are.
+4. Auth settings need no dashboard work: every deploy applies them. Before the first tag, set `SUPABASE_REDIRECT_URLS`, the `SMTP_*` values and the Google sign-in client (`SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` / `_SECRET`) in the `production` environment. `config.toml` enables Google sign-in, so a deploy without that client fails at **Apply auth settings**.
 5. Create the Vault secrets, as in [development step D3](#d-first-deploy-and-one-time-database-setup), with the production ref and service-role key. Migration `20261112110000` reschedules the reconcile job with `service_role_key` and `reconcile_subscriptions_url`.
 6. In PayPal **live**, set `plans.code` of Pro and Business (seeded as `PAYPAL-PENDING-PRO` / `PAYPAL-PENDING-BUSINESS`) to your live plan IDs and `plans.paypal_product_id` to their product, register `https://<production ref>.supabase.co/functions/v1/paypal-webhook` as the webhook URL, and put its ID in the GitHub `production` environment as `PAYPAL_WEBHOOK_ID`.
 

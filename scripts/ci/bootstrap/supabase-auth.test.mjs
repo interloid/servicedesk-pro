@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -7,7 +5,10 @@ import {
   checkTemplate,
   createApi,
   googleCallbackUrl,
-  loadTemplates,
+  parseToml,
+  planAuth,
+  readAuthConfig,
+  wantedAuth,
   parseFromEmail,
   parseUrlList,
   planGoogle,
@@ -19,7 +20,7 @@ import {
   verifyConfig,
 } from "./supabase-auth.mjs";
 
-const TEMPLATES_DIR = join(process.cwd(), "supabase", "templates");
+const ROOT = process.cwd();
 
 describe("parseUrlList", () => {
   it("splits on commas and newlines and drops blanks", () => {
@@ -85,15 +86,15 @@ describe("planUrls", () => {
 });
 
 describe("templates", () => {
-  const templates = loadTemplates(TEMPLATES_DIR);
+  const { templates } = readAuthConfig(ROOT);
 
   it("loads every template with its subject and the confirmation link", () => {
-    expect(templates.map((t) => t.name)).toEqual([
+    expect(templates.map((t) => t.name).sort()).toEqual([
       "confirmation",
-      "recovery",
-      "magic_link",
       "email_change",
       "invite",
+      "magic_link",
+      "recovery",
     ]);
     for (const t of templates) {
       expect(t.subject).toBeTruthy();
@@ -310,9 +311,117 @@ describe("verifyConfig", () => {
         siteUrl: "https://dev.example.com",
         redirectUrls: ["https://dev.example.com/**"],
         templates: [{ name: "recovery", subject: "s", content: "c" }],
+        hook: { enabled: true, uri: HOOK_URI },
       },
     );
     expect(errors).toHaveLength(4);
+  });
+
+  it("ignores the hook when config.toml leaves it off", () => {
+    const errors = verifyConfig(
+      { site_url: "https://dev.example.com", uri_allow_list: "" },
+      {
+        siteUrl: "https://dev.example.com",
+        redirectUrls: [],
+        templates: [],
+        hook: { enabled: false, uri: HOOK_URI },
+      },
+    );
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("parseToml", () => {
+  it("reads sections, strings, booleans and numbers, and skips arrays", () => {
+    const toml = [
+      "# comment",
+      'project_id = "x"',
+      "[auth]",
+      'site_url = "http://127.0.0.1:3000"',
+      "additional_redirect_urls = [",
+      '  "http://localhost:3000/**",',
+      "]",
+      "jwt_expiry = 3600",
+      "[auth.hook.custom_access_token]",
+      "enabled = true # inline comment",
+      'uri = "pg-functions://postgres/public/h"',
+      "[auth.email.template.invite]",
+      'subject = "You\'re \\"in\\""',
+    ].join("\n");
+    const parsed = parseToml(toml);
+    expect(parsed[""].project_id).toBe("x");
+    expect(parsed.auth).toEqual({
+      site_url: "http://127.0.0.1:3000",
+      jwt_expiry: 3600,
+    });
+    expect(parsed["auth.hook.custom_access_token"]).toEqual({
+      enabled: true,
+      uri: "pg-functions://postgres/public/h",
+    });
+    expect(parsed["auth.email.template.invite"].subject).toBe('You\'re "in"');
+  });
+});
+
+describe("readAuthConfig (the repository's config.toml)", () => {
+  it("turns on the hook and Google, and lists all five templates", () => {
+    const config = readAuthConfig(ROOT);
+    expect(config.hook).toEqual({ enabled: true, uri: HOOK_URI });
+    expect(config.google.enabled).toBe(true);
+    expect(config.templates.map((t) => t.name).sort()).toEqual([
+      "confirmation",
+      "email_change",
+      "invite",
+      "magic_link",
+      "recovery",
+    ]);
+  });
+});
+
+describe("wantedAuth / planAuth", () => {
+  const env = {
+    NEXT_PUBLIC_SITE_URL: "https://dev.example.com",
+    SUPABASE_REDIRECT_URLS: "https://dev.example.com/**",
+    SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: "1-a.apps.googleusercontent.com",
+    SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: "secret",
+  };
+
+  it("applies everything a fresh project is missing in one patch", () => {
+    const wanted = wantedAuth(ROOT, {
+      ...env,
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PORT: "587",
+      SMTP_USER: "u",
+      SMTP_PASS: "p",
+      FROM_EMAIL: "ServiceDesk<no-reply@example.com>",
+    });
+    const { patch, warnings } = planAuth({}, wanted);
+    expect(patch).toMatchObject({
+      site_url: "https://dev.example.com",
+      uri_allow_list: "https://dev.example.com/**",
+      hook_custom_access_token_enabled: true,
+      external_google_enabled: true,
+      external_google_skip_nonce_check: false,
+      smtp_host: "smtp.example.com",
+      smtp_admin_email: "no-reply@example.com",
+    });
+    expect(patch.mailer_templates_recovery_content).toContain(
+      "{{ .ConfirmationURL }}",
+    );
+    expect(warnings).toEqual([]);
+  });
+
+  it("leaves SMTP alone, with a warning, when SMTP_HOST is unset", () => {
+    const { patch, warnings } = planAuth({}, wantedAuth(ROOT, env));
+    expect(patch.smtp_host).toBeUndefined();
+    expect(warnings.join(" ")).toMatch(/SMTP_HOST is not set/);
+  });
+
+  it("fails when config.toml enables Google but the credentials are missing", () => {
+    const wanted = wantedAuth(ROOT, {
+      ...env,
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: "",
+    });
+    expect(() => planAuth({}, wanted)).toThrow(/GOOGLE_SECRET is not set/);
   });
 });
 
