@@ -8,12 +8,14 @@ import {
   createApi,
   googleCallbackUrl,
   loadTemplates,
+  parseFromEmail,
   parseUrlList,
   planGoogle,
   planHook,
   planSmtp,
   planTemplates,
   planUrls,
+  smtpSettings,
   verifyConfig,
 } from "./supabase-auth.mjs";
 
@@ -187,7 +189,7 @@ describe("planSmtp", () => {
 
   it("lists every missing or bad value", () => {
     expect(() => planSmtp({}, { ...SMTP, pass: "", senderName: "" })).toThrow(
-      /SMTP_PASS is not set; SMTP_SENDER_NAME is not set/,
+      /SMTP_PASS is not set; SMTP_SENDER_NAME \(or/,
     );
     expect(() => planSmtp({}, { ...SMTP, port: "25" })).toThrow(/465 or 587/);
     expect(() => planSmtp({}, { ...SMTP, host: "smtp://x" })).toThrow(
@@ -196,6 +198,59 @@ describe("planSmtp", () => {
     expect(() => planSmtp({}, { ...SMTP, adminEmail: "nope" })).toThrow(
       /not an email/,
     );
+  });
+});
+
+describe("parseFromEmail / smtpSettings", () => {
+  it("splits every From form", () => {
+    expect(parseFromEmail("Servicedesk<servicedeskpro26@gmail.com>")).toEqual({
+      name: "Servicedesk",
+      address: "servicedeskpro26@gmail.com",
+    });
+    expect(parseFromEmail("ServiceDesk Pro <a@b.co>")).toEqual({
+      name: "ServiceDesk Pro",
+      address: "a@b.co",
+    });
+    expect(parseFromEmail('"ServiceDesk, Inc" <a@b.co>')).toEqual({
+      name: "ServiceDesk, Inc",
+      address: "a@b.co",
+    });
+    expect(parseFromEmail("a@b.co")).toEqual({ name: "", address: "a@b.co" });
+  });
+
+  it("takes the sender from FROM_EMAIL unless overridden", () => {
+    const base = {
+      SMTP_HOST: "smtp.gmail.com",
+      SMTP_PORT: "587",
+      SMTP_USER: "servicedeskpro26@gmail.com",
+      SMTP_PASS: "app-password",
+      FROM_EMAIL: "Servicedesk<servicedeskpro26@gmail.com>",
+      NEXT_PUBLIC_SITE_NAME: "ServiceDesk Pro",
+    };
+    const { patch } = planSmtp({}, smtpSettings(base));
+    expect(patch.smtp_admin_email).toBe("servicedeskpro26@gmail.com");
+    expect(patch.smtp_sender_name).toBe("Servicedesk");
+
+    const overridden = smtpSettings({
+      ...base,
+      SMTP_ADMIN_EMAIL: "no-reply@example.com",
+      SMTP_SENDER_NAME: "Support",
+    });
+    expect(overridden).toMatchObject({
+      adminEmail: "no-reply@example.com",
+      senderName: "Support",
+    });
+
+    expect(
+      smtpSettings({ ...base, FROM_EMAIL: "servicedeskpro26@gmail.com" })
+        .senderName,
+    ).toBe("ServiceDesk Pro");
+  });
+
+  it("rejects a From header passed as the address", () => {
+    expect(() =>
+      planSmtp({}, { ...SMTP, adminEmail: "Servicedesk<a@b.co>" }),
+    ).toThrow(/not an email/);
   });
 });
 

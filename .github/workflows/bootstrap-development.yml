@@ -52,8 +52,11 @@ jobs:
       SMTP_HOST: ${{ vars.SMTP_HOST }}
       SMTP_PORT: ${{ vars.SMTP_PORT }}
       SMTP_USER: ${{ vars.SMTP_USER || secrets.SMTP_USER }}
+      # Optional: default to the name and address in FROM_EMAIL.
       SMTP_SENDER_NAME: ${{ vars.SMTP_SENDER_NAME }}
-      SMTP_ADMIN_EMAIL: ${{ vars.SMTP_ADMIN_EMAIL || vars.FROM_EMAIL || secrets.FROM_EMAIL }}
+      SMTP_ADMIN_EMAIL: ${{ vars.SMTP_ADMIN_EMAIL }}
+      FROM_EMAIL: ${{ vars.FROM_EMAIL || secrets.FROM_EMAIL }}
+      NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME }}
       SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ${{ vars.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID || secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID }}
     steps:
       # 1
@@ -81,7 +84,7 @@ jobs:
           for name in DATABASE_URL SUPABASE_PROJECT_REF PRODUCTION_PROJECT_REF \
                       SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD \
                       NEXT_PUBLIC_SUPABASE_URL SUPABASE_SITE_URL SUPABASE_REDIRECT_URLS \
-                      SMTP_HOST SMTP_PORT SMTP_USER SMTP_SENDER_NAME SMTP_ADMIN_EMAIL \
+                      SMTP_HOST SMTP_PORT SMTP_USER \
                       SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
@@ -93,8 +96,6 @@ jobs:
           if [ -n "$missing" ]; then
             # DATABASE_URL is the SUPABASE_DB_URL secret.
             missing=${missing/DATABASE_URL/SUPABASE_DB_URL}
-            # SMTP_ADMIN_EMAIL falls back to FROM_EMAIL.
-            missing=${missing/SMTP_ADMIN_EMAIL/SMTP_ADMIN_EMAIL (or FROM_EMAIL)}
             echo "::error::Missing in the 'development' environment:$missing. See docs/deployment.md, section 2."
             exit 1
           fi

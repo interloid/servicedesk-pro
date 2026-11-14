@@ -153,7 +153,22 @@ export function planHook(current) {
 }
 
 /** Everything the bootstrap configured, checked against a fresh read. */
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+
+/**
+ * Splits a From header value -- `Name<addr>`, `Name <addr>`,
+ * `"Name" <addr>` or a bare `addr` -- into its display name and address.
+ */
+export function parseFromEmail(value) {
+  const text = (value ?? "").trim();
+  const match = text.match(/^(.*?)\s*<\s*([^<>\s]+)\s*>$/);
+  if (!match) return { name: "", address: text };
+  const name = match[1]
+    .trim()
+    .replace(/^"(.*)"$/, "$1")
+    .trim();
+  return { name, address: match[2] };
+}
 
 /**
  * The PATCH for custom SMTP. The password can't be read back to compare, so
@@ -169,7 +184,10 @@ export function planSmtp(current, smtp) {
     ["user", "SMTP_USER"],
     ["pass", "SMTP_PASS"],
     ["adminEmail", "SMTP_ADMIN_EMAIL (or FROM_EMAIL)"],
-    ["senderName", "SMTP_SENDER_NAME"],
+    [
+      "senderName",
+      "SMTP_SENDER_NAME (or a name in FROM_EMAIL, or NEXT_PUBLIC_SITE_NAME)",
+    ],
   ]) {
     if (!smtp[key]) errors.push(`${label} is not set`);
   }
@@ -309,15 +327,18 @@ function settings() {
   };
 }
 
-function smtpSettings() {
-  const env = (name) => (process.env[name] ?? "").trim();
+export function smtpSettings(source = process.env) {
+  const env = (name) => (source[name] ?? "").trim();
+  // The Edge Functions' sender doubles as the auth sender unless overridden.
+  const from = parseFromEmail(env("FROM_EMAIL"));
   return {
     host: env("SMTP_HOST"),
     port: env("SMTP_PORT"),
     user: env("SMTP_USER"),
-    pass: process.env.SMTP_PASS ?? "",
-    adminEmail: env("SMTP_ADMIN_EMAIL") || env("FROM_EMAIL"),
-    senderName: env("SMTP_SENDER_NAME"),
+    pass: source.SMTP_PASS ?? "",
+    adminEmail: parseFromEmail(env("SMTP_ADMIN_EMAIL")).address || from.address,
+    senderName:
+      env("SMTP_SENDER_NAME") || from.name || env("NEXT_PUBLIC_SITE_NAME"),
   };
 }
 

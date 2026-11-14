@@ -115,8 +115,8 @@ Set each of these in both `development` and `production`, with that environment'
    - `SUPABASE_SITE_URL` (optional): the auth site URL. Defaults to `NEXT_PUBLIC_SITE_URL`.
    - `DB_TIMEZONE` (optional): the database time zone. Defaults to `UTC`.
    - `PAYPAL_PRO_PLAN_ID` and `PAYPAL_BUSINESS_PLAN_ID` (optional, set both or neither): existing sandbox plans for the bootstrap to adopt instead of creating its own. They must be active, monthly, USD, priced as in `public.plans`, and under one product.
-5. For the auth emails, add the **variables** `SMTP_HOST`, `SMTP_PORT` (465 or 587), `SMTP_USER` and `SMTP_SENDER_NAME`, and the **secret** `SMTP_PASS`.
-   - The sender address is `SMTP_ADMIN_EMAIL`, or `FROM_EMAIL` if that's unset.
+5. For the auth emails, add the **variables** `SMTP_HOST`, `SMTP_PORT` (465 or 587) and `SMTP_USER`, and the **secret** `SMTP_PASS`.
+   - Optional: `SMTP_ADMIN_EMAIL` and `SMTP_SENDER_NAME`. By default the sender is the address and name in `FROM_EMAIL` (`Name<address>` works), and the name falls back to `NEXT_PUBLIC_SITE_NAME`.
    - For Gmail, use `smtp.gmail.com`, port 587, the account address as the user, and an [app password](https://support.google.com/accounts/answer/185833) as `SMTP_PASS`. Gmail is fine for development, but use a transactional provider in production.
 6. For Google sign-in, add the **variable** `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and the **secret** `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, from a Google Cloud OAuth client of type "Web application".
    - In that client, add `https://<dev-ref>.supabase.co/auth/v1/callback` under **Authorized redirect URIs**.
