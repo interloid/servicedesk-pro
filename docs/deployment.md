@@ -104,7 +104,7 @@ Set each of these in both `development` and `production`, with that environment'
 3. Add these **secrets**, plus the secret app and function values from [Values per GitHub environment](#values-per-github-environment):
    - `SUPABASE_ACCESS_TOKEN`: from Supabase **Account → Access Tokens**, ideally created by a dedicated deploy account.
    - `SUPABASE_DB_PASSWORD`: the dev database password.
-   - `SUPABASE_DB_URL`: the dev session pooler connection string, used only by the bootstrap workflow.
+   - `SUPABASE_DB_URL`: the dev **session pooler** connection string (Connect panel → Session pooler), **without the password**: `postgresql://postgres.<ref>@aws-?-<region>.pooler.supabase.com:5432/postgres`. psql takes the password from `SUPABASE_DB_PASSWORD`, so it never has to be URL-encoded. Don't use the direct `db.<ref>.supabase.co` host: it is IPv6-only and GitHub runners have no IPv6.
    - `SUPABASE_SERVICE_ROLE_KEY`, `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` (from the table) are also read by the bootstrap workflow, for the Vault secrets and the PayPal sandbox plans. The PayPal values must be a **sandbox** REST app's.
    - `VERCEL_TOKEN`: see [section 4](#4-vercel-deploys-through-github-actions).
 4. Add these **variables**, plus the public app and function values from the same table:
