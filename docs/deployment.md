@@ -110,7 +110,7 @@ Set each of these in both `development` and `production`, with that environment'
 4. Add these **variables**, plus the public app and function values from the same table:
    - `SUPABASE_PROJECT_REF`: the dev project ref.
    - `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`: see section 4.
-   - `PRODUCTION_PROJECT_REF`: the production ref, so the bootstrap workflow can refuse it. Required: the bootstrap stops without it.
+   - `PRODUCTION_PROJECT_REF`: the production ref, so the bootstrap workflow can refuse it. Optional until a production project exists: without it the bootstrap warns and skips that guard.
    - `SUPABASE_REDIRECT_URLS`: the auth redirect URLs for the dev project, comma or newline separated, for example `https://dev.example.com/**`. The bootstrap adds them to the project's list and never removes entries.
    - `SUPABASE_SITE_URL` (optional): the auth site URL. Defaults to `NEXT_PUBLIC_SITE_URL`.
    - `DB_TIMEZONE` (optional): the database time zone. Defaults to `UTC`.

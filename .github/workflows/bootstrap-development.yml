@@ -81,7 +81,7 @@ jobs:
             exit 1
           fi
           missing=""
-          for name in DATABASE_URL SUPABASE_PROJECT_REF PRODUCTION_PROJECT_REF \
+          for name in DATABASE_URL SUPABASE_PROJECT_REF \
                       SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD \
                       NEXT_PUBLIC_SUPABASE_URL SUPABASE_SITE_URL SUPABASE_REDIRECT_URLS \
                       SMTP_HOST SMTP_PORT SMTP_USER \
@@ -124,13 +124,19 @@ jobs:
       - name: Refuse the production project
         run: |
           set -euo pipefail
-          if [ "$SUPABASE_PROJECT_REF" = "$PRODUCTION_PROJECT_REF" ]; then
-            echo "::error::The development environment points at the production project."
-            exit 1
+          # Optional until a production project exists; set it then, and this
+          # guard refuses that project from here on.
+          if [ -z "$PRODUCTION_PROJECT_REF" ]; then
+            echo "::warning::PRODUCTION_PROJECT_REF is not set, so the production guard is off. Set it in the development environment once a production project exists."
+          else
+            if [ "$SUPABASE_PROJECT_REF" = "$PRODUCTION_PROJECT_REF" ]; then
+              echo "::error::The development environment points at the production project."
+              exit 1
+            fi
+            case "$DATABASE_URL" in
+              *"$PRODUCTION_PROJECT_REF"*) echo "::error::SUPABASE_DB_URL names the production project."; exit 1 ;;
+            esac
           fi
-          case "$DATABASE_URL" in
-            *"$PRODUCTION_PROJECT_REF"*) echo "::error::SUPABASE_DB_URL names the production project."; exit 1 ;;
-          esac
           case "${PAYPAL_BASE_URL%/}" in
             ""|"https://api-m.sandbox.paypal.com") ;;
             *) echo "::error::PAYPAL_BASE_URL is not the PayPal sandbox. Development never uses live PayPal."; exit 1 ;;
