@@ -1,27 +1,31 @@
 #!/usr/bin/env node
 /**
- * Supabase Auth settings for the development project, through the Management
- * API (GET/PATCH /v1/projects/{ref}/config/auth). Run by
- * bootstrap-development.yml.
+ * Supabase Auth settings for a hosted project, applied on every deploy
+ * (deploy.yml) and checked by bootstrap-development.yml, through the
+ * Management API (GET/PATCH /v1/projects/{ref}/config/auth).
  *
- *   node scripts/ci/bootstrap/supabase-auth.mjs urls       site URL + redirect URLs
- *   node scripts/ci/bootstrap/supabase-auth.mjs templates  auth email templates
- *   node scripts/ci/bootstrap/supabase-auth.mjs hook       custom access token hook
- *   node scripts/ci/bootstrap/supabase-auth.mjs smtp       custom SMTP sender
- *   node scripts/ci/bootstrap/supabase-auth.mjs google     Google sign-in
- *   node scripts/ci/bootstrap/supabase-auth.mjs verify     all of the above, read back
+ *   node scripts/ci/bootstrap/supabase-auth.mjs apply    write what differs
+ *   node scripts/ci/bootstrap/supabase-auth.mjs verify   read back and check
  *
- * Each command PATCHes only the fields it owns, so the rest of the project's
- * auth settings (other providers, rate limits) stay as they are. URLs,
- * templates and the hook are only written when they differ; SMTP and Google
- * are always written, because their secrets can't be read back to compare.
- * `supabase config push` is not used: it pushes all of config.toml.
+ * supabase/config.toml is the source of truth for what is switched on:
+ *   [auth.hook.custom_access_token]   enabled, uri
+ *   [auth.external.google]            enabled
+ *   [auth.email.template.<name>]      subject, content_path
+ * The per-environment values come from the GitHub environment:
+ *   site URL       SUPABASE_SITE_URL (falls back to NEXT_PUBLIC_SITE_URL)
+ *   redirect URLs  SUPABASE_REDIRECT_URLS (comma or newline separated; added,
+ *                  never removed)
+ *   Google         SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID / _SECRET
+ *   SMTP           SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and optionally
+ *                  SMTP_SENDER_NAME / SMTP_ADMIN_EMAIL (default: FROM_EMAIL).
+ *                  Applied only when SMTP_HOST is set; without it the
+ *                  project keeps Supabase's built-in sender.
  *
- * Inputs (environment): SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF,
- * SUPABASE_SITE_URL (falls back to NEXT_PUBLIC_SITE_URL), SUPABASE_REDIRECT_URLS
- * (comma or newline separated); SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
- * SMTP_SENDER_NAME, SMTP_ADMIN_EMAIL (falls back to FROM_EMAIL);
- * SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID, SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET.
+ * Only these fields are written, so other auth settings stay as they are.
+ * `supabase config push` is not used: it would push all of config.toml,
+ * including the local-only site URL, redirect list and Google nonce setting.
+ * The hosted project always keeps Google's nonce check on.
+ *
  * Secrets never reach the log.
  */
 import { createHash } from "node:crypto";
@@ -34,7 +38,7 @@ const MANAGEMENT_API = "https://api.supabase.com/v1";
 export const HOOK_URI =
   "pg-functions://postgres/public/custom_access_token_hook";
 
-/** Template file (supabase/templates/<name>.html) -> Management API field suffix. */
+/** Templates the Management API accepts, by config.toml section name. */
 export const TEMPLATES = [
   "confirmation",
   "recovery",
@@ -42,6 +46,60 @@ export const TEMPLATES = [
   "email_change",
   "invite",
 ];
+
+/**
+ * Just enough TOML for supabase/config.toml: [section] headers and
+ * `key = value` lines whose value is a string, boolean or number. Arrays and
+ * inline tables are skipped (multi-line arrays included), comments dropped.
+ * Returns { "section.name": { key: value } }.
+ */
+export function parseToml(text) {
+  const sections = {};
+  let current = (sections[""] = {});
+  let skippingArray = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (skippingArray) {
+      if (line.startsWith("]")) skippingArray = false;
+      continue;
+    }
+    if (!line || line.startsWith("#")) continue;
+    const header = line.match(/^\[([^\]]+)\]$/);
+    if (header) {
+      current = sections[header[1].trim()] ??= {};
+      continue;
+    }
+    const pair = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.*)$/);
+    if (!pair) continue;
+    const [, key, rest] = pair;
+    if (rest.startsWith("[")) {
+      if (!rest.includes("]")) skippingArray = true;
+      continue;
+    }
+    const string = rest.match(/^"((?:[^"\\]|\\.)*)"/);
+    if (string) {
+      current[key] = string[1].replace(/\\(["\\])/g, "$1");
+    } else if (/^(true|false)\b/.test(rest)) {
+      current[key] = rest.startsWith("true");
+    } else if (/^-?\d+(\.\d+)?\b/.test(rest)) {
+      current[key] = Number(rest.match(/^-?\d+(\.\d+)?/)[0]);
+    }
+  }
+  return sections;
+}
+
+/** The auth settings config.toml asks for. `root` is the repository root. */
+export function readAuthConfig(root) {
+  const config = parseToml(
+    readFileSync(join(root, "supabase", "config.toml"), "utf8"),
+  );
+  const hook = config["auth.hook.custom_access_token"] ?? {};
+  return {
+    hook: { enabled: hook.enabled === true, uri: hook.uri ?? HOOK_URI },
+    google: { enabled: config["auth.external.google"]?.enabled === true },
+    templates: loadTemplates(root, config),
+  };
+}
 
 export function parseUrlList(value) {
   return (value ?? "")
@@ -97,18 +155,31 @@ export function checkTemplate(name, html) {
   }
 }
 
-export function loadTemplates(dir) {
-  const subjects = JSON.parse(readFileSync(join(dir, "subjects.json"), "utf8"));
-  return TEMPLATES.map((name) => {
-    const content = readFileSync(join(dir, `${name}.html`), "utf8");
-    checkTemplate(name, content);
-    if (!subjects[name]) {
-      throw new Error(
-        `supabase/templates/subjects.json has no '${name}' subject.`,
-      );
-    }
-    return { name, subject: subjects[name], content };
-  });
+/**
+ * Every [auth.email.template.<name>] in config.toml, with its file read and
+ * checked. content_path is relative to the repository root, as the CLI
+ * reads it.
+ */
+export function loadTemplates(root, config) {
+  const prefix = "auth.email.template.";
+  return Object.entries(config)
+    .filter(([section]) => section.startsWith(prefix))
+    .map(([section, values]) => {
+      const name = section.slice(prefix.length);
+      if (!TEMPLATES.includes(name)) {
+        throw new Error(
+          `config.toml [${section}]: '${name}' is not a template Supabase Auth sends.`,
+        );
+      }
+      if (!values.subject || !values.content_path) {
+        throw new Error(
+          `config.toml [${section}] needs both subject and content_path.`,
+        );
+      }
+      const content = readFileSync(join(root, values.content_path), "utf8");
+      checkTemplate(name, content);
+      return { name, subject: values.subject, content };
+    });
 }
 
 /** The PATCH for the templates (only fields that differ), or null. */
@@ -137,22 +208,21 @@ export function planTemplates(current, templates) {
  * on and points somewhere else is not overwritten: that is someone's
  * deliberate configuration, and replacing it would change every token's claims.
  */
-export function planHook(current) {
+export function planHook(current, wanted = HOOK_URI) {
   const enabled = current.hook_custom_access_token_enabled === true;
   const uri = current.hook_custom_access_token_uri || "";
-  if (enabled && uri === HOOK_URI) return null;
-  if (enabled && uri !== HOOK_URI) {
+  if (enabled && uri === wanted) return null;
+  if (enabled && uri !== wanted) {
     throw new Error(
-      `The custom access token hook is already enabled with ${uri}, not ${HOOK_URI}. Not changed; disable it in the dashboard first if it should be replaced.`,
+      `The custom access token hook is already enabled with ${uri}, not ${wanted}. Not changed; disable it in the dashboard first if it should be replaced.`,
     );
   }
   return {
     hook_custom_access_token_enabled: true,
-    hook_custom_access_token_uri: HOOK_URI,
+    hook_custom_access_token_uri: wanted,
   };
 }
 
-/** Everything the bootstrap configured, checked against a fresh read. */
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
 /**
@@ -256,9 +326,10 @@ export function googleCallbackUrl(projectRef) {
   return `https://${projectRef}.supabase.co/auth/v1/callback`;
 }
 
+/** Everything `apply` writes, checked against a fresh read. */
 export function verifyConfig(
   current,
-  { siteUrl, redirectUrls, templates, smtp, google },
+  { siteUrl, redirectUrls, templates, smtp, google, hook },
 ) {
   const errors = [];
   if (smtp) {
@@ -275,12 +346,81 @@ export function verifyConfig(
   for (const url of redirectUrls) {
     if (!allow.includes(url)) errors.push(`redirect URL ${url} is missing`);
   }
-  if (planHook(current) !== null)
-    errors.push("the access token hook is not enabled");
+  if (hook?.enabled) {
+    try {
+      if (planHook(current, hook.uri) !== null)
+        errors.push("the access token hook is not enabled");
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
   const { changed } = planTemplates(current, templates);
   for (const name of changed)
     errors.push(`the ${name} template differs from supabase/templates`);
   return errors;
+}
+
+/**
+ * One PATCH for everything config.toml and the environment ask for, plus a
+ * line per change for the log. SMTP and Google are always included when
+ * they apply, because their secrets can't be read back to compare.
+ */
+export function planAuth(current, wanted) {
+  const patch = {};
+  const log = [];
+  const warnings = [];
+
+  const urls = planUrls(current, wanted);
+  if (urls.patch) Object.assign(patch, urls.patch);
+  if (urls.patch?.site_url) log.push(`set     site_url = ${wanted.siteUrl}`);
+  for (const url of urls.added) log.push(`add     redirect ${url}`);
+
+  const templates = planTemplates(current, wanted.templates);
+  if (templates.patch) Object.assign(patch, templates.patch);
+  for (const t of wanted.templates.filter((t) =>
+    templates.changed.includes(t.name),
+  )) {
+    log.push(`update  ${t.name} template (sha256 ${sha(t.content)})`);
+  }
+
+  if (wanted.hook.enabled) {
+    const hook = planHook(current, wanted.hook.uri);
+    if (hook) {
+      Object.assign(patch, hook);
+      log.push(`enable  custom access token hook -> ${wanted.hook.uri}`);
+    }
+  }
+
+  if (wanted.smtp) {
+    const smtp = planSmtp(current, wanted.smtp);
+    Object.assign(patch, smtp.patch);
+    log.push(
+      smtp.drift.length
+        ? `set     SMTP ${wanted.smtp.host}:${smtp.patch.smtp_port} as ${wanted.smtp.senderName} <${wanted.smtp.adminEmail}>`
+        : `ok      SMTP ${wanted.smtp.host}:${smtp.patch.smtp_port} (password re-applied)`,
+    );
+    if (/(^|\.)(gmail|googlemail)\.com$/.test(wanted.smtp.host)) {
+      warnings.push(
+        "Gmail SMTP is meant for personal mail: it needs an app password and caps daily sends. Fine for development; use a transactional provider for production.",
+      );
+    }
+  } else {
+    warnings.push(
+      "SMTP_HOST is not set, so auth emails use Supabase's built-in sender (a few per hour, team members only).",
+    );
+  }
+
+  if (wanted.google) {
+    const google = planGoogle(current, wanted.google);
+    Object.assign(patch, google.patch);
+    log.push(
+      google.drift.length
+        ? "enable  Google sign-in"
+        : "ok      Google sign-in (secret re-applied)",
+    );
+  }
+
+  return { patch: Object.keys(patch).length ? patch : null, log, warnings };
 }
 
 export function sha(text) {
@@ -316,14 +456,23 @@ export function createApi({ token, projectRef, fetchImpl = fetch }) {
   };
 }
 
-function settings() {
+/** What to apply: config.toml for what is on, the environment for values. */
+export function wantedAuth(root, env = process.env) {
+  const config = readAuthConfig(root);
+  const trim = (name) => (env[name] ?? "").trim();
+  const smtp = trim("SMTP_HOST") ? smtpSettings(env) : null;
   return {
-    siteUrl: (
-      process.env.SUPABASE_SITE_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      ""
-    ).trim(),
-    redirectUrls: parseUrlList(process.env.SUPABASE_REDIRECT_URLS),
+    siteUrl: trim("SUPABASE_SITE_URL") || trim("NEXT_PUBLIC_SITE_URL"),
+    redirectUrls: parseUrlList(env.SUPABASE_REDIRECT_URLS),
+    templates: config.templates,
+    hook: config.hook,
+    smtp,
+    google: config.google.enabled
+      ? {
+          clientId: trim("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID"),
+          secret: env.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET ?? "",
+        }
+      : null,
   };
 }
 
@@ -342,15 +491,6 @@ export function smtpSettings(source = process.env) {
   };
 }
 
-function googleSettings() {
-  return {
-    clientId: (
-      process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID ?? ""
-    ).trim(),
-    secret: process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET ?? "",
-  };
-}
-
 async function main() {
   const command = process.argv[2];
   const token = process.env.SUPABASE_ACCESS_TOKEN ?? "";
@@ -360,89 +500,42 @@ async function main() {
     throw new Error("SUPABASE_PROJECT_REF is missing or malformed.");
   }
   const api = createApi({ token, projectRef });
-  const templatesDir = join(process.cwd(), "supabase", "templates");
+  const wanted = wantedAuth(process.cwd());
 
-  if (command === "urls") {
-    const { siteUrl, redirectUrls } = settings();
-    const { patch, added } = planUrls(await api.get(), {
-      siteUrl,
-      redirectUrls,
-    });
-    if (!patch) {
-      console.log("Site URL and redirect URLs already set; nothing changed.");
-      return;
-    }
-    await api.patch(patch);
-    if (patch.site_url) console.log(`  set     site_url = ${siteUrl}`);
-    for (const url of added) console.log(`  add     redirect ${url}`);
-  } else if (command === "templates") {
-    const templates = loadTemplates(templatesDir);
-    const { patch, changed } = planTemplates(await api.get(), templates);
-    if (!patch) {
+  if (command === "apply") {
+    const { patch, log, warnings } = planAuth(await api.get(), wanted);
+    for (const warning of warnings) console.log(`::warning::${warning}`);
+    if (patch) await api.patch(patch);
+    for (const line of log) console.log(`  ${line}`);
+    if (!log.length)
+      console.log("Auth settings already match; nothing changed.");
+    if (wanted.google) {
       console.log(
-        "Email templates already match supabase/templates; nothing changed.",
-      );
-      return;
-    }
-    await api.patch(patch);
-    for (const { name, content } of templates.filter((t) =>
-      changed.includes(t.name),
-    )) {
-      console.log(`  update  ${name} template (sha256 ${sha(content)})`);
-    }
-  } else if (command === "hook") {
-    const patch = planHook(await api.get());
-    if (patch) {
-      await api.patch(patch);
-      console.log(`  enable  custom access token hook -> ${HOOK_URI}`);
-    } else {
-      console.log("Custom access token hook already enabled; nothing changed.");
-    }
-    if (planHook(await api.get()) !== null) {
-      throw new Error("The hook still reads as disabled after the update.");
-    }
-  } else if (command === "smtp") {
-    const smtp = smtpSettings();
-    const { patch, drift } = planSmtp(await api.get(), smtp);
-    if (/(^|\.)gmail\.com$|(^|\.)googlemail\.com$/.test(smtp.host)) {
-      console.log(
-        "::warning::Gmail SMTP is meant for personal mail: it needs an app password and caps daily sends. Fine for development; use a transactional provider for production.",
+        `  Google OAuth client must list this authorized redirect URI: ${googleCallbackUrl(projectRef)}`,
       );
     }
-    await api.patch(patch);
-    console.log(
-      drift.length
-        ? `  set     SMTP ${smtp.host}:${patch.smtp_port} as ${smtp.senderName} <${smtp.adminEmail}> (changed: ${drift.join(", ")})`
-        : `  ok      SMTP ${smtp.host}:${patch.smtp_port}; password re-applied from GitHub`,
-    );
-  } else if (command === "google") {
-    const { patch, drift } = planGoogle(await api.get(), googleSettings());
-    await api.patch(patch);
-    console.log(
-      drift.length
-        ? `  enable  Google sign-in (changed: ${drift.join(", ")})`
-        : "  ok      Google sign-in enabled; secret re-applied from GitHub",
-    );
-    console.log(
-      `  The Google OAuth client must list this authorized redirect URI: ${googleCallbackUrl(projectRef)}`,
-    );
+    await check(api, wanted);
   } else if (command === "verify") {
-    const errors = verifyConfig(await api.get(), {
-      ...settings(),
-      templates: loadTemplates(templatesDir),
-      smtp: smtpSettings(),
-      google: googleSettings(),
-    });
-    if (errors.length)
-      throw new Error(`Auth settings check failed: ${errors.join("; ")}`);
-    console.log(
-      "Auth settings verified: site URL, redirect URLs, templates, hook, SMTP, Google sign-in.",
-    );
+    await check(api, wanted);
   } else {
-    throw new Error(
-      "Usage: supabase-auth.mjs urls|templates|hook|smtp|google|verify",
-    );
+    throw new Error("Usage: supabase-auth.mjs apply|verify");
   }
+}
+
+async function check(api, wanted) {
+  const errors = verifyConfig(await api.get(), wanted);
+  if (errors.length) {
+    throw new Error(`Auth settings check failed: ${errors.join("; ")}`);
+  }
+  const on = [
+    "site URL",
+    "redirect URLs",
+    "templates",
+    wanted.hook.enabled && "access token hook",
+    wanted.smtp && "SMTP",
+    wanted.google && "Google sign-in",
+  ].filter(Boolean);
+  console.log(`Auth settings verified: ${on.join(", ")}.`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {

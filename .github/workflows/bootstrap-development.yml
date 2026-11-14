@@ -213,31 +213,19 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f supabase/schemas/storage/buckets.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-storage.sql
 
-      # 12, 13
-      - name: Configure site URL and redirect URLs
-        run: node scripts/ci/bootstrap/supabase-auth.mjs urls
-
-      # 14
-      - name: Update auth email templates
-        run: node scripts/ci/bootstrap/supabase-auth.mjs templates
-
-      - name: Configure custom SMTP
-        env:
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-        run: node scripts/ci/bootstrap/supabase-auth.mjs smtp
-
-      # 15
+      # 12-16. The hook function must exist with Auth's grants before the
+      # hook is switched on, or every sign-in fails.
       - name: Verify the access token hook function and grants
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-hook.sql
 
-      # 16
-      - name: Enable the custom access token hook
-        run: node scripts/ci/bootstrap/supabase-auth.mjs hook
-
-      - name: Enable Google sign-in
+      # Site URL, redirect URLs, email templates, SMTP, access token hook and
+      # Google sign-in, as supabase/config.toml asks. Deploy applies the same
+      # on every run; this makes a new project complete before its first one.
+      - name: Apply auth settings
         env:
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET }}
-        run: node scripts/ci/bootstrap/supabase-auth.mjs google
+        run: node scripts/ci/bootstrap/supabase-auth.mjs apply
 
       # 17
       - name: Create PayPal sandbox product and plans
