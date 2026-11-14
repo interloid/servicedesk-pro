@@ -139,16 +139,15 @@ Unscoped Preview variables in Vercel (used by pull-request previews) aren't touc
 
 ### D. First deploy and one-time database setup
 
-1. Merge to `main`, or run **Actions → Deploy** on `main`. The deploy builds the whole schema from the migrations, loads plans, time zones and buckets, and applies the auth settings: the access token hook, Google sign-in and the email templates as `supabase/config.toml` sets them, plus the site URL, redirect URLs and SMTP from the GitHub environment. This works from an empty database because migration `20260810045832` records the platform's default grants and `20260831162650` was made safe to re-run.
+1. Merge to `main`, or run **Actions → Deploy** on `main`. The deploy builds the whole schema from the migrations, loads plans, time zones and buckets, and applies the auth settings: the access token hook, Google sign-in and the email templates as `supabase/config.toml` sets them, plus the site URL, redirect URLs and SMTP from the GitHub environment. In development it also creates the PayPal sandbox product and Pro / Business plans on the first deploy (later deploys only check them), writes their ids into `public.plans`, and registers the PayPal webhook, giving its id to the Edge Functions. This works from an empty database because migration `20260810045832` records the platform's default grants and `20260831162650` was made safe to re-run.
 2. Run **Actions → Bootstrap development database → Run workflow** on `main`. In one run it:
    - checks the seeds, the storage policies and the access token hook's function and grants, and re-applies the auth settings (the same step Deploy runs)
-   - creates the Vault secrets
-   - creates the PayPal sandbox product and the Pro and Business plans, and writes their ids into `public.plans`. This happens on the first run only; later runs check them and create nothing.
-   - registers `https://<dev-ref>.supabase.co/functions/v1/paypal-webhook` in the sandbox app
+   - creates the Vault secrets the cron jobs need (Deploy doesn't)
+   - checks the PayPal sandbox plans and webhook, the same way Deploy does
 
    The run summary lists the PayPal ids. If a step fails, fix the cause and run it again.
 
-3. The first time the summary says the webhook was **created**, set `PAYPAL_WEBHOOK_ID` in the GitHub `development` environment to the id it prints, then run **Actions → Deploy** on `main`. A workflow can't write a GitHub secret by itself.
+3. If a deploy warns that `PAYPAL_WEBHOOK_ID` differs from the project's webhook, copy the id it prints into the GitHub `development` environment. The functions already use the right id; this only stops the warning, since a workflow can't write its own GitHub variables.
 4. For a new project ref, add its callback URL to the Google OAuth client (see section 2.B). Google sign-in fails with `redirect_uri_mismatch` until you do.
 5. Optional: load demo data with `node --env-file=<dev env file> scripts/seed-tenants.mjs --apply --project-ref <dev ref>`.
 6. Check it end to end: open the dev URL, create a workspace at `/setup`, raise a ticket, confirm the email reaches the test inbox, and make a sandbox payment.

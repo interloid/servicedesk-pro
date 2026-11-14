@@ -12,7 +12,9 @@
 #                            [db.seed] files in supabase/config.toml)
 #   3. Auth settings         what supabase/config.toml switches on (hook, Google
 #                            sign-in, email templates) plus URLs and SMTP
-#   4. Edge Functions        secrets from GitHub, then supabase functions deploy
+#   4. Edge Functions        secrets from GitHub, then (development only) the
+#                            PayPal sandbox plans and webhook, then
+#                            supabase functions deploy
 #   5. App                   variables from GitHub synced to Vercel, then the
 #                            Vercel CLI (Vercel's own Git deploys are off for
 #                            main, see vercel.json)
@@ -203,6 +205,70 @@ jobs:
           SECRETS_JSON: ${{ toJSON(secrets) }}
           VARS_JSON: ${{ toJSON(vars) }}
         run: node scripts/ci/sync-env.mjs supabase
+
+      # Development only: the PayPal SANDBOX product and the Pro / Business
+      # plans (scripts/ci/bootstrap/paypal-sandbox.mjs). Created on the first
+      # deploy of a project, then only checked; their ids replace the seed's
+      # PAYPAL-PENDING-* codes in public.plans. Production plans are live ones
+      # and stay a deliberate, manual step.
+      - name: PayPal sandbox plans (development)
+        id: paypal
+        if: env.APP_ONLY != 'true' && env.DEPLOY_ENV == 'development'
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PAYPAL_BASE_URL: ${{ vars.PAYPAL_BASE_URL || secrets.PAYPAL_BASE_URL }}
+          PAYPAL_CLIENT_ID: ${{ vars.PAYPAL_CLIENT_ID || secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+          PAYPAL_PRO_PLAN_ID: ${{ vars.PAYPAL_PRO_PLAN_ID }}
+          PAYPAL_BUSINESS_PLAN_ID: ${{ vars.PAYPAL_BUSINESS_PLAN_ID }}
+        run: |
+          set -euo pipefail
+          case "$DATABASE_URL" in
+            "") echo "::error::Set SUPABASE_DB_URL (the session pooler string) in the development environment."; exit 1 ;;
+            *"$SUPABASE_PROJECT_REF"*) ;;
+            *) echo "::error::SUPABASE_DB_URL does not point at project $SUPABASE_PROJECT_REF."; exit 1 ;;
+          esac
+          PLANS_JSON=$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -c "
+            select coalesce(json_agg(json_build_object(
+                       'name', name, 'code', code, 'price_month', price_month,
+                       'paypal_product_id', paypal_product_id)), '[]')
+            from public.plans where name in ('Pro', 'Business')")
+          export PLANS_JSON
+          node scripts/ci/bootstrap/paypal-sandbox.mjs plans
+
+      - name: Store PayPal plan ids (development)
+        if: steps.paypal.outcome == 'success'
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PRODUCT_ID: ${{ steps.paypal.outputs.product_id }}
+          PRO_PLAN_ID: ${{ steps.paypal.outputs.pro_plan_id }}
+          BUSINESS_PLAN_ID: ${{ steps.paypal.outputs.business_plan_id }}
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q --single-transaction \
+            -v product_id="$PRODUCT_ID" -v pro="$PRO_PLAN_ID" -v business="$BUSINESS_PLAN_ID" \
+            -f scripts/ci/bootstrap/paypal-plans.sql
+          echo "PayPal plans: Pro $PRO_PLAN_ID, Business $BUSINESS_PLAN_ID (product $PRODUCT_ID)"
+
+      # The webhook for this project's paypal-webhook function, registered if
+      # missing. Its id is not a secret; it is set on the functions directly, so
+      # a new project works without copying it into GitHub first.
+      - name: PayPal sandbox webhook (development)
+        id: webhook
+        if: steps.paypal.outcome == 'success'
+        env:
+          PAYPAL_BASE_URL: ${{ vars.PAYPAL_BASE_URL || secrets.PAYPAL_BASE_URL }}
+          PAYPAL_CLIENT_ID: ${{ vars.PAYPAL_CLIENT_ID || secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+          GITHUB_WEBHOOK_ID: ${{ vars.PAYPAL_WEBHOOK_ID || secrets.PAYPAL_WEBHOOK_ID }}
+        run: |
+          set -euo pipefail
+          node scripts/ci/bootstrap/paypal-sandbox.mjs webhook
+          id=$(grep '^webhook_id=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          if [ "$id" != "$GITHUB_WEBHOOK_ID" ]; then
+            supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" "PAYPAL_WEBHOOK_ID=$id"
+            echo "::warning::PAYPAL_WEBHOOK_ID in GitHub is '$GITHUB_WEBHOOK_ID', but this project's webhook is $id. The functions now use $id; update the GitHub variable to match."
+          fi
 
       - name: Deploy Edge Functions
         if: env.APP_ONLY != 'true'
