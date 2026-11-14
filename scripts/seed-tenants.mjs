@@ -64,7 +64,14 @@ import {
 const DAY_MS = 86_400_000;
 const DEFAULT_PASSWORD = "test@123";
 
-const PLATFORM_ADMIN_EMAIL = "platform-admin@servicedesk-pro.com";
+// Override with PLATFORM_ADMIN_EMAIL so the seeded account is one the app's
+// PLATFORM_ADMIN_EMAILS actually lets into the console (the bootstrap passes
+// the first address on that list).
+const PLATFORM_ADMIN_EMAIL = (
+  process.env.PLATFORM_ADMIN_EMAIL || "platform-admin@servicedesk-pro.com"
+)
+  .trim()
+  .toLowerCase();
 const PLATFORM_ADMIN_NAME = "Platform Admin";
 
 // The plan really must have room: a roster over the limit would hit the seat

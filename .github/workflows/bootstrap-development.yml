@@ -19,6 +19,11 @@ name: Bootstrap development database
 
 on:
   workflow_dispatch:
+    inputs:
+      seed_demo_data:
+        description: "Seed demo workspaces and the platform admin (skips any that exist)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -148,6 +153,7 @@ jobs:
         uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
+          cache: npm
 
       - uses: supabase/setup-cli@v3.0.1
         with:
@@ -292,6 +298,36 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-storage.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ci/bootstrap/verify-hook.sql
           node scripts/ci/bootstrap/supabase-auth.mjs verify
+
+      # Demo data: scripts/seed-tenants.mjs. Idempotent -- workspaces that
+      # already exist are skipped, and an existing platform admin is left as is.
+      - name: Install dependencies for the seeder
+        if: inputs.seed_demo_data
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Seed demo workspaces and the platform admin
+        if: inputs.seed_demo_data
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SEED_PASSWORD: ${{ secrets.SEED_PASSWORD }}
+          PLATFORM_ADMIN_PASSWORD: ${{ secrets.PLATFORM_ADMIN_PASSWORD }}
+          PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS }}
+        run: |
+          set -euo pipefail
+          # Without these the seeder would print a generated or default
+          # password into this log.
+          if [ -z "$PLATFORM_ADMIN_PASSWORD" ] || [ -z "$SEED_PASSWORD" ]; then
+            echo "::error::Set the PLATFORM_ADMIN_PASSWORD and SEED_PASSWORD secrets in the development environment, or run without 'Seed demo data'."
+            exit 1
+          fi
+          if [ -z "$PLATFORM_ADMIN_EMAILS" ]; then
+            echo "::error::Set PLATFORM_ADMIN_EMAILS; the seeded platform admin is its first address."
+            exit 1
+          fi
+          PLATFORM_ADMIN_EMAIL=$(cut -d, -f1 <<<"$PLATFORM_ADMIN_EMAILS" | xargs)
+          export PLATFORM_ADMIN_EMAIL
+          echo "Platform admin: $PLATFORM_ADMIN_EMAIL"
+          node scripts/seed-tenants.mjs --apply --project-ref "$SUPABASE_PROJECT_REF"
 
       # 19
       - name: Bootstrap summary
