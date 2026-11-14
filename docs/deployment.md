@@ -153,7 +153,7 @@ Unscoped Preview variables in Vercel (used by pull-request previews) aren't touc
 
 3. The first time the summary says the webhook was **created**, set `PAYPAL_WEBHOOK_ID` in the GitHub `development` environment to the id it prints, then run **Actions → Deploy** on `main`. A workflow can't write a GitHub secret by itself.
 4. For a new project ref, add its callback URL to the Google OAuth client (see section 2.B). Google sign-in fails with `redirect_uri_mismatch` until you do.
-5. Demo data: the bootstrap's **Seed demo data** option (on by default) runs `scripts/seed-tenants.mjs`. It needs the secrets `SEED_PASSWORD` (every seeded workspace account) and `PLATFORM_ADMIN_PASSWORD`. The platform admin is the first address in `PLATFORM_ADMIN_EMAILS`. Existing workspaces and an existing admin are left as they are. Untick the option to skip it.
+5. Optional: load demo data with `node --env-file=<dev env file> scripts/seed-tenants.mjs --apply --project-ref <dev ref>`.
 6. Check it end to end: open the dev URL, create a workspace at `/setup`, raise a ticket, confirm the email reaches the test inbox, and make a sandbox payment.
 
 ## 3. Production setup (deployed by release tags)
