@@ -12,3 +12,5 @@ public
 package-lock.json
 vendor
 
+# Supabase Auth email templates (Go templates): wrapping can split a {{ }} action.
+supabase/templates/*.html

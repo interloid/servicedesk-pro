@@ -42,4 +42,7 @@ VALUES
 -- "eet" option (src/features/auth/lib/timezones.ts), and without these two rows picking
 -- either one fails to resolve to a `timezones.id` and blocks provisioning.
 ('America/Sao_Paulo', 'Brasilia Time', 'Brazil'),
-('Europe/Athens', 'Eastern European Time', 'Greece');
+('Europe/Athens', 'Eastern European Time', 'Greece')
+-- Re-runnable: rows that already exist are skipped, so a partially seeded database
+-- can be topped up by running this file again.
+ON CONFLICT (code) DO NOTHING;

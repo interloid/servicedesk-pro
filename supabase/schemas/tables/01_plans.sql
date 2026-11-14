@@ -9,7 +9,10 @@ create table if not exists public.plans
 
     code text not null unique,
 
-    name text not null,
+    -- The seed's conflict key: `code` changes when the bootstrap writes the
+    -- PayPal plan id into it (migration 20261114120000).
+    name text not null
+        constraint plans_name_key unique,
 
     description text,
 
@@ -26,6 +29,8 @@ create table if not exists public.plans
     is_active boolean not null default true,
 
     sort_order integer not null default 0,
+
+    paypal_product_id text,
 
     created_at timestamptz not null default now(),
 
@@ -49,3 +54,6 @@ comment on column plans.code is
 
 comment on column plans.features_json is
 'Feature flags for UI';
+
+comment on column plans.paypal_product_id is
+'PayPal catalog product of this plan''s billing plan (code). Null for Free. Every paid plan must share one product.';
