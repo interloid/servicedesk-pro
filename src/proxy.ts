@@ -32,6 +32,7 @@ import {
   isRememberedSession,
 } from "@/lib/supabase/remember";
 
+import { authOutageResponse, isAuthOutage } from "@/lib/auth-outage";
 import { contentSecurityPolicy, createNonce } from "@/lib/csp";
 import { APP_ROUTES } from "@/lib/routes";
 import {
@@ -302,7 +303,18 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  // Auth didn't answer (network or 5xx), which is not the same as "no session".
+  // Where a missing user would send someone to sign in, they get a retryable 503
+  // instead, so an Auth outage doesn't sign valid users out (LOAD-001). A real
+  // "no session" answer still redirects as before.
+  const authOutage = !user && isAuthOutage(userError);
+
+  if (authOutage) {
+    console.error("[proxy] auth unavailable:", userError?.message);
+  }
 
   const url = request.nextUrl;
   const pathname = url.pathname;
@@ -318,6 +330,10 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     // Same destination as requirePlatformAdmin, sent before the console's shell
     // renders into the redirect body. Server actions still reach their own check.
     if (!user && (request.method === "GET" || request.method === "HEAD")) {
+      if (authOutage) {
+        return authOutageResponse(request);
+      }
+
       return withSessionCookies(
         NextResponse.redirect(new URL(APP_ROUTES.LOGIN, request.url)),
         response,
@@ -458,6 +474,10 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     }
 
     if (!user && !isPublic) {
+      if (authOutage) {
+        return authOutageResponse(request);
+      }
+
       const nextPath = rest === "/" ? null : `${rest}${url.search}`;
 
       const loginUrl = new URL(tenantLoginPath(slug, nextPath), request.url);
@@ -629,6 +649,10 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
       }
 
       if (!user && !isTenantPublicPath(pathname)) {
+        if (authOutage) {
+          return authOutageResponse(request);
+        }
+
         const loginUrl = new URL("/login", request.url);
 
         if (pathname !== ROOT_PATH) {
