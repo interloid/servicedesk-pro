@@ -67,6 +67,8 @@ Set each of these in both `development` and `production`, with that environment'
 | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN`                                                                      | Secret   | Yes      | The deploy     |
 | `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`                                                                         | Variable | Yes      | The deploy     |
 | `APP_DOMAIN_ALIAS` (development only)                                                                                                | Variable | No       | The deploy     |
+| `PLATFORM_ADMIN_PASSWORD`: the platform admin account is created with it, and its password reset to it on every deploy               | Secret   | No       | The deploy     |
+| `PLATFORM_ADMIN_EMAIL`: that account's email (default `platform-admin@servicedesk-pro.com`); also list it in `PLATFORM_ADMIN_EMAILS` | Variable | No       | The deploy     |
 | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_DESCRIPTION`                            | Variable | Yes      | Vercel         |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                          | Variable | Yes      | Vercel         |
 | `SUPABASE_SERVICE_ROLE_KEY`                                                                                                          | Secret   | Yes      | Vercel         |

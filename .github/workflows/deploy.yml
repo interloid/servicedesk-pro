@@ -286,6 +286,30 @@ jobs:
 
       - run: npm ci
 
+      # The platform console account (scripts/seed-platform-admin.mjs), with
+      # the password from this environment's PLATFORM_ADMIN_PASSWORD secret:
+      # created on the first deploy, and its password reset to that secret on
+      # every deploy after, so GitHub stays the one place it is set. Skipped
+      # when the secret isn't set. The email is PLATFORM_ADMIN_EMAIL, or the
+      # script's default; it must also be in PLATFORM_ADMIN_EMAILS for access.
+      - name: Platform admin account
+        if: env.APP_ONLY != 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PLATFORM_ADMIN_PASSWORD: ${{ secrets.PLATFORM_ADMIN_PASSWORD }}
+          PLATFORM_ADMIN_EMAIL: ${{ vars.PLATFORM_ADMIN_EMAIL }}
+          PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS || secrets.PLATFORM_ADMIN_EMAILS }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PLATFORM_ADMIN_PASSWORD" ]; then
+            echo "::notice::PLATFORM_ADMIN_PASSWORD is not set in the $DEPLOY_ENV environment; the platform admin account is left as it is."
+            exit 0
+          fi
+          node scripts/seed-platform-admin.mjs --apply \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            ${PLATFORM_ADMIN_EMAIL:+--email "$PLATFORM_ADMIN_EMAIL"}
+
       # Writes the GitHub values into the Vercel project: Production for a
       # release tag, Preview scoped to the main branch for development. Vercel's
       # own redeploy and rollback then use the same values.

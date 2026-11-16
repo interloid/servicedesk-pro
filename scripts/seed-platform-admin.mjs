@@ -155,6 +155,6 @@ if (profileError) {
 
 if (!listed) {
   console.log(
-    `\nNote: ${email} isn't in PLATFORM_ADMIN_EMAILS here. Add it to that variable in the environment the app runs with, or /platform returns 404.`,
+    `${process.env.GITHUB_ACTIONS ? "::warning::" : "\nNote: "}${email} isn't in PLATFORM_ADMIN_EMAILS here. Add it to that variable in the environment the app runs with, or /platform returns 404.`,
   );
 }
