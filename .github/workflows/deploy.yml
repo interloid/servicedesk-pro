@@ -12,8 +12,8 @@
 #                            [db.seed] files in supabase/config.toml)
 #   3. Auth settings         what supabase/config.toml switches on (hook, Google
 #                            sign-in, email templates) plus URLs and SMTP
-#   4. Edge Functions        secrets from GitHub, then (development only) the
-#                            PayPal sandbox plans and webhook, then
+#   4. Edge Functions        secrets from GitHub, then the PayPal sandbox
+#                            plans and webhook (skipped for live PayPal), then
 #                            supabase functions deploy
 #   5. App                   variables from GitHub synced to Vercel, then the
 #                            Vercel CLI (Vercel's own Git deploys are off for
@@ -206,14 +206,16 @@ jobs:
           VARS_JSON: ${{ toJSON(vars) }}
         run: node scripts/ci/sync-env.mjs supabase
 
-      # Development only: the PayPal SANDBOX product and the Pro / Business
-      # plans (scripts/ci/bootstrap/paypal-sandbox.mjs). Created on the first
-      # deploy of a project, then only checked; their ids replace the seed's
-      # PAYPAL-PENDING-* codes in public.plans. Production plans are live ones
-      # and stay a deliberate, manual step.
-      - name: PayPal sandbox plans (development)
+      # Both environments, each with its own PayPal SANDBOX account: the
+      # product and the Pro / Business plans
+      # (scripts/ci/bootstrap/paypal-sandbox.mjs). Created on the first deploy
+      # of a project, then only checked; their ids replace the seed's
+      # PAYPAL-PENDING-* codes in public.plans. If an environment's
+      # PAYPAL_BASE_URL is live PayPal (only production may be), this and the
+      # next two steps are skipped: live plans stay a deliberate, manual step.
+      - name: PayPal sandbox plans
         id: paypal
-        if: env.APP_ONLY != 'true' && env.DEPLOY_ENV == 'development'
+        if: env.APP_ONLY != 'true'
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
           PAYPAL_BASE_URL: ${{ vars.PAYPAL_BASE_URL || secrets.PAYPAL_BASE_URL }}
@@ -223,8 +225,15 @@ jobs:
           PAYPAL_BUSINESS_PLAN_ID: ${{ vars.PAYPAL_BUSINESS_PLAN_ID }}
         run: |
           set -euo pipefail
+          case "${PAYPAL_BASE_URL%/}" in
+            ""|"https://api-m.sandbox.paypal.com") ;;
+            *)
+              echo "::notice::PAYPAL_BASE_URL is ${PAYPAL_BASE_URL%/}, not the sandbox. Skipping plan and webhook setup; set the live plan ids by hand (docs/deployment.md, 3.D)."
+              echo "sandbox=false" >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+          esac
           case "$DATABASE_URL" in
-            "") echo "::error::Set SUPABASE_DB_URL (the session pooler string) in the development environment."; exit 1 ;;
+            "") echo "::error::Set SUPABASE_DB_URL (the session pooler string) in the $DEPLOY_ENV environment."; exit 1 ;;
             *"$SUPABASE_PROJECT_REF"*) ;;
             *) echo "::error::SUPABASE_DB_URL does not point at project $SUPABASE_PROJECT_REF."; exit 1 ;;
           esac
@@ -235,9 +244,10 @@ jobs:
             from public.plans where name in ('Pro', 'Business')")
           export PLANS_JSON
           node scripts/ci/bootstrap/paypal-sandbox.mjs plans
+          echo "sandbox=true" >> "$GITHUB_OUTPUT"
 
-      - name: Store PayPal plan ids (development)
-        if: steps.paypal.outcome == 'success'
+      - name: Store PayPal plan ids
+        if: steps.paypal.outcome == 'success' && steps.paypal.outputs.sandbox == 'true'
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
           PRODUCT_ID: ${{ steps.paypal.outputs.product_id }}
@@ -253,9 +263,9 @@ jobs:
       # The webhook for this project's paypal-webhook function, registered if
       # missing. Its id is not a secret; it is set on the functions directly, so
       # a new project works without copying it into GitHub first.
-      - name: PayPal sandbox webhook (development)
+      - name: PayPal sandbox webhook
         id: webhook
-        if: steps.paypal.outcome == 'success'
+        if: steps.paypal.outcome == 'success' && steps.paypal.outputs.sandbox == 'true'
         env:
           PAYPAL_BASE_URL: ${{ vars.PAYPAL_BASE_URL || secrets.PAYPAL_BASE_URL }}
           PAYPAL_CLIENT_ID: ${{ vars.PAYPAL_CLIENT_ID || secrets.PAYPAL_CLIENT_ID }}
