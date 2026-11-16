@@ -2,27 +2,33 @@
  * Demo data for scripts/seed-tenants.mjs: workspaces, people and tickets.
  *
  * Everything here is FICTIONAL. Company names, people, addresses and phone
- * numbers are invented for the demo and are not real clients:
- *   - customer emails use the reserved .example domain, and staff emails use
- *     .seed.test, so no seeded address can ever receive mail;
+ * numbers are invented for the demo and are not real clients. The data is
+ * meant to read like a live application, so workspace URLs carry no "seed"
+ * marker and emails use realistic company domains:
+ *   - every email domain is listed in
+ *     supabase/functions/_shared/demo-email-domains.ts, and the app's mail
+ *     sender skips those domains, so a demo action never emails the real
+ *     company that may own one (scripts/seed-data.test.mjs checks the list);
  *   - phone numbers use 555-0100 to 555-0199, the range reserved for fiction.
  *
  * The e2e suite signs in with some of these accounts and looks for some of these
  * ticket subjects; scripts/seed-data.test.mjs checks the two stay in step.
  */
 
-export const SLUG_PREFIX = "seed-";
-export const STAFF_EMAIL_SUFFIX = ".seed.test";
-export const CUSTOMER_EMAIL_TLD = ".example";
+// Earlier seeds named workspaces "seed-<key>" and staff "<role>@<key>.seed.test".
+// --clean still recognises them, so old demo data can be removed.
+export const LEGACY_SLUG_PREFIX = "seed-";
+export const LEGACY_STAFF_EMAIL_SUFFIX = ".seed.test";
 export const MIN_TENANTS = 10;
 export const MAX_TENANTS = 15;
 
 // The first 10 alone cover every plan + subscription status pair.
-// key -> slug "seed-<key>" and staff logins "<role>@<key>.seed.test".
+// key -> workspace slug "<key>"; domain -> staff emails "first.last@<domain>".
 export const TENANTS = [
   {
     key: "aurora",
     name: "Aurora Freight Logistics",
+    domain: "aurorafreight.com",
     industry: "Freight and logistics",
     city: "Denver, CO",
     areaCode: "303",
@@ -33,18 +39,19 @@ export const TENANTS = [
       {
         name: "Ryan Caldwell",
         company: "Summit Ridge Supply",
-        domain: "summitridgesupply",
+        domain: "summitridgesupply.com",
       },
       {
         name: "Megan Torres",
         company: "Front Range Building Materials",
-        domain: "frontrangebuilding",
+        domain: "frontrangebuilding.com",
       },
     ],
   },
   {
     key: "bluepeak",
     name: "Bluepeak Software",
+    domain: "bluepeaksoftware.com",
     industry: "Practice management software",
     city: "Austin, TX",
     areaCode: "512",
@@ -55,18 +62,19 @@ export const TENANTS = [
       {
         name: "Jordan Ellis",
         company: "Lakeway Dental Partners",
-        domain: "lakewaydental",
+        domain: "lakewaydental.com",
       },
       {
         name: "Priya Raman",
         company: "Hill Country Realty",
-        domain: "hillcountryrealty",
+        domain: "hillcountryrealty.com",
       },
     ],
   },
   {
     key: "cedar",
     name: "Cedar Health Group",
+    domain: "cedarhealthgroup.com",
     industry: "Clinic scheduling and billing services",
     city: "Boston, MA",
     areaCode: "617",
@@ -77,18 +85,19 @@ export const TENANTS = [
       {
         name: "Dana Whitfield",
         company: "Northfield Family Clinic",
-        domain: "northfieldclinic",
+        domain: "northfieldclinic.com",
       },
       {
         name: "Marcus Bell",
         company: "Bayside Physical Therapy",
-        domain: "baysidept",
+        domain: "baysidept.com",
       },
     ],
   },
   {
     key: "dunmore",
     name: "Dunmore Outfitters",
+    domain: "dunmoreoutfitters.com",
     industry: "Outdoor gear wholesale",
     city: "Minneapolis, MN",
     areaCode: "612",
@@ -99,18 +108,19 @@ export const TENANTS = [
       {
         name: "Erik Lindqvist",
         company: "Lakeshore Ski & Board",
-        domain: "lakeshoreski",
+        domain: "lakeshoreski.com",
       },
       {
         name: "Hannah Brooks",
         company: "North Star Trail Supply",
-        domain: "northstartrail",
+        domain: "northstartrail.com",
       },
     ],
   },
   {
     key: "ember",
     name: "Ember Hospitality Group",
+    domain: "emberhospitality.com",
     industry: "Hotel and event venues",
     city: "Nashville, TN",
     areaCode: "615",
@@ -121,18 +131,19 @@ export const TENANTS = [
       {
         name: "Carlos Mendoza",
         company: "Riverfront Event Center",
-        domain: "riverfrontevents",
+        domain: "riverfrontevents.com",
       },
       {
         name: "Tessa Grant",
         company: "Music Row Catering",
-        domain: "musicrowcatering",
+        domain: "musicrowcatering.com",
       },
     ],
   },
   {
     key: "fernhill",
     name: "Fernhill Learning",
+    domain: "fernhilllearning.com",
     industry: "K-12 learning platform",
     city: "Portland, OR",
     areaCode: "503",
@@ -143,18 +154,19 @@ export const TENANTS = [
       {
         name: "Grace Kim",
         company: "Willamette Valley School District",
-        domain: "willamettevalleysd",
+        domain: "willamettevalleysd.com",
       },
       {
         name: "Daniel Ortiz",
         company: "Cascade Prep Academy",
-        domain: "cascadeprep",
+        domain: "cascadeprep.com",
       },
     ],
   },
   {
     key: "granite",
     name: "Granite Ridge Financial",
+    domain: "graniteridgefinancial.com",
     industry: "Small-business lending",
     city: "Charlotte, NC",
     areaCode: "704",
@@ -165,18 +177,19 @@ export const TENANTS = [
       {
         name: "Aaron Fletcher",
         company: "Piedmont Auto Group",
-        domain: "piedmontauto",
+        domain: "piedmontauto.com",
       },
       {
         name: "Simone Carter",
         company: "Queen City Dental Care",
-        domain: "queencitydental",
+        domain: "queencitydental.com",
       },
     ],
   },
   {
     key: "harbor",
     name: "Harborline Shipping",
+    domain: "harborlineshipping.com",
     industry: "Ocean freight forwarding",
     city: "Seattle, WA",
     areaCode: "206",
@@ -187,18 +200,19 @@ export const TENANTS = [
       {
         name: "Kevin Nguyen",
         company: "Puget Sound Seafood Co.",
-        domain: "pugetsoundseafood",
+        domain: "pugetsoundseafood.com",
       },
       {
         name: "Laura Chen",
         company: "Elliott Bay Imports",
-        domain: "elliottbayimports",
+        domain: "elliottbayimports.com",
       },
     ],
   },
   {
     key: "ivory",
     name: "Ivory & Lane Legal",
+    domain: "ivoryandlane.com",
     industry: "Legal services for property managers",
     city: "Chicago, IL",
     areaCode: "312",
@@ -209,18 +223,19 @@ export const TENANTS = [
       {
         name: "Brian Kowalski",
         company: "Wrigleyville Property Management",
-        domain: "wrigleyvillepm",
+        domain: "wrigleyvillepm.com",
       },
       {
         name: "Natalie Ruiz",
         company: "Lakeview Medical Billing",
-        domain: "lakeviewbilling",
+        domain: "lakeviewbilling.com",
       },
     ],
   },
   {
     key: "juniper",
     name: "Juniper Ridge Energy",
+    domain: "juniperridgeenergy.com",
     industry: "Commercial energy services",
     city: "Houston, TX",
     areaCode: "713",
@@ -231,18 +246,19 @@ export const TENANTS = [
       {
         name: "Jasmine Patel",
         company: "Gulf Coast Fabrication",
-        domain: "gulfcoastfab",
+        domain: "gulfcoastfab.com",
       },
       {
         name: "Robert Hayes",
         company: "Bayou City Electric",
-        domain: "bayoucityelectric",
+        domain: "bayoucityelectric.com",
       },
     ],
   },
   {
     key: "kestrel",
     name: "Kestrel Media Group",
+    domain: "kestrelmedia.com",
     industry: "Video production and post-production",
     city: "Los Angeles, CA",
     areaCode: "323",
@@ -253,18 +269,19 @@ export const TENANTS = [
       {
         name: "Olivia Park",
         company: "Sunset Lane Studios",
-        domain: "sunsetlanestudios",
+        domain: "sunsetlanestudios.com",
       },
       {
         name: "Andre Wallace",
         company: "Silver Lake Records",
-        domain: "silverlakerecords",
+        domain: "silverlakerecords.com",
       },
     ],
   },
   {
     key: "lumen",
     name: "Lumenfield Insurance",
+    domain: "lumenfieldinsurance.com",
     industry: "Commercial insurance brokerage",
     city: "Hartford, CT",
     areaCode: "860",
@@ -275,18 +292,19 @@ export const TENANTS = [
       {
         name: "Michael Sullivan",
         company: "Connecticut River Builders",
-        domain: "ctriverbuilders",
+        domain: "ctriverbuilders.com",
       },
       {
         name: "Rachel Goldberg",
         company: "Farmington Valley Pediatrics",
-        domain: "farmingtonpeds",
+        domain: "farmingtonpeds.com",
       },
     ],
   },
   {
     key: "meridian",
     name: "Meridian Precision Manufacturing",
+    domain: "meridianprecision.com",
     industry: "Contract machining",
     city: "Cleveland, OH",
     areaCode: "216",
@@ -297,18 +315,19 @@ export const TENANTS = [
       {
         name: "Steven Novak",
         company: "Cuyahoga Tool & Die",
-        domain: "cuyahogatool",
+        domain: "cuyahogatool.com",
       },
       {
         name: "Angela Morris",
         company: "Lake Erie Plastics",
-        domain: "lakeerieplastics",
+        domain: "lakeerieplastics.com",
       },
     ],
   },
   {
     key: "nimbus",
     name: "Nimbus Travel Co.",
+    domain: "nimbustravel.com",
     industry: "Corporate travel management",
     city: "San Diego, CA",
     areaCode: "619",
@@ -319,18 +338,19 @@ export const TENANTS = [
       {
         name: "Melissa Rivera",
         company: "Coronado Bay Resorts",
-        domain: "coronadobayresorts",
+        domain: "coronadobayresorts.com",
       },
       {
         name: "Jason Wright",
         company: "Pacific Crest Tours",
-        domain: "pacificcresttours",
+        domain: "pacificcresttours.com",
       },
     ],
   },
   {
     key: "orchard",
     name: "Orchard Valley Foods",
+    domain: "orchardvalleyfoods.com",
     industry: "Fresh produce distribution",
     city: "Fresno, CA",
     areaCode: "559",
@@ -341,12 +361,12 @@ export const TENANTS = [
       {
         name: "Linda Hernandez",
         company: "Central Valley Grocers",
-        domain: "centralvalleygrocers",
+        domain: "centralvalleygrocers.com",
       },
       {
         name: "Paul Anderson",
         company: "Sierra Fresh Markets",
-        domain: "sierrafreshmarkets",
+        domain: "sierrafreshmarkets.com",
       },
     ],
   },
@@ -445,15 +465,15 @@ export const STAFF_BY_PLAN = {
   Business: CORE_STAFF,
 };
 
-/** Lowercase dotted address, e.g. "dana.whitfield@northfieldclinic.example". */
-function customerEmail(name, domain) {
+/** Lowercase dotted address, e.g. "dana.whitfield@northfieldclinic.com". */
+function personEmail(name, domain) {
   const local = name
     .toLowerCase()
     .replace(/[^a-z ]/g, "")
     .trim()
     .split(/\s+/)
     .join(".");
-  return `${local}@${domain}${CUSTOMER_EMAIL_TLD}`;
+  return `${local}@${domain}`;
 }
 
 /** The staff and customers of one workspace, deterministic for a given index. */
@@ -471,11 +491,11 @@ export function peopleFor(spec, tenantIndex) {
     staff: roster.map((member, slot) => ({
       ...member,
       label: ROLE_LABELS[member.role],
-      email: `${member.local}@${spec.key}${STAFF_EMAIL_SUFFIX}`,
+      email: personEmail(staffName(slot), spec.domain),
       fullName: staffName(slot),
     })),
     customers: spec.customers.map((customer, i) => ({
-      email: customerEmail(customer.name, customer.domain),
+      email: personEmail(customer.name, customer.domain),
       fullName: customer.name,
       company: customer.company,
       phone: `+1-${spec.areaCode}-555-01${String(tenantIndex * 2 + i).padStart(2, "0")}`,

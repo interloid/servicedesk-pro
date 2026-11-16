@@ -57,7 +57,7 @@ const appEnv: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: stack.E2E_SUPABASE_ANON_KEY ?? "",
   SUPABASE_SERVICE_ROLE_KEY: stack.E2E_SUPABASE_SERVICE_ROLE_KEY ?? "",
   SESSION_SECRET: "e2e-session-secret-e2e-session-secret",
-  PLATFORM_ADMIN_EMAILS: "admin@juniper.seed.test",
+  PLATFORM_ADMIN_EMAILS: "david.russell@juniperridgeenergy.com",
   SUBDOMAIN_ROUTING_AVAILABLE: "false",
 };
 

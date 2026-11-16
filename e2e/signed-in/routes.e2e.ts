@@ -15,7 +15,7 @@ import {
   seededTicketId,
 } from "../support/db";
 
-const CUSTOMER = "jasmine.patel@gulfcoastfab.example";
+const CUSTOMER = "jasmine.patel@gulfcoastfab.com";
 const TICKET = "Integration stopped syncing overnight";
 
 type Route = {

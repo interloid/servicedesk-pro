@@ -554,7 +554,7 @@ Put the project token in `.env.local` as `ARGOS_TOKEN`. The script sets `CI=true
 Never commit the token. When adding a screen:
 
 - Add it to the table in `e2e/signed-in/visual.e2e.ts`, or `e2e/public/visual.e2e.ts` for signed-out pages. Each entry checks that the URL didn't redirect and that no error screen shows, so a broken page can't become the baseline.
-- Use the `seed-juniper` workspace, which no other test writes to.
+- Use the `juniper` workspace, which no other test writes to.
 - Dates and relative times are replaced with `--` automatically. Use `figures` for totals that change, `mask` for rows whose order isn't fixed, and `element` for a dialog over a changing page.
 - Compare two runs before sending a build. Any screen that differs between them will report a change on every build.
 
@@ -579,7 +579,7 @@ node --env-file=.env.local scripts/seed-invoices.mjs --tenant <id-or-slug>
 node --env-file=.env.local scripts/seed-invoices.mjs --clean
 ```
 
-The data lives in `scripts/seed-data.mjs`: 15 **fictional** US companies, each with its own city, time zone, staff, two business customers, and 20 tickets with full conversation threads. No real company or person is used. `scripts/seed-data.test.mjs` checks that every address is undeliverable and every phone number is in the fictional `555-01xx` range, and that the data still matches what the e2e suite expects.
+The data lives in `scripts/seed-data.mjs`: 15 **fictional** US companies, each with its own city, time zone, staff, two business customers, and 20 tickets with full conversation threads. No real company or person is used. The data reads like a live application: workspace URLs have no `seed` marker (`/juniper`) and emails use realistic company domains (`david.russell@juniperridgeenergy.com`). Some of those domains may belong to real companies, so every one is listed in `supabase/functions/_shared/demo-email-domains.ts`, and the app's mail sender skips them in every environment: demo actions never email anyone. `scripts/seed-data.test.mjs` checks that every seeded address is on that list, that every phone number is in the fictional `555-01xx` range, and that the data still matches what the e2e suite expects.
 
 ### Demo accounts
 
@@ -589,27 +589,28 @@ Every account uses the same password: `SEED_PASSWORD` if set when seeding, other
 
 To create only the platform admin, or set its password, use `scripts/seed-platform-admin.mjs`. It takes the password from `PLATFORM_ADMIN_PASSWORD` (at least 12 characters, never printed), creates the account with a confirmed email if it's missing, and otherwise resets its password: `PLATFORM_ADMIN_PASSWORD='...' node --env-file=.env.local scripts/seed-platform-admin.mjs --apply --project-ref <ref>`. Add `--email` to use another address. Without `--apply` it only shows what it would do.
 
-**Juniper Ridge Energy** (`/seed-juniper`, Business plan, Houston, TX). This is the best workspace for a full demo, because every feature is on:
+**Juniper Ridge Energy** (`/juniper`, Business plan, Houston, TX). This is the best workspace for a full demo, because every feature is on:
 
-| Role                              | Name              | Sign in as                               |
-| --------------------------------- | ----------------- | ---------------------------------------- |
-| Tenant Admin                      | David Russell     | `admin@juniper.seed.test`                |
-| Manager                           | Emily Johnson     | `manager@juniper.seed.test`              |
-| Agent                             | James Rodriguez   | `agent@juniper.seed.test`                |
-| Billing Admin                     | Ashley Washington | `billing@juniper.seed.test`              |
-| Customer (Gulf Coast Fabrication) | Jasmine Patel     | `jasmine.patel@gulfcoastfab.example`     |
-| Customer (Bayou City Electric)    | Robert Hayes      | `robert.hayes@bayoucityelectric.example` |
+| Role                              | Name              | Sign in as                                 |
+| --------------------------------- | ----------------- | ------------------------------------------ |
+| Tenant Admin                      | David Russell     | `david.russell@juniperridgeenergy.com`     |
+| Manager                           | Emily Johnson     | `emily.johnson@juniperridgeenergy.com`     |
+| Agent                             | James Rodriguez   | `james.rodriguez@juniperridgeenergy.com`   |
+| Billing Admin                     | Ashley Washington | `ashley.washington@juniperridgeenergy.com` |
+| Customer (Gulf Coast Fabrication) | Jasmine Patel     | `jasmine.patel@gulfcoastfab.com`           |
+| Customer (Bayou City Electric)    | Robert Hayes      | `robert.hayes@bayoucityelectric.com`       |
 
-**Cedar Health Group** (`/seed-cedar`, Pro plan, Boston, MA). Staff sign in as `admin@`, `manager@`, `agent@` and `billing@cedar.seed.test`, and customers as `dana.whitfield@northfieldclinic.example` and `marcus.bell@baysidept.example`.
+**Cedar Health Group** (`/cedar`, Pro plan, Boston, MA). Staff include `nicole.sanders@` (Tenant Admin), `joshua.perry@` (Manager), `stephanie.mitchell@` (Agent) and `ryan.nguyen@cedarhealthgroup.com` (Billing Admin); customers are `dana.whitfield@northfieldclinic.com` and `marcus.bell@baysidept.com`.
 
-**Bluepeak Software** (`/seed-bluepeak`, Free plan, Austin, TX). Staff sign in as `admin@` and `agent@bluepeak.seed.test`, and customers as `jordan.ellis@lakewaydental.example` and `priya.raman@hillcountryrealty.example`.
+**Bluepeak Software** (`/bluepeak`, Free plan, Austin, TX). Staff are `christopher.perry@` (Tenant Admin) and `amanda.mitchell@bluepeaksoftware.com` (Agent); customers are `jordan.ellis@lakewaydental.com` and `priya.raman@hillcountryrealty.com`.
 
 The other 12 workspaces cover the remaining plan and billing states (trial, past due, cancelled, expired). The seed command prints every login when it finishes.
 
 Good to know:
 
-- Existing seed tenants are skipped, so run `--clean` before `--apply` to rebuild them.
-- Staff accounts use `*.seed.test` addresses and customers use `*.example`. Neither can receive mail. Seeded accounts carry a `seed_tenant` tag, which is how `--clean` finds them.
+- Existing demo workspaces are skipped, so run `--clean` before `--apply` to rebuild them. `--clean` also removes data from older seeds (`seed-*` workspaces, `*.seed.test` accounts).
+- Seeded accounts carry a `seed_tenant` tag. `--clean` deletes a workspace only when its slug is a demo one **and** a member carries that tag, so a real workspace with the same slug is never touched.
+- Mail to the demo domains is never sent (see above). If you add a workspace or customer to `scripts/seed-data.mjs`, add its domain to `demo-email-domains.ts`; the seed test fails until you do.
 - Seeded PayPal IDs don't exist at PayPal, so changing plan or cancelling on a seeded workspace fails.
 - Never list a seeded account in `PLATFORM_ADMIN_EMAILS` outside local and test stacks.
 
