@@ -300,8 +300,13 @@ jobs:
           PLATFORM_ADMIN_PASSWORD: ${{ secrets.PLATFORM_ADMIN_PASSWORD }}
           PLATFORM_ADMIN_EMAIL: ${{ vars.PLATFORM_ADMIN_EMAIL }}
           PLATFORM_ADMIN_EMAILS: ${{ vars.PLATFORM_ADMIN_EMAILS || secrets.PLATFORM_ADMIN_EMAILS }}
+          PASSWORD_AS_VARIABLE: ${{ vars.PLATFORM_ADMIN_PASSWORD != '' }}
         run: |
           set -euo pipefail
+          if [ "$PASSWORD_AS_VARIABLE" = "true" ]; then
+            echo "::error::PLATFORM_ADMIN_PASSWORD is a variable in the $DEPLOY_ENV environment, where anyone with read access can see it. Delete the variable and add it as a secret."
+            exit 1
+          fi
           if [ -z "$PLATFORM_ADMIN_PASSWORD" ]; then
             echo "::notice::PLATFORM_ADMIN_PASSWORD is not set in the $DEPLOY_ENV environment; the platform admin account is left as it is."
             exit 0
