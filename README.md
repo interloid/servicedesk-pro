@@ -587,6 +587,8 @@ Every account uses the same password: `SEED_PASSWORD` if set when seeding, other
 
 **Platform console:** the seed also creates `platform-admin@servicedesk-pro.com`, which belongs to no workspace, so signing in lands on `/platform`. Add it to `PLATFORM_ADMIN_EMAILS` to grant access. It never gets the shared seed password: set `PLATFORM_ADMIN_PASSWORD` before seeding, or the seed prints a random one once. `--clean` leaves it in place, and re-seeding doesn't change its password.
 
+To create only the platform admin, or set its password, use `scripts/seed-platform-admin.mjs`. It takes the password from `PLATFORM_ADMIN_PASSWORD` (at least 12 characters, never printed), creates the account with a confirmed email if it's missing, and otherwise resets its password: `PLATFORM_ADMIN_PASSWORD='...' node --env-file=.env.local scripts/seed-platform-admin.mjs --apply --project-ref <ref>`. Add `--email` to use another address. Without `--apply` it only shows what it would do.
+
 **Juniper Ridge Energy** (`/seed-juniper`, Business plan, Houston, TX). This is the best workspace for a full demo, because every feature is on:
 
 | Role                              | Name              | Sign in as                               |
