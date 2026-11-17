@@ -72,7 +72,7 @@ BEGIN
             VALUES (v_user, format('%s@%s.authz.test', u.key, w.slug), initcap(w.key || ' ' || u.key));
 
             INSERT INTO public.memberships (tenant_id, user_id, role, status)
-            VALUES (v_tenant, v_user, u.role::public.membership_role, 'active');
+            VALUES (v_tenant, v_user, u.role, 'active');
 
             INSERT INTO authz.ids VALUES (w.key || '_' || u.key, v_user);
         END LOOP;
@@ -200,6 +200,18 @@ BEGIN
         VALUES
             ('avatars', format('%s/%s/photo.png', v_tenant, authz.id(w.key || '_agent'))),
             ('invoices', format('%s/invoice-1.pdf', v_tenant));
+
+        -- A support request to the platform team, with one reply.
+        INSERT INTO public.support_requests (tenant_id, created_by, subject, description)
+        VALUES (v_tenant, authz.id(w.key || '_admin'), 'Invoices missing',
+                'Last month''s invoice is not in the billing page.')
+        RETURNING id INTO v_ticket;
+
+        INSERT INTO public.support_request_messages (request_id, author_type, author_id, author_name, body)
+        VALUES (v_ticket, 'tenant', authz.id(w.key || '_admin'), initcap(w.key) || ' Admin',
+                'Our API key is sk_live_123.');
+
+        INSERT INTO authz.ids VALUES (w.key || '_support_request', v_ticket);
     END LOOP;
 
     -- A signed-in user who belongs to no workspace.

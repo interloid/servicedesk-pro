@@ -13,6 +13,7 @@ import {
   getCallerRole,
   getTeamSeats,
   listTeamMembers,
+  listTeamRoleOptions,
   serverNow,
 } from "@/features/team/services/team.service";
 
@@ -32,10 +33,11 @@ export default async function TeamAndRolesPage() {
     notFound();
   }
 
-  const [members, seats, now] = await Promise.all([
+  const [members, seats, now, roleOptions] = await Promise.all([
     listTeamMembers(),
     getTeamSeats(),
     serverNow(),
+    listTeamRoleOptions(),
   ]);
 
   const canInvite = callerRole
@@ -56,7 +58,11 @@ export default async function TeamAndRolesPage() {
 
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto *:flex-1 sm:*:flex-none">
             {canInvite && (
-              <InviteMemberModal seats={seats} callerRole={callerRole} />
+              <InviteMemberModal
+                seats={seats}
+                callerRole={callerRole}
+                roleOptions={roleOptions}
+              />
             )}
             <PermissionMatrixModal />
           </div>
@@ -67,6 +73,7 @@ export default async function TeamAndRolesPage() {
         <TeamTable
           members={members}
           callerRole={callerRole}
+          roleOptions={roleOptions}
           seats={seats}
           now={now}
         />

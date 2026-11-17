@@ -184,9 +184,9 @@ grant execute on function public.audit_actor_snapshot(uuid, uuid) to authenticat
 -- address and user agent. A writer outside a request (the admin client, a
 -- cron) passes user_agent in meta_json; it is moved into the column here.
 create or replace function public.audit_logs_fill()
-returns trigger
-language plpgsql
-as $$
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $$
 declare
     v_ip text;
 begin
@@ -203,7 +203,14 @@ begin
 
     -- Who it was, as they were then. Never taken from the writer: a client
     -- could otherwise put any name on its own row.
-    new.meta_json := new.meta_json - 'actor';
+    new.meta_json := new.meta_json - 'actor' - 'impersonated_by';
+
+    -- Platform support acting as this user (never taken from the writer).
+    if public.audit_impersonator() is not null then
+        new.meta_json := new.meta_json || jsonb_build_object(
+            'impersonated_by', public.audit_impersonator()
+        );
+    end if;
     if new.actor_id is not null then
         new.meta_json := new.meta_json || jsonb_build_object(
             'actor',
@@ -403,8 +410,8 @@ begin
             v_meta || jsonb_build_object(
                 'summary',
                 case when new.status::text = 'invited'
-                    then format('Invited %s as %s', v_who, public.audit_role_label(v_role))
-                    else format('Added %s as %s', v_who, public.audit_role_label(v_role))
+                    then format('Invited %s as %s', v_who, public.audit_membership_role_label(new.role_id, v_role))
+                    else format('Added %s as %s', v_who, public.audit_membership_role_label(new.role_id, v_role))
                 end
             )
         );
@@ -423,7 +430,9 @@ begin
             )
         );
     else
-        if new.role is distinct from old.role then
+        -- role_id too: two custom roles can share a tier.
+        if new.role is distinct from old.role
+           or new.role_id is distinct from old.role_id then
             perform public.audit_record(
                 new.tenant_id,
                 'role_change',
@@ -434,13 +443,13 @@ begin
                     format(
                         'Changed role of %s from %s to %s',
                         v_who,
-                        public.audit_role_label(old.role::text),
-                        public.audit_role_label(new.role::text)
+                        public.audit_membership_role_label(old.role_id, old.role),
+                        public.audit_membership_role_label(new.role_id, new.role)
                     ),
                     'changes',
                     jsonb_build_object('role', jsonb_build_object(
-                        'from', public.audit_role_label(old.role::text),
-                        'to', public.audit_role_label(new.role::text)
+                        'from', public.audit_membership_role_label(old.role_id, old.role),
+                        'to', public.audit_membership_role_label(new.role_id, new.role)
                     ))
                 )
             );

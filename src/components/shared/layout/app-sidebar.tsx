@@ -24,6 +24,7 @@ import {
   User,
   BadgeDollarSign,
   Lock,
+  LifeBuoy,
 } from "lucide-react";
 
 import {
@@ -216,6 +217,12 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
           href: TENANT_ROUTES.ACCOUNT.PLANS,
           icon: BadgeDollarSign,
           roles: ["tenant_admin", "billing_admin"],
+        },
+        {
+          label: "Help & Support",
+          href: TENANT_ROUTES.SUPPORT.HOME,
+          icon: LifeBuoy,
+          roles: ["tenant_admin"],
         },
       ],
     },

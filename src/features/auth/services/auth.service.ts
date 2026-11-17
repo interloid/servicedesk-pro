@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  IMPERSONATION_ACCOUNT_LOCKED,
+  isImpersonating,
+} from "@/lib/impersonation";
+
 import { headers } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -440,6 +445,10 @@ export async function updatePassword(values: UpdatePasswordValues) {
     return { success: false, error: access.error };
   }
 
+  if (await isImpersonating()) {
+    return { success: false, error: IMPERSONATION_ACCOUNT_LOCKED };
+  }
+
   const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.auth.updateUser({
@@ -628,6 +637,14 @@ export async function updatePasswordForTenant(
 
     if (!access.success) {
       return access;
+    }
+
+    if (await isImpersonating()) {
+      return {
+        success: false,
+        error: IMPERSONATION_ACCOUNT_LOCKED,
+        reason: "no-access",
+      };
     }
 
     const supabase = await createSupabaseServerClient();

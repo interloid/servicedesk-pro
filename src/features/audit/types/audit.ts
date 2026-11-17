@@ -51,6 +51,7 @@ export const AUDIT_ACTIONS = [
   "logout",
   "login_failed",
   "export",
+  "support_access",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -66,6 +67,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   logout: "Logout",
   login_failed: "Failed",
   export: "Exported",
+  support_access: "Support access",
 };
 
 /** The Actions filter says "Failed login" where a row badge only has room for "Failed". */
@@ -96,6 +98,7 @@ export const AUDIT_ACTION_BADGE: Record<AuditAction, string> = {
   logout: `${BADGE} bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300`,
   login_failed: `${BADGE} bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300`,
   export: `${BADGE} bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300`,
+  support_access: `${BADGE} bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/60 dark:text-fuchsia-300`,
 };
 
 export const AUDIT_MODULE_BADGE: Record<AuditModule, string> = {

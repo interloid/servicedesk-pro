@@ -40,7 +40,7 @@ export const TEAM_ROLE_SUMMARIES: Record<TeamRole, string> = {
 };
 
 /** "a Manager", "an Agent" -- for sentences like "Priya is now an Agent." */
-export function roleWithArticle(role: TeamRole): string {
+export function roleWithArticle(role: string): string {
   return `${/^[AEIOU]/.test(role) ? "an" : "a"} ${role}`;
 }
 
@@ -138,6 +138,34 @@ export const ADMIN_ONLY_ROLES: readonly TeamRole[] = [
   "Billing Admin",
 ];
 
+/**
+ * A role from the platform's roles catalogue (public.roles) that a workspace
+ * can hand out. `base` is its access tier, which every permission check here
+ * uses; `name` is what people see.
+ */
+export interface TeamRoleOption {
+  id: string;
+  name: string;
+  description: string;
+  base: TeamRole;
+  isSystem: boolean;
+}
+
+/** The catalogue roles `caller` may give someone: those on a tier they may assign. */
+export function assignableRoleOptions(
+  caller: TeamRole | null,
+  options: readonly TeamRoleOption[],
+): TeamRoleOption[] {
+  const tiers = assignableRoles(caller);
+
+  return options.filter((option) => tiers.includes(option.base));
+}
+
+/** The option's own description, else its tier's. */
+export function roleOptionDescription(option: TeamRoleOption): string {
+  return option.description || TEAM_ROLE_DESCRIPTIONS[option.base];
+}
+
 /** The roles `caller` may give someone, by invite or by a role change. */
 export function assignableRoles(caller: TeamRole | null): TeamRole[] {
   if (caller === "Tenant Admin") {
@@ -178,7 +206,12 @@ export interface TeamMember {
   name: string;
   email: string;
   avatarUrl: string | null;
+  /** Access tier; drives every permission check. */
   role: TeamRole;
+  /** The named role held (public.roles.id). */
+  roleId: string;
+  /** What to show: the custom role's name, or the tier's. */
+  roleName: string;
   status: TeamStatus;
   isSelf: boolean;
   joinedAt: string | null;

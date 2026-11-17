@@ -2,8 +2,6 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-import type { TeamRole } from "@/features/team/types/team";
-
 /**
  * The mail the app sends, queued in public.email_jobs -- the mail Supabase
  * sends for us (invite, password reset) and our own emails through Resend
@@ -18,7 +16,8 @@ export type TeamInvitationPayload = {
   userId: string;
   email: string;
   name: string;
-  role: TeamRole;
+  /** The role's display name: a built-in tier or a custom role ("Senior Agent"). */
+  role: string;
   tenantId: string;
   /** Built while the request was live; the function has no request to read it from. */
   redirectTo?: string;

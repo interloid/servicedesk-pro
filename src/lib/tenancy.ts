@@ -182,6 +182,12 @@ export const TENANT_ROUTES = {
     BILLING: "/account/billing",
     PLANS: "/account/plans",
   },
+
+  SUPPORT: {
+    HOME: "/support",
+    NEW: "/support/new",
+    REQUESTS: "/support/requests",
+  },
 } as const;
 
 export const DEFAULT_TENANT_PATH = TENANT_ROUTES.TICKETS;
@@ -204,6 +210,7 @@ export const SHIPPED_TENANT_ROUTES: ReadonlySet<string> = new Set<string>([
   TENANT_ROUTES.SETTINGS.AUDIT,
   TENANT_ROUTES.ACCOUNT.BILLING,
   TENANT_ROUTES.ACCOUNT.PLANS,
+  TENANT_ROUTES.SUPPORT.HOME,
 ]);
 
 const BILLING_ADMIN_ROUTE_PREFIXES = [
@@ -212,6 +219,11 @@ const BILLING_ADMIN_ROUTE_PREFIXES = [
 ];
 
 export function defaultTenantLanding(role: string | null | undefined): string {
+  // A customer has no agent dashboard: their workspace is its support portal.
+  if (role === "customer") {
+    return PORTAL_PATH_PREFIX;
+  }
+
   if (role === "billing_admin") {
     return TENANT_ROUTES.ACCOUNT.BILLING;
   }
@@ -240,11 +252,17 @@ export function isTenantRouteAllowed(
   role: string | null | undefined,
   tenantRelativePath: string,
 ): boolean {
-  if (role !== "billing_admin") {
+  if (role !== "billing_admin" && role !== "customer") {
     return true;
   }
 
   const rest = normalizePath(tenantRelativePath);
+
+  // A customer may sign in (and so replace their session with a team one) or
+  // use the portal; every agent-app route sends them to the portal instead.
+  if (role === "customer") {
+    return TENANT_PUBLIC_PATHS.has(rest) || isPortalPath(rest);
+  }
 
   // Sign-in and password pages belong to everyone. An invited Billing Admin has
   // a session the moment they open their link, so without this they are sent

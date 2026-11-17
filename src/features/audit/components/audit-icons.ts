@@ -1,6 +1,7 @@
 import {
   CircleAlert,
   Download,
+  LifeBuoy,
   LogIn,
   LogOut,
   MailPlus,
@@ -25,4 +26,5 @@ export const AUDIT_ACTION_ICONS: Record<AuditAction, LucideIcon> = {
   logout: LogOut,
   login_failed: CircleAlert,
   export: Download,
+  support_access: LifeBuoy,
 };

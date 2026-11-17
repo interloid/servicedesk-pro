@@ -16,6 +16,7 @@ import {
   LogOut,
   PanelLeft,
   TerminalSquare,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -57,6 +58,7 @@ const PLATFORM_NAV: PlatformNavGroup[] = [
       { label: "Overview", href: "/platform", icon: LayoutDashboard },
       { label: "Tenants", href: "/platform/tenants", icon: Building2 },
       { label: "Users", href: "/platform/users", icon: Users },
+      { label: "Roles", href: "/platform/roles", icon: ShieldCheck },
     ],
   },
   {

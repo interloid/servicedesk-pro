@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  CreditCard,
   Loader2,
   Save,
   Settings,
@@ -23,7 +24,11 @@ import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { cn } from "@/lib/utils";
 
 import { savePlatformSettingsAction } from "../actions/platform-settings.actions";
-import type { PlatformSettings } from "../types";
+import {
+  PAYMENT_GRACE_DAYS_MAX,
+  PAYMENT_GRACE_DAYS_MIN,
+  type PlatformSettings,
+} from "../types";
 import {
   PLATFORM_BUTTON,
   PLATFORM_CARD,
@@ -114,7 +119,7 @@ export function PlatformSettingsForm({
     settings.supportEmail !== saved.supportEmail ||
     settings.allowSignups !== saved.allowSignups ||
     settings.maintenanceMode !== saved.maintenanceMode ||
-    settings.blockOnPaymentFailure !== saved.blockOnPaymentFailure;
+    settings.paymentGraceDays !== saved.paymentGraceDays;
   const leaveGuard = useUnsavedChangesGuard(dirty);
 
   function update(patch: Partial<PlatformSettings>) {
@@ -210,15 +215,61 @@ export function PlatformSettingsForm({
           checked={settings.allowSignups}
           onCheckedChange={(checked) => update({ allowSignups: checked })}
         />
-        <ToggleRow
-          id="block-on-payment-failure"
-          label="Block after failed payments"
-          description="Block a workspace when its subscription is cancelled over failed payments. It can still reach billing, and subscribing again restores it."
-          checked={settings.blockOnPaymentFailure}
-          onCheckedChange={(checked) =>
-            update({ blockOnPaymentFailure: checked })
-          }
-        />
+      </SettingsSection>
+
+      <SettingsSection
+        icon={CreditCard}
+        title="Billing"
+        description="What happens when a subscription payment fails."
+      >
+        <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <Label
+              htmlFor="payment-grace-days"
+              className="text-sm font-semibold text-foreground"
+            >
+              Grace period after a failed payment
+            </Label>
+            <span className="text-sm text-muted-foreground">
+              Starts at the first failed payment. The workspace keeps its plan
+              while PayPal retries, and any successful payment ends it. If it
+              runs out unpaid, the workspace moves to the Free plan and keeps
+              access.
+            </span>
+          </div>
+          <div className="flex shrink-0 flex-col gap-1.5 sm:items-end">
+            <div className="flex items-center gap-2">
+              <Input
+                id="payment-grace-days"
+                type="number"
+                inputMode="numeric"
+                min={PAYMENT_GRACE_DAYS_MIN}
+                max={PAYMENT_GRACE_DAYS_MAX}
+                className="h-10 w-24 rounded-lg"
+                value={
+                  Number.isNaN(settings.paymentGraceDays)
+                    ? ""
+                    : settings.paymentGraceDays
+                }
+                aria-invalid={Boolean(fieldErrors.paymentGraceDays)}
+                aria-describedby="payment-grace-days-error"
+                onChange={(event) =>
+                  update({
+                    paymentGraceDays:
+                      event.target.value === ""
+                        ? Number.NaN
+                        : Number(event.target.value),
+                  })
+                }
+              />
+              <span className="text-sm text-muted-foreground">days</span>
+            </div>
+            <FieldError
+              id="payment-grace-days-error"
+              messages={fieldErrors.paymentGraceDays}
+            />
+          </div>
+        </div>
       </SettingsSection>
 
       <SettingsSection

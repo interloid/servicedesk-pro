@@ -379,6 +379,48 @@ export type Database = {
           },
         ];
       };
+      impersonation_sessions: {
+        Row: {
+          id: string;
+          auth_session_id: string;
+          request_id: string;
+          tenant_id: string;
+          target_user_id: string;
+          platform_admin_id: string;
+          platform_admin_email: string;
+          started_at: string;
+          expires_at: string;
+          ended_at: string | null;
+          end_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          auth_session_id: string;
+          request_id: string;
+          tenant_id: string;
+          target_user_id: string;
+          platform_admin_id: string;
+          platform_admin_email: string;
+          started_at?: string;
+          expires_at: string;
+          ended_at?: string | null;
+          end_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          auth_session_id?: string;
+          request_id?: string;
+          tenant_id?: string;
+          target_user_id?: string;
+          platform_admin_id?: string;
+          platform_admin_email?: string;
+          started_at?: string;
+          expires_at?: string;
+          ended_at?: string | null;
+          end_reason?: string | null;
+        };
+        Relationships: [];
+      };
       invoices: {
         Row: {
           amount: number;
@@ -495,7 +537,8 @@ export type Database = {
           invited_by: string | null;
           is_primary: boolean;
           joined_at: string | null;
-          role: Database["public"]["Enums"]["membership_role"];
+          role: string;
+          role_id: string;
           status: Database["public"]["Enums"]["membership_status"];
           tenant_id: string;
           updated_at: string;
@@ -508,7 +551,9 @@ export type Database = {
           invited_by?: string | null;
           is_primary?: boolean;
           joined_at?: string | null;
-          role: Database["public"]["Enums"]["membership_role"];
+          role: string;
+          // NOT NULL, but filled from `role` by the apply_membership_role trigger.
+          role_id?: string;
           status?: Database["public"]["Enums"]["membership_status"];
           tenant_id: string;
           updated_at?: string;
@@ -521,13 +566,21 @@ export type Database = {
           invited_by?: string | null;
           is_primary?: boolean;
           joined_at?: string | null;
-          role?: Database["public"]["Enums"]["membership_role"];
+          role?: string;
+          role_id?: string;
           status?: Database["public"]["Enums"]["membership_status"];
           tenant_id?: string;
           updated_at?: string;
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "memberships_role_id_fkey";
+            columns: ["role_id"];
+            isOneToOne: false;
+            referencedRelation: "roles";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "memberships_invited_by_fkey";
             columns: ["invited_by"];
@@ -724,6 +777,7 @@ export type Database = {
       };
       platform_settings: {
         Row: {
+          payment_grace_days: number;
           allow_signups: boolean;
           block_on_payment_failure: boolean;
           id: boolean;
@@ -734,6 +788,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          payment_grace_days?: number;
           allow_signups?: boolean;
           block_on_payment_failure?: boolean;
           id?: boolean;
@@ -744,6 +799,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          payment_grace_days?: number;
           allow_signups?: boolean;
           block_on_payment_failure?: boolean;
           id?: boolean;
@@ -757,6 +813,7 @@ export type Database = {
       };
       plans: {
         Row: {
+          paypal_product_id: string | null;
           code: string;
           created_at: string;
           description: string | null;
@@ -772,6 +829,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          paypal_product_id?: string | null;
           code: string;
           created_at?: string;
           description?: string | null;
@@ -787,6 +845,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          paypal_product_id?: string | null;
           code?: string;
           created_at?: string;
           description?: string | null;
@@ -800,6 +859,51 @@ export type Database = {
           storage_limit_mb?: number | null;
           ticket_limit?: number | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      roles: {
+        Row: {
+          base_role: string;
+          created_at: string;
+          created_by: string | null;
+          description: string;
+          id: string;
+          is_system: boolean;
+          key: string;
+          name: string;
+          sort_order: number;
+          status: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          base_role: string;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string;
+          id?: string;
+          is_system?: boolean;
+          key: string;
+          name: string;
+          sort_order?: number;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          base_role?: string;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string;
+          id?: string;
+          is_system?: boolean;
+          key?: string;
+          name?: string;
+          sort_order?: number;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -1328,6 +1432,110 @@ export type Database = {
           },
         ];
       };
+      support_request_messages: {
+        Row: {
+          author_id: string | null;
+          author_name: string;
+          author_type: string;
+          body: string;
+          created_at: string;
+          id: string;
+          request_id: string;
+        };
+        Insert: {
+          author_id?: string | null;
+          author_name: string;
+          author_type: string;
+          body: string;
+          created_at?: string;
+          id?: string;
+          request_id: string;
+        };
+        Update: {
+          author_id?: string | null;
+          author_name?: string;
+          author_type?: string;
+          body?: string;
+          created_at?: string;
+          id?: string;
+          request_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "support_request_messages_request_id_fkey";
+            columns: ["request_id"];
+            isOneToOne: false;
+            referencedRelation: "support_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      support_requests: {
+        Row: {
+          access_granted_by: string | null;
+          access_expires_at: string | null;
+          access_granted_at: string | null;
+          allow_workspace_access: boolean;
+          created_at: string;
+          created_by: string | null;
+          description: string;
+          id: string;
+          number: number;
+          resolved_at: string | null;
+          status: string;
+          subject: string;
+          tenant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          access_granted_by?: string | null;
+          access_expires_at?: string | null;
+          access_granted_at?: string | null;
+          allow_workspace_access?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          description: string;
+          id?: string;
+          number?: never;
+          resolved_at?: string | null;
+          status?: string;
+          subject: string;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          access_granted_by?: string | null;
+          access_expires_at?: string | null;
+          access_granted_at?: string | null;
+          allow_workspace_access?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string;
+          id?: string;
+          number?: never;
+          resolved_at?: string | null;
+          status?: string;
+          subject?: string;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "support_requests_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "support_requests_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tags: {
         Row: {
           color: string | null;
@@ -1365,6 +1573,9 @@ export type Database = {
       };
       tenants: {
         Row: {
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
           auto_close_after_days: number;
           block_reason: string | null;
           block_source: string | null;
@@ -1379,6 +1590,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           block_reason?: string | null;
           block_source?: string | null;
           blocked_at?: string | null;
@@ -1393,6 +1607,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           block_reason?: string | null;
           block_source?: string | null;
           blocked_at?: string | null;
@@ -1684,6 +1901,18 @@ export type Database = {
       current_workspace_block: { Args: never; Returns: string | null };
       platform_analytics: { Args: { p_from: string }; Returns: Json };
       platform_db_health: { Args: never; Returns: Json };
+      end_impersonation_session: {
+        Args: { p_auth_session_id: string; p_reason: string };
+        Returns: undefined;
+      };
+      impersonation_state: {
+        Args: never;
+        Returns: string | null;
+      };
+      platform_extend_trial: {
+        Args: { p_days: number; p_tenant_id: string };
+        Returns: string;
+      };
       platform_invoice_summary: { Args: never; Returns: Json };
       platform_last_sign_ins: { Args: never; Returns: Json };
       rate_limit_hit: {
@@ -1852,17 +2081,11 @@ export type Database = {
         | "assign"
         | "role_change"
         | "export"
-        | "login_failed";
+        | "login_failed"
+        | "support_access";
       author_type: "agent" | "customer" | "system";
       customer_status: "active" | "blocked";
       invoice_status: "pending" | "paid" | "failed" | "refunded";
-      membership_role:
-        | "platform_admin"
-        | "tenant_admin"
-        | "manager"
-        | "agent"
-        | "billing_admin"
-        | "customer";
       membership_status: "invited" | "active" | "disabled";
       message_visibility: "public" | "internal";
       notification_type:
@@ -2023,18 +2246,11 @@ export const Constants = {
         "role_change",
         "export",
         "login_failed",
+        "support_access",
       ],
       author_type: ["agent", "customer", "system"],
       customer_status: ["active", "blocked"],
       invoice_status: ["pending", "paid", "failed", "refunded"],
-      membership_role: [
-        "platform_admin",
-        "tenant_admin",
-        "manager",
-        "agent",
-        "billing_admin",
-        "customer",
-      ],
       membership_status: ["invited", "active", "disabled"],
       message_visibility: ["public", "internal"],
       notification_type: [

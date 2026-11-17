@@ -29,6 +29,20 @@ create table if not exists public.tenants
 
     blocked_at timestamptz,
 
+    -- Soft delete (migration 20261117140000): a deleted workspace is an
+    -- admin-blocked one with this stamp, so every RLS policy already locks it.
+    -- Nothing is removed; the platform console can restore it.
+    deleted_at timestamptz,
+
+    deleted_by uuid,
+
+    delete_reason text
+        constraint chk_tenants_delete_reason
+            check (
+                delete_reason is null
+                or char_length(btrim(delete_reason)) between 3 and 300
+            ),
+
     plan_id uuid
         not null
         references public.plans(id),
@@ -50,7 +64,13 @@ create table if not exists public.tenants
 
     updated_at timestamptz
         not null
-        default now()
+        default now(),
+
+    constraint chk_tenants_deleted_locked
+        check (
+            deleted_at is null
+            or (status = 'suspended' and block_source = 'admin')
+        )
 );
 
 comment on table public.tenants is

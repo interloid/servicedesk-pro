@@ -52,6 +52,8 @@ type TenantRow = {
   block_reason?: string | null;
   block_source?: "admin" | "payment" | null;
   blocked_at?: string | null;
+  deleted_at?: string | null;
+  delete_reason?: string | null;
 };
 
 type SubscriptionRow = {
@@ -59,6 +61,8 @@ type SubscriptionRow = {
   status: string;
   seats: number;
   cancelled_at: string | null;
+  current_period_end: string | null;
+  paypal_subscription_id: string | null;
 };
 
 type MembershipRow = {
@@ -66,6 +70,8 @@ type MembershipRow = {
   tenant_id: string;
   user_id: string;
   role: string;
+  /** The named role (public.roles), where the query asks for it. */
+  role_def?: { name: string } | null;
   status: UserStatus;
   is_primary: boolean;
   created_at: string;
@@ -164,10 +170,13 @@ async function loadTenants(admin: SupabaseClient): Promise<TenantRow[]> {
 
   try {
     return await read(
-      `${TENANT_COLUMNS}, block_reason, block_source, blocked_at`,
+      `${TENANT_COLUMNS}, block_reason, block_source, blocked_at, deleted_at, delete_reason`,
     );
   } catch (error) {
-    if (error instanceof Error && error.message.includes("block_")) {
+    if (
+      error instanceof Error &&
+      /block_|deleted_at|delete_reason/.test(error.message)
+    ) {
       return read(TENANT_COLUMNS);
     }
 
@@ -189,7 +198,9 @@ async function loadTenantRows(admin: SupabaseClient) {
     fetchAll<SubscriptionRow>((from, to) =>
       admin
         .from("subscriptions")
-        .select("tenant_id, status, seats, cancelled_at")
+        .select(
+          "tenant_id, status, seats, cancelled_at, current_period_end, paypal_subscription_id",
+        )
         .range(from, to),
     ),
     fetchAll<MembershipRow>((from, to) =>
@@ -287,6 +298,14 @@ function buildTenants(
       blockReason: tenant.block_reason ?? null,
       blockSource: tenant.block_source ?? null,
       blockedAt: tenant.blocked_at ?? null,
+      deletedAt: tenant.deleted_at ?? null,
+      deleteReason: tenant.delete_reason ?? null,
+      trialEndsAt:
+        subscription?.status === "trialing" &&
+        !subscription.paypal_subscription_id &&
+        !tenant.deleted_at
+          ? subscription.current_period_end
+          : null,
     };
   });
 }
@@ -350,7 +369,9 @@ export async function getPlatformUsers(): Promise<PlatformUser[]> {
     fetchAll<MembershipRow>((from, to) =>
       admin
         .from("memberships")
-        .select("id, tenant_id, user_id, role, status, is_primary, created_at")
+        .select(
+          "id, tenant_id, user_id, role, status, is_primary, created_at, role_def:roles!memberships_role_id_fkey ( name )",
+        )
         .neq("role", "customer")
         .order("created_at", { ascending: false })
         .range(from, to),
@@ -377,7 +398,10 @@ export async function getPlatformUsers(): Promise<PlatformUser[]> {
       email: user?.email ?? "",
       tenant: tenant?.name ?? "Unknown workspace",
       tenantSlug: tenant?.slug ?? "",
-      role: ROLE_DISPLAY_NAMES[membership.role] ?? membership.role,
+      role:
+        membership.role_def?.name ??
+        ROLE_DISPLAY_NAMES[membership.role] ??
+        membership.role,
       status: membership.status,
       lastActiveAt: lastSignIns.get(membership.user_id) ?? "",
       createdAt: dateOnly(membership.created_at),

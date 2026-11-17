@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Info, Loader2, Pencil } from "lucide-react";
+import { Archive, Eye, Info, Loader2, Pencil, Plus } from "lucide-react";
 
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,16 @@ import {
   TEAM_DIALOG_FOOTER,
   TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
+  TEAM_MODAL_BUTTON_DANGER,
   TEAM_MODAL_BUTTON_PRIMARY,
 } from "@/features/team/components/modal-buttons";
 import { cn } from "@/lib/utils";
 
-import { savePlatformPlanAction } from "../actions/platform-plans.actions";
+import {
+  createPlatformPlanAction,
+  savePlatformPlanAction,
+  setPlatformPlanActiveAction,
+} from "../actions/platform-plans.actions";
 import { formatCurrency, formatNumber } from "../format";
 import { planLimitError } from "../plan-limits";
 import { PLAN_FEATURES, UNLIMITED_SEATS, type PlatformPlan } from "../types";
@@ -343,15 +348,284 @@ function EditPlanDialog({
   );
 }
 
+type FieldErrors = Record<string, string[] | undefined>;
+
+function FieldError({ errors, name }: { errors: FieldErrors; name: string }) {
+  const message = errors[name]?.[0];
+
+  return message ? <p className="text-xs text-destructive">{message}</p> : null;
+}
+
+/**
+ * A new paid plan. It starts hidden, so its features can be set with Edit
+ * before anyone can choose it.
+ */
+function CreatePlanDialog({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [code, setCode] = useState("");
+  const [seatLimit, setSeatLimit] = useState("5");
+  const [description, setDescription] = useState("");
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [isSaving, startSaving] = useTransition();
+
+  function clear(field: string) {
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function save() {
+    startSaving(async () => {
+      const result = await createPlatformPlanAction({
+        name,
+        code: code.trim().toUpperCase(),
+        price: price.trim() === "" ? Number.NaN : Number(price),
+        description,
+        seatLimit: Number(seatLimit),
+      });
+
+      if (!result.success) {
+        setErrors(result.fieldErrors ?? {});
+        toast.error(result.message);
+        return;
+      }
+
+      toast.success(
+        `${name.trim()} plan created. It's hidden until you show it.`,
+      );
+      router.refresh();
+      onClose();
+    });
+  }
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className={TEAM_DIALOG_TITLE}>New plan</DialogTitle>
+        <DialogDescription>
+          Create the billing plan in PayPal first, under the same product as the
+          other paid plans, then paste its plan ID here.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="new-plan-name">Name</Label>
+            <Input
+              id="new-plan-name"
+              maxLength={40}
+              className="h-10 rounded-lg"
+              placeholder="e.g. Enterprise"
+              aria-invalid={Boolean(errors.name)}
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                clear("name");
+              }}
+            />
+            <FieldError errors={errors} name="name" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="new-plan-price">Price per month (USD)</Label>
+            <Input
+              id="new-plan-price"
+              type="number"
+              min={0.01}
+              step={0.01}
+              className="h-10 rounded-lg"
+              placeholder="99"
+              aria-invalid={Boolean(errors.price)}
+              value={price}
+              onChange={(event) => {
+                setPrice(event.target.value);
+                clear("price");
+              }}
+            />
+            <FieldError errors={errors} name="price" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="new-plan-code">PayPal plan ID</Label>
+            <Input
+              id="new-plan-code"
+              autoComplete="off"
+              className="h-10 rounded-lg font-mono"
+              placeholder="P-…"
+              aria-invalid={Boolean(errors.code)}
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value);
+                clear("code");
+              }}
+            />
+            <FieldError errors={errors} name="code" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="new-plan-seats">Seat limit</Label>
+            <Input
+              id="new-plan-seats"
+              type="number"
+              min={1}
+              className="h-10 rounded-lg"
+              aria-invalid={Boolean(errors.seatLimit)}
+              value={seatLimit}
+              onChange={(event) => {
+                setSeatLimit(event.target.value);
+                clear("seatLimit");
+              }}
+            />
+            <FieldError errors={errors} name="seatLimit" />
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="new-plan-description">Description</Label>
+          <Textarea
+            id="new-plan-description"
+            rows={2}
+            maxLength={300}
+            className="h-16 min-h-0 resize-none"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+          <FieldError errors={errors} name="description" />
+        </div>
+        <ModalNotice icon={Info} tone="neutral">
+          The price must match the PayPal plan: PayPal charges what its own plan
+          says. Neither can be changed here later.
+        </ModalNotice>
+      </div>
+
+      <DialogFooter className={cn(TEAM_DIALOG_FOOTER, "flex-row")}>
+        <Button
+          variant="outline"
+          className={cn(TEAM_MODAL_BUTTON, "flex-1 sm:flex-none")}
+          disabled={isSaving}
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          className={cn(
+            TEAM_MODAL_BUTTON,
+            TEAM_MODAL_BUTTON_PRIMARY,
+            "flex-1 sm:flex-none",
+          )}
+          disabled={isSaving}
+          onClick={save}
+        >
+          {isSaving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          Create plan
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+/** Deprecate (hide from new choices) or show again. Plans are never deleted. */
+function PlanVisibilityDialog({
+  plan,
+  onClose,
+}: {
+  plan: PlatformPlan;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const deprecating = plan.isActive;
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, startSaving] = useTransition();
+
+  function submit() {
+    startSaving(async () => {
+      const result = await setPlatformPlanActiveAction({
+        id: plan.id,
+        isActive: !deprecating,
+      });
+
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+
+      toast.success(
+        deprecating
+          ? `${plan.name} plan deprecated.`
+          : `${plan.name} plan is available again.`,
+      );
+      router.refresh();
+      onClose();
+    });
+  }
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className={TEAM_DIALOG_TITLE}>
+          {deprecating ? "Deprecate" : "Show"} the {plan.name} plan?
+        </DialogTitle>
+        <DialogDescription>
+          {deprecating
+            ? "It disappears from sign-up and the plans page, so no new workspace can choose it. Workspaces already on it keep it and keep being billed. Plans are never deleted."
+            : "It appears on sign-up and the plans page again, and workspaces can choose it."}
+        </DialogDescription>
+      </DialogHeader>
+
+      {deprecating && plan.workspaces > 0 && (
+        <ModalNotice icon={Info} tone="amber">
+          {plan.workspaces} live workspace
+          {plan.workspaces === 1 ? " stays" : "s stay"} on this plan.
+        </ModalNotice>
+      )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <DialogFooter className={cn(TEAM_DIALOG_FOOTER, "flex-row")}>
+        <Button
+          variant="outline"
+          className={cn(TEAM_MODAL_BUTTON, "flex-1 sm:flex-none")}
+          disabled={isSaving}
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant={deprecating ? "outline" : "default"}
+          className={cn(
+            TEAM_MODAL_BUTTON,
+            deprecating ? TEAM_MODAL_BUTTON_DANGER : TEAM_MODAL_BUTTON_PRIMARY,
+            "flex-1 sm:flex-none",
+          )}
+          disabled={isSaving}
+          onClick={submit}
+        >
+          {isSaving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          {deprecating ? "Deprecate plan" : "Show plan"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
 export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [visibilityId, setVisibilityId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const editing = plans.find((plan) => plan.id === editingId);
+  const changingVisibility = plans.find((plan) => plan.id === visibilityId);
 
   return (
     <div className="flex flex-col gap-6">
       <PlatformPageHeader
         title="Plans & Features"
         description="What each plan costs, includes and who is on it."
+        action={
+          <Button
+            className={cn(PLATFORM_BUTTON, "gap-1.5")}
+            onClick={() => setCreating(true)}
+          >
+            <Plus className="size-4" aria-hidden />
+            New plan
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -366,7 +640,9 @@ export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
                   <h2 className="text-base font-bold text-foreground">
                     {plan.name}
                   </h2>
-                  {!plan.isActive && <ToneBadge tone="muted">Hidden</ToneBadge>}
+                  {!plan.isActive && (
+                    <ToneBadge tone="muted">Deprecated</ToneBadge>
+                  )}
                 </div>
                 {plan.description && (
                   <p className="text-sm text-muted-foreground">
@@ -381,15 +657,32 @@ export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
                   </span>
                 </p>
               </div>
-              <Button
-                variant="outline"
-                className={cn(PLATFORM_BUTTON, "gap-1.5")}
-                aria-label={`Edit ${plan.name} plan`}
-                onClick={() => setEditingId(plan.id)}
-              >
-                <Pencil className="size-4" aria-hidden />
-                Edit
-              </Button>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <Button
+                  variant="outline"
+                  className={cn(PLATFORM_BUTTON, "gap-1.5")}
+                  aria-label={`Edit ${plan.name} plan`}
+                  onClick={() => setEditingId(plan.id)}
+                >
+                  <Pencil className="size-4" aria-hidden />
+                  Edit
+                </Button>
+                {plan.price > 0 && (
+                  <Button
+                    variant="ghost"
+                    className={cn(PLATFORM_BUTTON, "gap-1.5")}
+                    aria-label={`${plan.isActive ? "Deprecate" : "Show"} ${plan.name} plan`}
+                    onClick={() => setVisibilityId(plan.id)}
+                  >
+                    {plan.isActive ? (
+                      <Archive className="size-4" aria-hidden />
+                    ) : (
+                      <Eye className="size-4" aria-hidden />
+                    )}
+                    {plan.isActive ? "Deprecate" : "Show"}
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-2 border-t border-border pt-4">
@@ -407,6 +700,38 @@ export function PlansManager({ plans }: { plans: PlatformPlan[] }) {
       </div>
 
       <PlanComparison plans={plans} />
+
+      <Dialog open={creating} onOpenChange={setCreating}>
+        <DialogContent
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl min-w-0 gap-3 overflow-x-hidden overflow-y-auto sm:max-w-xl",
+            TEAM_DIALOG_CONTENT,
+          )}
+        >
+          {creating && <CreatePlanDialog onClose={() => setCreating(false)} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(changingVisibility)}
+        onOpenChange={(open) => !open && setVisibilityId(null)}
+      >
+        <DialogContent
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg min-w-0 overflow-x-hidden overflow-y-auto sm:max-w-lg",
+            TEAM_DIALOG_CONTENT,
+          )}
+        >
+          {changingVisibility && (
+            <PlanVisibilityDialog
+              key={changingVisibility.id}
+              plan={changingVisibility}
+              onClose={() => setVisibilityId(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(editing)}

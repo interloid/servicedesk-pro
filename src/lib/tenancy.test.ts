@@ -4,8 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  defaultTenantLanding,
   isSafeInternalPath,
   isTenantRouteAllowed,
+  sessionTenantDestination,
   SHIPPED_TENANT_ROUTES,
   TENANT_ROUTES,
 } from "./tenancy";
@@ -56,6 +58,36 @@ describe("isTenantRouteAllowed", () => {
 
   it("doesn't limit other roles", () => {
     expect(isTenantRouteAllowed("agent", "/tickets")).toBe(true);
+  });
+});
+
+describe("customer sessions", () => {
+  it("land on the support portal", () => {
+    expect(defaultTenantLanding("customer")).toBe("/portal");
+    expect(sessionTenantDestination("juniper", "/", "customer")).toBe(
+      "/juniper/portal",
+    );
+  });
+
+  it("are sent from agent routes to the portal", () => {
+    expect(isTenantRouteAllowed("customer", "/tickets")).toBe(false);
+    expect(isTenantRouteAllowed("customer", "/settings/team")).toBe(false);
+    expect(sessionTenantDestination("juniper", "/tickets", "customer")).toBe(
+      "/juniper/portal",
+    );
+  });
+
+  it("keep portal and sign-in pages", () => {
+    expect(isTenantRouteAllowed("customer", "/portal/requests")).toBe(true);
+    expect(isTenantRouteAllowed("customer", "/login")).toBe(true);
+    expect(
+      sessionTenantDestination("juniper", "/portal/requests/new", "customer"),
+    ).toBe("/juniper/portal/requests/new");
+  });
+
+  it("don't change where staff land", () => {
+    expect(defaultTenantLanding("agent")).toBe("/tickets");
+    expect(defaultTenantLanding("billing_admin")).toBe("/account/billing");
   });
 });
 

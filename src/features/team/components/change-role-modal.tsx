@@ -31,10 +31,9 @@ import {
   TEAM_MODAL_CONTROL,
 } from "@/features/team/components/modal-buttons";
 import {
-  TEAM_ROLE_DESCRIPTIONS,
-  TEAM_ROLE_VALUES,
+  roleOptionDescription,
   type TeamMember,
-  type TeamRole,
+  type TeamRoleOption,
 } from "@/features/team/types/team";
 
 interface ChangeRoleModalProps {
@@ -44,13 +43,13 @@ interface ChangeRoleModalProps {
    * straight from the row select -- the dialog then confirms that choice
    * instead of making the admin pick it a second time.
    */
-  initialRole?: TeamRole | null;
+  initialRoleId?: string | null;
   primaryOnly?: boolean;
-  /** The roles this caller may hand out. Defaults to all of them. */
-  roles?: readonly TeamRole[];
+  /** The catalogue roles this caller may hand out. */
+  roles: readonly TeamRoleOption[];
   isPending: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (member: TeamMember, role: TeamRole) => void;
+  onConfirm: (member: TeamMember, role: TeamRoleOption) => void;
   /**
    * Set only when the caller owns the workspace. Offers "Mark as primary"
    * while Tenant Admin is the chosen role, which hands ownership over.
@@ -60,9 +59,9 @@ interface ChangeRoleModalProps {
 
 export function ChangeRoleModal({
   member,
-  initialRole,
+  initialRoleId,
   primaryOnly = false,
-  roles = TEAM_ROLE_VALUES,
+  roles,
   isPending,
   onOpenChange,
   onConfirm,
@@ -75,11 +74,11 @@ export function ChangeRoleModal({
   // target lets the dialog animate out still showing what it was showing.
   const [shown, setShown] = React.useState<{
     member: TeamMember;
-    role: TeamRole;
+    role: string;
     primaryOnly: boolean;
   } | null>(null);
 
-  const role = member ? (initialRole ?? member.role) : null;
+  const role = member ? (initialRoleId ?? member.roleId) : null;
 
   if (
     member &&
@@ -101,7 +100,7 @@ export function ChangeRoleModal({
           <ChangeRoleFields
             key={`${shown.member.id}:${shown.role}:${shown.primaryOnly ? "primary" : "role"}`}
             member={shown.member}
-            initialRole={shown.role}
+            initialRoleId={shown.role}
             primaryOnly={shown.primaryOnly}
             roles={roles}
             isPending={isPending}
@@ -117,7 +116,7 @@ export function ChangeRoleModal({
 
 function ChangeRoleFields({
   member,
-  initialRole,
+  initialRoleId,
   primaryOnly,
   roles,
   isPending,
@@ -126,23 +125,24 @@ function ChangeRoleFields({
   onMakePrimary,
 }: {
   member: TeamMember;
-  initialRole: TeamRole;
+  initialRoleId: string;
   primaryOnly: boolean;
-  roles: readonly TeamRole[];
+  roles: readonly TeamRoleOption[];
   isPending: boolean;
   onCancel: () => void;
-  onConfirm: (member: TeamMember, role: TeamRole) => void;
+  onConfirm: (member: TeamMember, role: TeamRoleOption) => void;
   onMakePrimary?: (member: TeamMember) => void;
 }) {
-  const [role, setRole] = React.useState<TeamRole>(initialRole);
+  const [roleId, setRoleId] = React.useState<string>(initialRoleId);
+  const role = roles.find((option) => option.id === roleId) ?? null;
   // Second step of "Mark as primary": the footer asks before handing over.
   const [confirmingPrimary, setConfirmingPrimary] = React.useState(primaryOnly);
-  const changed = role !== member.role;
+  const changed = role !== null && role.id !== member.roleId;
   // Only an active member can own the workspace, and only as a Tenant Admin.
   const canMakePrimary =
     onMakePrimary !== undefined &&
     member.status === "Active" &&
-    role === "Tenant Admin";
+    (role?.base ?? member.role) === "Tenant Admin";
   const who = member.name || member.email;
 
   if (primaryOnly || confirmingPrimary) {
@@ -218,7 +218,7 @@ function ChangeRoleFields({
         <span className="text-xs font-semibold text-muted-foreground">
           Current
         </span>
-        <span className="text-sm font-semibold">{member.role}</span>
+        <span className="text-sm font-semibold">{member.roleName}</span>
         <ArrowRight
           className="size-3.5 shrink-0 text-muted-foreground"
           aria-hidden
@@ -229,7 +229,7 @@ function ChangeRoleFields({
             changed ? "text-brand-accent" : "text-muted-foreground"
           }`}
         >
-          {role}
+          {role?.name ?? member.roleName}
         </span>
       </div>
 
@@ -237,10 +237,7 @@ function ChangeRoleFields({
         <Label htmlFor="change-role" className="text-sm font-semibold">
           Role
         </Label>
-        <Select
-          value={role}
-          onValueChange={(value) => setRole(value as TeamRole)}
-        >
+        <Select value={roleId} onValueChange={setRoleId}>
           <SelectTrigger
             id="change-role"
             className={`w-full min-h-10 ${TEAM_MODAL_CONTROL}`}
@@ -253,24 +250,37 @@ function ChangeRoleFields({
             position="popper"
             className="p-1"
           >
-            {roles.map((value) => (
+            {/* A role that has since been archived still shows as current. */}
+            {!roles.some((option) => option.id === member.roleId) && (
               <SelectItem
-                key={value}
-                value={value}
+                value={member.roleId}
+                disabled
                 className="p-2 cursor-pointer"
               >
-                {value}
+                {member.roleName}
+              </SelectItem>
+            )}
+            {roles.map((option) => (
+              <SelectItem
+                key={option.id}
+                value={option.id}
+                className="p-2 cursor-pointer"
+              >
+                {option.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      <ModalNotice icon={Info} tone="neutral" title={role}>
-        <span className="text-xs leading-[1.55]">
-          {TEAM_ROLE_DESCRIPTIONS[role]}
-        </span>
-      </ModalNotice>
+      {role && (
+        <ModalNotice icon={Info} tone="neutral" title={role.name}>
+          <span className="text-xs leading-[1.55]">
+            {roleOptionDescription(role)}
+            {!role.isSystem && ` Same access as ${role.base}.`}
+          </span>
+        </ModalNotice>
+      )}
 
       <DialogFooter className={TEAM_DIALOG_FOOTER}>
         <Button
@@ -300,7 +310,7 @@ function ChangeRoleFields({
           type="button"
           size="sm"
           disabled={isPending || !changed}
-          onClick={() => onConfirm(member, role)}
+          onClick={() => role && onConfirm(member, role)}
           className={`${TEAM_MODAL_BUTTON} ${TEAM_MODAL_BUTTON_PRIMARY}`}
         >
           {isPending ? "Updating…" : "Update role"}

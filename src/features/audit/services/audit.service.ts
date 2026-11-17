@@ -510,6 +510,22 @@ function toEvent(row: AuditRow, actors: Map<string, AuditActor>): AuditEvent {
       ? meta.summary
       : fallbackSummary(row, action, meta, actors);
 
+  const actor =
+    (row.actor_id ? actors.get(row.actor_id) : null) ??
+    snapshotActor(row, meta) ??
+    (row.actor_id
+      ? {
+          id: row.actor_id,
+          name: "Deleted user",
+          email: "",
+          avatarUrl: null,
+          role: null,
+        }
+      : null);
+  // Set by audit_logs_fill when platform support was signed in as this user.
+  const impersonator =
+    typeof meta.impersonated_by === "string" ? meta.impersonated_by : null;
+
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -519,17 +535,13 @@ function toEvent(row: AuditRow, actors: Map<string, AuditActor>): AuditEvent {
     entity: row.entity,
     entityId: row.entity_id,
     actor:
-      (row.actor_id ? actors.get(row.actor_id) : null) ??
-      snapshotActor(row, meta) ??
-      (row.actor_id
+      actor && impersonator
         ? {
-            id: row.actor_id,
-            name: "Deleted user",
-            email: "",
-            avatarUrl: null,
-            role: null,
+            ...actor,
+            name: `Platform support as ${actor.name}`,
+            role: impersonator,
           }
-        : null),
+        : actor,
     summary,
     changes: toChanges(meta),
     related: toRelated(row, meta),

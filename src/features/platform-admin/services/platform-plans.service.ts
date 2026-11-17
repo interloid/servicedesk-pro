@@ -152,3 +152,116 @@ export async function updatePlatformPlan(input: {
     throw new Error(`Couldn't save the plan: ${error.message}`);
   }
 }
+
+export class PlatformPlanError extends Error {}
+
+/**
+ * A new paid plan. It starts hidden: nobody can pick it until a platform admin
+ * sets its features and shows it. `code` is the PayPal billing plan id, and
+ * every paid plan must sit under one PayPal product, so the product is copied
+ * from the existing paid plans.
+ */
+export async function createPlatformPlan(input: {
+  name: string;
+  code: string;
+  price: number;
+  description: string;
+  seatLimit: number;
+}): Promise<{ id: string }> {
+  const admin = createSupabaseAdminClient();
+  const { data: existing, error: readError } = await admin
+    .from("plans")
+    .select("name, code, sort_order, price_month, paypal_product_id");
+
+  if (readError) {
+    throw new Error(`Couldn't read the plans: ${readError.message}`);
+  }
+
+  const rows = existing ?? [];
+  const name = input.name.trim();
+
+  if (rows.some((row) => row.name.toLowerCase() === name.toLowerCase())) {
+    throw new PlatformPlanError(`A plan named ${name} already exists.`);
+  }
+
+  if (rows.some((row) => row.code === input.code)) {
+    throw new PlatformPlanError(
+      "Another plan already uses that PayPal plan ID.",
+    );
+  }
+
+  const product =
+    rows.find((row) => Number(row.price_month) > 0 && row.paypal_product_id)
+      ?.paypal_product_id ?? null;
+  const sortOrder =
+    rows.reduce((max, row) => Math.max(max, row.sort_order ?? 0), 0) + 1;
+
+  const { data, error } = await admin
+    .from("plans")
+    .insert({
+      name,
+      code: input.code,
+      price_month: input.price,
+      description: input.description || null,
+      seat_limit: input.seatLimit,
+      is_active: false,
+      sort_order: sortOrder,
+      paypal_product_id: product,
+      features_json: { sla_policies: 1 },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new PlatformPlanError("That plan name or PayPal plan ID is taken.");
+    }
+
+    throw new Error(`Couldn't create the plan: ${error.message}`);
+  }
+
+  return { id: data.id };
+}
+
+/**
+ * Deprecate (hide) or show a plan. Plans are never deleted: workspaces on a
+ * deprecated plan keep it and keep being billed for it; only new choices of it
+ * stop. The Free plan can't be hidden -- cancellations and failed payments move
+ * workspaces onto it.
+ */
+export async function setPlatformPlanActive(
+  id: string,
+  isActive: boolean,
+): Promise<{ name: string }> {
+  const admin = createSupabaseAdminClient();
+  const { data: plan, error: readError } = await admin
+    .from("plans")
+    .select("name, price_month")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) {
+    throw new Error(`Couldn't read the plan: ${readError.message}`);
+  }
+
+  if (!plan) {
+    throw new PlatformPlanError("That plan no longer exists.");
+  }
+
+  if (!isActive && Number(plan.price_month) === 0) {
+    throw new PlatformPlanError(
+      "The Free plan can't be deprecated: cancelled workspaces move onto it.",
+    );
+  }
+
+  const { error } = await admin
+    .from("plans")
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Couldn't update the plan: ${error.message}`);
+  }
+
+  return { name: plan.name };
+}

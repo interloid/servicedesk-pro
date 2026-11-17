@@ -1,6 +1,9 @@
 import "server-only";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+
+import { env } from "@/config/env";
 
 export type RequestClientInfo = {
   ip: string | null;
@@ -46,5 +49,50 @@ export async function auditForwardHeaders(): Promise<Record<string, string>> {
   if (ip) forwarded["x-audit-ip"] = ip;
   if (userAgent) forwarded["x-audit-user-agent"] = userAgent;
 
+  const impersonator = await sessionImpersonator();
+  if (impersonator) forwarded["x-audit-impersonator"] = impersonator;
+
   return forwarded;
+}
+
+/**
+ * The platform operator's email when this request's session is a support
+ * impersonation (migration 20261117160000), from the session's own token.
+ *
+ * Read without verifying the token: it is only an audit label, sent with
+ * service-role writes the server makes after getUser() has verified that same
+ * token -- a tampered token fails there first. Never used to grant anything.
+ */
+async function sessionImpersonator(): Promise<string | null> {
+  try {
+    const store = await cookies();
+    const supabase = createServerClient(
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll: () => store.getAll(),
+          // Read-only: this client never refreshes or writes a session.
+          setAll: () => {},
+        },
+        auth: { autoRefreshToken: false },
+      },
+    );
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const payload = session?.access_token.split(".")[1];
+
+    if (!payload) return null;
+
+    const claims = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as { impersonated_by?: unknown };
+
+    return typeof claims.impersonated_by === "string"
+      ? claims.impersonated_by.slice(0, 320)
+      : null;
+  } catch {
+    return null;
+  }
 }

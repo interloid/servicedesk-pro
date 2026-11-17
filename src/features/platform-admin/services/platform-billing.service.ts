@@ -229,6 +229,7 @@ export async function getPlatformBilling(): Promise<PlatformBillingData> {
 
     return {
       id: row.id,
+      tenantId: row.tenant_id,
       tenantName: tenant?.name ?? "Deleted workspace",
       tenantSlug: tenant?.slug ?? "",
       initials: initialsOf(tenant?.name ?? "?"),

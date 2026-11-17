@@ -3,6 +3,7 @@ import { AppFooter } from "@/components/shared/layout/app-footer";
 import { AppHeader } from "@/components/shared/layout/app-header";
 import { AppSidebar } from "@/components/shared/layout/app-sidebar";
 import { GlobalShortcuts } from "@/components/shared/layout/global-shortcuts";
+import { ImpersonationBanner } from "@/components/shared/layout/impersonation-banner";
 import { RoleRouteGuard } from "@/components/shared/layout/role-route-guard";
 import { TokenRoleSync } from "@/components/shared/layout/token-role-sync";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -70,6 +71,12 @@ export default async function DashboardLayout({
             <AppSidebar identity={identity} />
 
             <div className="flex flex-1 flex-col min-w-0 h-full w-full">
+              {identity.user.impersonatedBy && (
+                <ImpersonationBanner
+                  operator={identity.user.impersonatedBy}
+                  userName={identity.user.name}
+                />
+              )}
               <AppHeader identity={identity} />
 
               <main className="flex-1 overflow-y-auto w-full  p-0 ">

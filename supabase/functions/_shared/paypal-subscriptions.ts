@@ -89,14 +89,6 @@ export type SubscriptionRow = {
  */
 export type CancellationSource = "customer" | "paypal" | "system";
 
-/**
- * How long a tenant keeps their plan after PayPal gives up retrying.
- *
- * Long enough for a billing admin to notice the mail and fix a card over a
- * weekend, short enough that unpaid access is not indefinite.
- */
-export const PAYMENT_GRACE_DAYS = 7;
-
 /** Every field that says "this subscription is in payment trouble". */
 export const HEALTHY_PAYMENT_STATE = {
   payment_failure_count: 0,

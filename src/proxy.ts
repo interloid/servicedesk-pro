@@ -12,6 +12,7 @@ import {
   isCentralPath,
   isInfrastructurePath,
   isPortalPath,
+  PORTAL_PATH_PREFIX,
   isTenantPublicPath,
   isTenantRouteAllowed,
   isValidTenantSlug,
@@ -25,6 +26,11 @@ import {
 
 import { readTenantClaims } from "@/features/auth/claims";
 import { isBillingPath } from "@/features/platform-admin/workspace-status";
+import {
+  decodeAccessToken,
+  IMPERSONATION_END_PATH,
+  impersonatorOf,
+} from "@/lib/impersonation-shared";
 import {
   AUTH_COOKIE_SCOPE,
   REMEMBER_COOKIE,
@@ -300,6 +306,17 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     },
   );
 
+  // Read before getUser(): when a support impersonation's grant is withdrawn,
+  // its Auth session is deleted, getUser() fails, and the client clears the
+  // session cookies -- after which nothing would show this browser was
+  // impersonating, and the operator would land on a workspace login page.
+  const {
+    data: { session: cookieSession },
+  } = await supabase.auth.getSession();
+  const impersonating = Boolean(
+    impersonatorOf(decodeAccessToken(cookieSession?.access_token)),
+  );
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -309,6 +326,23 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
 
   if (isInfrastructurePath(pathname)) {
     return response;
+  }
+
+  // A support impersonation whose grant has ended (expired, withdrawn, or the
+  // request resolved or closed) is signed out before anything else runs. The
+  // database already refuses its reads and writes (current_workspace_block);
+  // this takes the browser back to the console instead of a broken page.
+  if (impersonating) {
+    const state = user
+      ? (await supabase.rpc("impersonation_state")).data
+      : null;
+
+    if (state !== "active") {
+      return withSessionCookies(
+        NextResponse.redirect(new URL(IMPERSONATION_END_PATH, request.url)),
+        response,
+      );
+    }
   }
 
   // The platform console sits outside every workspace and checks its own
@@ -332,10 +366,8 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
       const sessionTenant = await resolveSessionTenant(supabase);
 
       if (isValidTenantSlug(sessionTenant?.slug)) {
-        // A customer is sent to /unauthorized *because* they have no agent
-        // dashboard, so they must be allowed to render it. Bouncing them would
-        // resolve defaultTenantLanding("customer") to /tickets -- the very
-        // route that turned them away -- and ping-pong between the two forever.
+        // Central pages stay open to a customer (their landing is their
+        // portal, see defaultTenantLanding), including /unauthorized.
         // /setup is the one central page a customer session may not use: it
         // could start a workspace with a customer token. /login stays open --
         // signing in there replaces the customer session, and /unauthorized
@@ -447,14 +479,17 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     const isPublic = isTenantPublicPath(rest);
 
     // A customer holds a real membership, so nothing above turns them away and
-    // the agent app would happily render the dashboard on their session. Say no
-    // here instead: the page is tenant-less, so no workspace chrome leaks. The
-    // sign-in pages stay reachable (isPublic) so an agent can still sign in.
+    // the agent app would happily render the dashboard on their session. Send
+    // them to their own support portal instead, still signed in: the portal
+    // reads the same session. The sign-in pages stay reachable (isPublic) so
+    // someone with a team account can still sign in as staff.
     if (user && isCustomerSession(sessionTenant) && !isPublic) {
-      const denied = new URL(APP_ROUTES.UNAUTHORIZED, request.url);
-      denied.searchParams.set("tenant", slug);
-
-      return withSessionCookies(NextResponse.redirect(denied), response);
+      return withSessionCookies(
+        NextResponse.redirect(
+          new URL(tenantPath(slug, PORTAL_PATH_PREFIX), request.url),
+        ),
+        response,
+      );
     }
 
     if (!user && !isPublic) {
@@ -617,15 +652,16 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
         }
       }
 
+      // Same as the path-prefix branch: a customer goes to their portal.
       if (
         user &&
         isCustomerSession(sessionTenant) &&
         !isTenantPublicPath(pathname)
       ) {
-        const denied = new URL(APP_ROUTES.UNAUTHORIZED, request.url);
-        denied.searchParams.set("tenant", slugFromSubdomain);
-
-        return withSessionCookies(NextResponse.redirect(denied), response);
+        return withSessionCookies(
+          NextResponse.redirect(new URL(PORTAL_PATH_PREFIX, request.url)),
+          response,
+        );
       }
 
       if (!user && !isTenantPublicPath(pathname)) {

@@ -40,11 +40,12 @@ import {
   type InviteMemberValues,
 } from "@/features/team/schemas/team";
 import {
-  assignableRoles,
+  assignableRoleOptions,
   hasSeatLeft,
+  roleOptionDescription,
   roleWithArticle,
-  TEAM_ROLE_DESCRIPTIONS,
   type TeamRole,
+  type TeamRoleOption,
   type TeamSeats,
 } from "@/features/team/types/team";
 import { inviteMemberAction } from "@/features/team/team-actions";
@@ -62,19 +63,28 @@ interface InviteMemberModalProps {
    * invite a Tenant Admin or Billing Admin; the server enforces the same rule.
    */
   callerRole: TeamRole | null;
+  /** The platform's active staff roles (public.roles). */
+  roleOptions: readonly TeamRoleOption[];
 }
 
 type InviteForm = {
   email: string;
+  /** The tier of `roleId`, kept in step with it. */
   role: TeamRole;
+  roleId?: string;
 };
 
 export function InviteMemberModal({
   children,
   seats,
   callerRole,
+  roleOptions,
 }: InviteMemberModalProps) {
-  const invitableRoles = assignableRoles(callerRole);
+  const invitableRoles = assignableRoleOptions(callerRole, roleOptions);
+  const defaultRole =
+    invitableRoles.find(
+      (option) => option.isSystem && option.base === "Agent",
+    ) ?? invitableRoles[0];
 
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -86,12 +96,14 @@ export function InviteMemberModal({
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<InviteForm>({
     resolver: zodResolver(inviteMemberSchema),
     defaultValues: {
       email: "",
-      role: "Agent",
+      role: defaultRole?.base ?? "Agent",
+      roleId: defaultRole?.id,
     },
   });
 
@@ -99,7 +111,11 @@ export function InviteMemberModal({
     const values: InviteMemberValues = {
       email: data.email,
       role: data.role,
+      roleId: data.roleId,
     };
+    const roleName =
+      roleOptions.find((option) => option.id === data.roleId)?.name ??
+      data.role;
     const toastId = toast.loading(`Sending invite to ${values.email}…`);
 
     reset();
@@ -118,7 +134,7 @@ export function InviteMemberModal({
         }
 
         toast.success(
-          `Invite sent to ${values.email}. They'll join as ${roleWithArticle(values.role)} once they accept.`,
+          `Invite sent to ${values.email}. They'll join as ${roleWithArticle(roleName)} once they accept.`,
           { id: toastId },
         );
       } catch (error) {
@@ -199,37 +215,54 @@ export function InviteMemberModal({
             </Label>
 
             <Controller
-              name="role"
+              name="roleId"
               control={control}
-              render={({ field }) => (
-                <>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="role" className="w-full min-h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent
-                      side="bottom"
-                      align="start"
-                      position="popper"
-                      className="p-1"
-                    >
-                      {invitableRoles.map((role) => (
-                        <SelectItem
-                          key={role}
-                          value={role}
-                          className="p-2 cursor-pointer"
-                        >
-                          {role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              render={({ field }) => {
+                const selected = invitableRoles.find(
+                  (option) => option.id === field.value,
+                );
 
-                  <p className="text-xs text-muted-foreground">
-                    {TEAM_ROLE_DESCRIPTIONS[field.value]}
-                  </p>
-                </>
-              )}
+                return (
+                  <>
+                    <Select
+                      value={field.value}
+                      onValueChange={(id) => {
+                        field.onChange(id);
+                        const option = invitableRoles.find(
+                          (candidate) => candidate.id === id,
+                        );
+                        if (option) setValue("role", option.base);
+                      }}
+                    >
+                      <SelectTrigger id="role" className="w-full min-h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent
+                        side="bottom"
+                        align="start"
+                        position="popper"
+                        className="p-1"
+                      >
+                        {invitableRoles.map((option) => (
+                          <SelectItem
+                            key={option.id}
+                            value={option.id}
+                            className="p-2 cursor-pointer"
+                          >
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selected && (
+                      <p className="text-xs text-muted-foreground">
+                        {roleOptionDescription(selected)}
+                      </p>
+                    )}
+                  </>
+                );
+              }}
             />
           </div>
         </form>

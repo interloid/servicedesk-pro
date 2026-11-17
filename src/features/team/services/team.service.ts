@@ -24,6 +24,7 @@ import type {
   TeamFailureCode,
   TeamMember,
   TeamRole,
+  TeamRoleOption,
   TeamSeats,
   TeamStatus,
   TenantPlanRecord,
@@ -164,6 +165,91 @@ const STATUS_FROM_DB: Record<string, TeamStatus> = {
   disabled: "Disabled",
 };
 
+type RoleRow = {
+  id: string;
+  name: string;
+  description: string;
+  base_role: string;
+  is_system: boolean;
+};
+
+function toRoleOption(row: RoleRow): TeamRoleOption | null {
+  const base = ROLE_FROM_DB[row.base_role];
+
+  return base
+    ? {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        base,
+        isSystem: row.is_system,
+      }
+    : null;
+}
+
+/**
+ * The staff roles a workspace can hand out: the active rows of the platform's
+ * roles catalogue on a staff tier. Read with the admin client -- the catalogue
+ * is platform-wide, not tenant data.
+ */
+export const listTeamRoleOptions = cache(
+  async function listTeamRoleOptions(): Promise<TeamRoleOption[]> {
+    const { data, error } = await createSupabaseAdminClient()
+      .from("roles")
+      .select("id, name, description, base_role, is_system")
+      .eq("status", "active")
+      .in("base_role", [...STAFF_ROLES])
+      .order("sort_order")
+      .order("name")
+      .returns<RoleRow[]>();
+
+    if (error) {
+      throw fail("Couldn't load the roles.", error);
+    }
+
+    return (data ?? [])
+      .map(toRoleOption)
+      .filter((option): option is TeamRoleOption => option !== null);
+  },
+);
+
+/**
+ * The role a team action should write: the picked catalogue role when there
+ * is one (its tier wins over whatever tier the client sent), else the
+ * built-in role of `role`.
+ */
+async function resolveRoleChoice(values: {
+  role: TeamRole;
+  roleId?: string;
+}): Promise<{ role: TeamRole; roleId: string; roleName: string }> {
+  const query = createSupabaseAdminClient()
+    .from("roles")
+    .select("id, name, description, base_role, is_system")
+    .eq("status", "active")
+    .in("base_role", [...STAFF_ROLES]);
+
+  const { data, error } = await (
+    values.roleId
+      ? query.eq("id", values.roleId)
+      : query.eq("key", ROLE_TO_DB[values.role]).eq("is_system", true)
+  ).maybeSingle<RoleRow>();
+
+  if (error) {
+    throw fail("We couldn't look that role up.", error);
+  }
+
+  const option = data ? toRoleOption(data) : null;
+
+  if (!option) {
+    throw new TeamError(
+      "That role is no longer available. Refresh and pick another.",
+      { status: 409, code: "validation" },
+    );
+  }
+
+  return { role: option.base, roleId: option.id, roleName: option.name };
+}
+
 export type TeamActor = {
   userId: string;
   tenantId: string;
@@ -254,6 +340,10 @@ function assertRole(actor: TeamActor, allowed: TeamRole[], message: string) {
 const MEMBER_SELECT = `
   id,
   role,
+  role_id,
+  role_def:roles!memberships_role_id_fkey (
+    name
+  ),
   status,
   invited_by,
   is_primary,
@@ -275,6 +365,8 @@ const MEMBER_SELECT = `
 type MemberRow = {
   id: string;
   role: string;
+  role_id: string;
+  role_def: { name: string } | null;
   status: string;
   invited_by: string | null;
   is_primary: boolean;
@@ -323,6 +415,8 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
         email: row.user.email || "",
         avatarUrl: row.user.avatar_url,
         role,
+        roleId: row.role_id,
+        roleName: row.role_def?.name ?? role,
         status,
         isSelf: currentUserId !== null && row.user.id === currentUserId,
         // The founding tenant admin never went through an invite, so the
@@ -452,9 +546,11 @@ export async function inviteMember(values: InviteMemberValues): Promise<void> {
     "Only a Tenant Admin or Manager can invite people.",
   );
 
-  if (ADMIN_ONLY_ROLES.includes(values.role) && actor.role !== "Tenant Admin") {
+  const choice = await resolveRoleChoice(values);
+
+  if (ADMIN_ONLY_ROLES.includes(choice.role) && actor.role !== "Tenant Admin") {
     throw new TeamError(
-      `Only a Tenant Admin can invite someone as ${values.role}.`,
+      `Only a Tenant Admin can invite someone as ${choice.roleName}.`,
       { status: 403, code: "action-not-allowed" },
     );
   }
@@ -470,7 +566,9 @@ export async function inviteMember(values: InviteMemberValues): Promise<void> {
     tenantSlug: actor.tenantSlug,
     inviterId: actor.userId,
     email: values.email,
-    role: values.role,
+    role: choice.role,
+    roleId: choice.roleId,
+    roleName: choice.roleName,
   });
 }
 
@@ -487,7 +585,14 @@ export async function addInvitedStaffMember(values: {
   inviterId: string;
   email: string;
   role: TeamRole;
+  /** The catalogue role; the built-in role of `role` when left out. */
+  roleId?: string;
+  roleName?: string;
 }): Promise<void> {
+  const choice =
+    values.roleId && values.roleName
+      ? { roleId: values.roleId, roleName: values.roleName }
+      : await resolveRoleChoice({ role: values.role, roleId: values.roleId });
   const actor = {
     tenantId: values.tenantId,
     tenantSlug: values.tenantSlug,
@@ -641,6 +746,7 @@ export async function addInvitedStaffMember(values: {
       .from("memberships")
       .update({
         role: ROLE_TO_DB[values.role],
+        role_id: choice.roleId,
         status: "invited",
         invited_by: actor.userId,
         disabled_at: null,
@@ -668,6 +774,7 @@ export async function addInvitedStaffMember(values: {
       tenant_id: actor.tenantId,
       user_id: authUserId,
       role: ROLE_TO_DB[values.role],
+      role_id: choice.roleId,
       status: "invited",
       invited_by: actor.userId,
     });
@@ -685,7 +792,7 @@ export async function addInvitedStaffMember(values: {
     userId: authUserId,
     email,
     name,
-    role: values.role,
+    role: choice.roleName,
     tenantId: actor.tenantId,
     slug: actor.tenantSlug,
   });
@@ -698,7 +805,8 @@ async function queueTeamInvitation({
   userId: string;
   email: string;
   name: string;
-  role: TeamRole;
+  /** Display name of the role, as the email shows it. */
+  role: string;
   tenantId: string;
   slug: string | null;
 }): Promise<void> {
@@ -723,6 +831,7 @@ async function queueTeamInvitation({
 type InviteRow = {
   id: string;
   role: string;
+  role_def: { name: string } | null;
   status: string;
   user_id: string;
   user: { email: string | null; full_name: string | null } | null;
@@ -740,7 +849,7 @@ export async function resendInvite(values: ResendInviteValues): Promise<void> {
   const { data: rawMember, error } = await supabase
     .from("memberships")
     .select(
-      "id, role, status, user_id, user:users!memberships_user_id_fkey ( email, full_name )",
+      "id, role, status, user_id, role_def:roles!memberships_role_id_fkey ( name ), user:users!memberships_user_id_fkey ( email, full_name )",
     )
     .eq("id", values.memberId)
     .eq("tenant_id", actor.tenantId)
@@ -782,7 +891,7 @@ export async function resendInvite(values: ResendInviteValues): Promise<void> {
     userId: member.user_id,
     email,
     name: member.user?.full_name || email.split("@")[0] || "Team member",
-    role: ROLE_FROM_DB[member.role] ?? "Agent",
+    role: member.role_def?.name ?? ROLE_FROM_DB[member.role] ?? "Agent",
     tenantId: actor.tenantId,
     slug: actor.tenantSlug,
   });
@@ -804,16 +913,17 @@ async function getEditableMember(
   memberId: string,
   selfMessage: string,
   selfCode: TeamFailureCode,
-): Promise<{ userId: string; role: TeamRole }> {
+): Promise<{ userId: string; role: TeamRole; roleId: string }> {
   const { data, error } = await supabase
     .from("memberships")
-    .select("user_id, role, is_primary")
+    .select("user_id, role, role_id, is_primary")
     .eq("id", memberId)
     .eq("tenant_id", actor.tenantId)
     .in("role", [...STAFF_ROLES])
     .maybeSingle<{
       user_id: string;
       role: string;
+      role_id: string;
       is_primary: boolean;
     }>();
 
@@ -857,7 +967,7 @@ async function getEditableMember(
     );
   }
 
-  return { userId: data.user_id, role };
+  return { userId: data.user_id, role, roleId: data.role_id };
 }
 
 export async function changeMemberRole(
@@ -871,9 +981,11 @@ export async function changeMemberRole(
     "Only a Tenant Admin or Manager can change roles.",
   );
 
-  if (ADMIN_ONLY_ROLES.includes(values.role) && actor.role !== "Tenant Admin") {
+  const choice = await resolveRoleChoice(values);
+
+  if (ADMIN_ONLY_ROLES.includes(choice.role) && actor.role !== "Tenant Admin") {
     throw new TeamError(
-      `Only a Tenant Admin can make someone ${roleWithArticle(values.role)}.`,
+      `Only a Tenant Admin can make someone ${roleWithArticle(choice.roleName)}.`,
       { status: 403, code: "action-not-allowed" },
     );
   }
@@ -886,6 +998,13 @@ export async function changeMemberRole(
     "cannot-change-own-role",
   );
 
+  if (target.roleId === choice.roleId) {
+    throw new TeamError(`They already have the ${choice.roleName} role.`, {
+      status: 409,
+      code: "validation",
+    });
+  }
+
   // RLS lets only a Tenant Admin write memberships, so the Manager's change --
   // checked above -- is written with the admin client. Pinned to the tenant
   // and to the role we just read, so a row that changed in between (say an
@@ -895,12 +1014,14 @@ export async function changeMemberRole(
   )
     .from("memberships")
     .update({
-      role: ROLE_TO_DB[values.role],
+      role: ROLE_TO_DB[choice.role],
+      role_id: choice.roleId,
       updated_at: new Date().toISOString(),
     })
     .eq("id", values.memberId)
     .eq("tenant_id", actor.tenantId)
     .eq("role", ROLE_TO_DB[target.role])
+    .eq("role_id", target.roleId)
     .select("id");
 
   if (error) {

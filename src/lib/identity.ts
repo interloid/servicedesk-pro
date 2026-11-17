@@ -216,6 +216,7 @@ export const getShellIdentity = cache(async function getShellIdentity(
       initials,
       avatarUrl: profile?.avatar_url ?? "",
       role: liveMembership.role,
+      impersonatedBy: claims.impersonatedBy,
     },
   };
 });
