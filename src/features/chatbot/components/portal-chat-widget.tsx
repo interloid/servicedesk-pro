@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
   useTransition,
+  type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -39,6 +40,7 @@ import {
   type ChatUsage,
 } from "@/features/chatbot/chatbot";
 import { ChatDraftCard } from "@/features/chatbot/components/chat-draft-card";
+import { ChatWelcome } from "@/features/chatbot/components/chat-welcome";
 import {
   ChatLauncher,
   ChatTeaser,
@@ -62,6 +64,57 @@ type StoredChat = { items: ChatItem[]; draft: ChatDraft | null };
 
 /** The thread page has its own composer in the bottom-right corner. */
 const REQUEST_THREAD = /\/portal\/requests\/[0-9a-f-]{36}\/?$/i;
+
+/**
+ * How many px of the portal footer are on screen. The launcher and panel are
+ * fixed to the viewport, so without this they slide over the footer once the
+ * page is scrolled to the end; adding this to their `bottom` makes them rest
+ * on top of it instead, following it as it scrolls in.
+ */
+function useFooterClearance(): number {
+  const [clearance, setClearance] = useState(0);
+
+  useEffect(() => {
+    const footer = document.querySelector<HTMLElement>(
+      "[data-portal-root] > footer",
+    );
+    if (!footer) return;
+
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      // A hidden footer (phone, request thread) has an empty rect.
+      const { top, height } = footer.getBoundingClientRect();
+      const visible = height
+        ? Math.max(0, Math.min(height, window.innerHeight - top))
+        : 0;
+      setClearance(Math.round(visible));
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+
+    measure();
+    // Capture: <main> can be the scroller rather than the window.
+    window.addEventListener("scroll", schedule, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(document.body);
+    observer.observe(footer);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule, { capture: true });
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+    };
+  }, []);
+
+  return clearance;
+}
 
 const TEASER_KEY = "portal-chat:teaser-dismissed";
 const TEASER_DELAY_MS = 2_500;
@@ -118,6 +171,10 @@ export function PortalChatWidget({
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  const footerClearance = useFooterClearance();
+  const clearanceStyle = {
+    "--footer-clearance": `${footerClearance}px`,
+  } as CSSProperties;
 
   // A one-time nudge, a moment after the first portal page of the session.
   useEffect(() => {
@@ -387,6 +444,9 @@ export function PortalChatWidget({
       ? (last.suggestions ?? [])
       : [];
   const nearLimit = message.length > CHAT_MESSAGE_MAX * 0.8;
+  // A fresh chat holds only the greeting: show the welcome screen instead.
+  const welcome =
+    !draft && !isSending && items.length === 1 && items[0]?.id === "greeting";
   const resets = resetTime(usage);
 
   return (
@@ -399,14 +459,15 @@ export function PortalChatWidget({
           onKeyDown={(event) => {
             if (event.key === "Escape") closePanel();
           }}
+          style={clearanceStyle}
           className={cn(
             "fixed inset-0 z-50 flex flex-col overflow-hidden bg-background",
             "animate-in duration-200 fade-in-0 sm:slide-in-from-bottom-3 sm:zoom-in-95",
-            "sm:inset-auto sm:right-6 sm:bottom-24 sm:origin-bottom-right sm:rounded-3xl sm:border",
+            "sm:inset-auto sm:right-6 sm:bottom-[calc(6rem+var(--footer-clearance))] sm:origin-bottom-right sm:rounded-3xl sm:border",
             "sm:shadow-[0_24px_60px_-12px_rgba(15,23,42,0.35)] sm:transition-[width,height] sm:duration-200",
             expanded
-              ? "sm:h-[calc(100dvh-8rem)] sm:w-[min(56rem,calc(100vw-3rem))]"
-              : "sm:h-[min(44rem,calc(100dvh-8rem))] sm:w-[min(30rem,calc(100vw-3rem))]",
+              ? "sm:h-[calc(100dvh-8rem-var(--footer-clearance))] sm:w-[min(56rem,calc(100vw-3rem))]"
+              : "sm:h-[min(44rem,calc(100dvh-8rem-var(--footer-clearance)))] sm:w-[min(30rem,calc(100vw-3rem))]",
           )}
         >
           <header className="relative flex shrink-0 items-center gap-3 overflow-hidden bg-brand-accent px-4 py-3.5 text-brand-accent-foreground">
@@ -467,15 +528,23 @@ export function PortalChatWidget({
                 you confirm
               </p>
 
-              {items.map((item) => (
-                <ChatMessage
-                  key={item.id}
-                  item={item}
-                  slug={slug}
-                  onRetry={() => retry(item.id)}
-                  retryDisabled={isSending}
+              {welcome ? (
+                <ChatWelcome
+                  firstName={firstName}
+                  onPick={send}
+                  disabled={exhausted}
                 />
-              ))}
+              ) : (
+                items.map((item) => (
+                  <ChatMessage
+                    key={item.id}
+                    item={item}
+                    slug={slug}
+                    onRetry={() => retry(item.id)}
+                    retryDisabled={isSending}
+                  />
+                ))
+              )}
 
               {draft ? (
                 <ChatDraftCard
@@ -491,7 +560,7 @@ export function PortalChatWidget({
 
               {isSending ? <TypingIndicator /> : null}
 
-              {suggestions.length > 0 ? (
+              {!welcome && suggestions.length > 0 ? (
                 <SuggestionChips suggestions={suggestions} onPick={send} />
               ) : null}
             </div>
@@ -576,7 +645,11 @@ export function PortalChatWidget({
       {!onThreadPage ? (
         // A column: the teaser sits above the launcher, both right-aligned,
         // so neither can cover the other at any width.
-        <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+        // Rests on the footer once it scrolls into view, never over it.
+        <div
+          style={clearanceStyle}
+          className="fixed right-4 bottom-[calc(1rem+var(--footer-clearance))] z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-[calc(1.5rem+var(--footer-clearance))]"
+        >
           {teaser && !open ? (
             <ChatTeaser
               firstName={firstName}

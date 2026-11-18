@@ -65,7 +65,19 @@ export function PortalShell({
           it without checking those three screens still centre. */}
       {/* h-full + overflow-auto: main is its own scroll container; pb-2.5!
           (10px) at every breakpoint, over the py-* values above. */}
-      <main className="flex h-full flex-1 flex-col overflow-auto px-4 py-8 pb-2.5! sm:px-5 md:px-6 md:py-12 group-has-data-portal-fill/portal:min-h-0 group-has-data-portal-fill/portal:py-4 md:group-has-data-portal-fill/portal:py-6">
+      {/* Phones only: with the assistant on, the bottom padding is the
+          launcher's footprint (size-14 + bottom-4), so at the end of the page
+          the launcher rests on the footer without covering the last row
+          (pagination, a submit button). From sm up the usual 10px stays. The
+          thread page hides the launcher, so it keeps 10px too. */}
+      <main
+        className={cn(
+          "flex h-full flex-1 flex-col overflow-auto px-4 py-8 pb-2.5! sm:px-5 md:px-6 md:py-12 group-has-data-portal-fill/portal:min-h-0 group-has-data-portal-fill/portal:py-4 md:group-has-data-portal-fill/portal:py-6",
+          chatEnabled &&
+            customer &&
+            "pb-20! sm:pb-2.5! group-has-data-portal-fill/portal:pb-2.5!",
+        )}
+      >
         {children}
       </main>
 

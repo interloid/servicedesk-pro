@@ -1,8 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronRight, Eye, Search } from "lucide-react";
+import {
+  Archive,
+  CircleCheck,
+  ChevronRight,
+  Eye,
+  Headset,
+  Inbox,
+  SearchX,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -27,6 +37,44 @@ function inTab(request: SupportRequest, tab: Tab): boolean {
   if (tab === "all") return true;
   if (tab === "open") return isOpenSupportStatus(request.status);
   return request.status === tab;
+}
+
+/** Same shape as the Notification Center's empty state. */
+function EmptyState({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center text-sm text-muted-foreground">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Icon className="size-4" aria-hidden />
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function emptyMessage(
+  tab: Tab,
+  hasRequests: boolean,
+  query: string,
+): { icon: LucideIcon; text: string } {
+  if (!hasRequests)
+    return {
+      icon: Headset,
+      text: "You haven't contacted support yet. Requests you create will show up here.",
+    };
+  if (query) return { icon: SearchX, text: "No requests match your search." };
+  if (tab === "open")
+    return { icon: Inbox, text: "No open requests. You're all caught up." };
+  if (tab === "resolved")
+    return { icon: CircleCheck, text: "No resolved requests yet." };
+  if (tab === "closed")
+    return { icon: Archive, text: "No closed requests yet." };
+  return { icon: Inbox, text: "No requests here." };
 }
 
 /** Request ID · Subject · Updated · Status; rows stack on phones. */
@@ -74,6 +122,8 @@ export function MySupportRequests({
     );
   }, [requests, tab, query]);
 
+  const empty = emptyMessage(tab, requests.length > 0, query.trim());
+
   return (
     <section
       className={cn(
@@ -81,11 +131,12 @@ export function MySupportRequests({
         className,
       )}
     >
-      <div className="flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-between">
-        <nav
+      {/* Pill tabs, matching the Notification Center's feed filter. */}
+      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
           aria-label="Filter requests"
           role="tablist"
-          className="-mb-px flex gap-1 overflow-x-auto scrollbar-none"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0"
         >
           {TABS.map((item) => {
             const active = item.value === tab;
@@ -98,10 +149,10 @@ export function MySupportRequests({
                 aria-selected={active}
                 onClick={() => setTab(item.value)}
                 className={cn(
-                  "shrink-0 border-b-2 px-3 pt-1 pb-3 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "h-10 shrink-0 whitespace-nowrap rounded-full border px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   active
-                    ? "border-primary font-semibold text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
+                    ? "border-primary! bg-primary/10 font-semibold text-primary"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 {item.label}{" "}
@@ -109,10 +160,10 @@ export function MySupportRequests({
               </button>
             );
           })}
-        </nav>
+        </div>
 
         {searchable && (
-          <div className="relative mb-3 sm:w-64">
+          <div className="relative sm:w-64">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden
@@ -122,83 +173,78 @@ export function MySupportRequests({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search subject or SR number"
               aria-label="Search support requests"
-              className="h-9 rounded-lg bg-card pl-9"
+              className="h-10 bg-card pl-9 text-sm"
             />
           </div>
         )}
       </div>
 
-      <div
-        className={cn(
-          ROW_GRID,
-          "mt-4 hidden rounded-lg bg-muted/60 px-3 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground",
-        )}
-        aria-hidden
-      >
-        <span>Request ID</span>
-        <span>Subject</span>
-        <span>Updated</span>
-        <span>Status</span>
-        <span />
-      </div>
-
       {visible.length === 0 ? (
-        <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-          {requests.length === 0
-            ? "You haven't contacted support yet."
-            : query
-              ? "No requests match."
-              : "No requests here."}
-        </p>
+        <EmptyState icon={empty.icon}>{empty.text}</EmptyState>
       ) : (
-        <ul className="divide-y divide-border">
-          {visible.map((request) => (
-            <li key={request.id}>
-              <Link
-                href={`${requestHref}/${request.id}`}
-                className={cn(
-                  ROW_GRID,
-                  "flex flex-col gap-2 rounded-lg px-3 py-3.5 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none",
-                )}
-              >
-                <span className="flex items-center justify-between gap-2 sm:contents">
-                  <span className="w-fit rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary tabular-nums">
-                    {request.number}
+        <>
+          <div
+            className={cn(
+              ROW_GRID,
+              "mt-4 hidden rounded-lg bg-muted/60 px-3 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground",
+            )}
+            aria-hidden
+          >
+            <span>Request ID</span>
+            <span>Subject</span>
+            <span>Updated</span>
+            <span>Status</span>
+            <span />
+          </div>
+          <ul className="divide-y divide-border">
+            {visible.map((request) => (
+              <li key={request.id}>
+                <Link
+                  href={`${requestHref}/${request.id}`}
+                  className={cn(
+                    ROW_GRID,
+                    "flex flex-col gap-2 rounded-lg px-3 py-3.5 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none",
+                  )}
+                >
+                  <span className="flex items-center justify-between gap-2 sm:contents">
+                    <span className="w-fit rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary tabular-nums">
+                      {request.number}
+                    </span>
+                    <span className="sm:hidden">
+                      <SupportStatusBadge status={request.status} />
+                    </span>
                   </span>
-                  <span className="sm:hidden">
+
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {request.subject}
+                    </span>
+                    {request.accessActive && (
+                      <Eye
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-label="Support can access your workspace"
+                      />
+                    )}
+                  </span>
+
+                  <span className="text-xs text-muted-foreground sm:text-sm">
+                    <span className="sm:hidden">Updated </span>
+                    {formatSupportTime(request.updatedAt)}
+                  </span>
+
+                  <span className="hidden sm:block">
                     <SupportStatusBadge status={request.status} />
                   </span>
-                </span>
 
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {request.subject}
-                  </span>
-                  {request.accessActive && (
-                    <Eye
-                      className="size-3.5 shrink-0 text-muted-foreground"
-                      aria-label="Support can access your workspace"
-                    />
-                  )}
-                </span>
-
-                <span className="text-xs text-muted-foreground sm:text-sm">
-                  <span className="sm:hidden">Updated </span>
-                  {formatSupportTime(request.updatedAt)}
-                </span>
-
-                <span className="hidden sm:block">
-                  <SupportStatusBadge status={request.status} />
-                </span>
-
-                <ChevronRight
-                  className="hidden size-4 text-muted-foreground sm:block"
-                  aria-hidden
-                />
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  <ChevronRight
+                    className="hidden size-4 text-muted-foreground sm:block"
+                    aria-hidden
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );
