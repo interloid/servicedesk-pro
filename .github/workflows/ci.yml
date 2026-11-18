@@ -78,7 +78,7 @@ jobs:
           cache: npm
 
       - name: Production dependencies have no high or critical advisories
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit
 
       - name: No verified secrets in the commits being checked
         uses: trufflesecurity/trufflehog@v3.99.7
