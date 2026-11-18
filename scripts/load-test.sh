@@ -48,7 +48,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=$(read_stack E2E_SUPABASE_ANON_KEY)
 SUPABASE_SERVICE_ROLE_KEY=$(read_stack E2E_SUPABASE_SERVICE_ROLE_KEY)
 export NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
 export SESSION_SECRET=e2e-session-secret-e2e-session-secret
-export PLATFORM_ADMIN_EMAILS=admin@juniper.seed.test
+export PLATFORM_ADMIN_EMAILS=david.russell@juniperridgeenergy.com
 export SUBDOMAIN_ROUTING_AVAILABLE=false
 
 if [ -n "${LOAD_BUILD:-}" ] || [ ! -f "$DIST/BUILD_ID" ]; then

@@ -19,6 +19,10 @@ begin
         new.block_reason := old.block_reason;
         new.block_source := old.block_source;
         new.blocked_at := old.blocked_at;
+        -- Only the platform console deletes or restores a workspace.
+        new.deleted_at := old.deleted_at;
+        new.deleted_by := old.deleted_by;
+        new.delete_reason := old.delete_reason;
     end if;
 
     return new;
@@ -32,48 +36,19 @@ before update on public.tenants
 for each row
 execute function public.tenants_guard_block();
 
--- Blocks a workspace when billing gives up on it, and lifts that block when it
--- subscribes again. Not on the failure count: PayPal retries on its own schedule
--- and a customer with an expiring card is still a paying customer meanwhile. The
--- moment that counts is the subscription being cancelled over it:
---   * 'system': reconcile-subscriptions, once the grace period ran out unpaid;
---   * 'paypal' during payment trouble: PayPal cancelled it itself.
--- A new subscription clears cancellation_source. Only a block this trigger made
--- is ever lifted here, never one a platform admin set.
+-- Payment trouble never blocks a workspace (migration 20261117150000): when the
+-- grace period runs out unpaid it moves to Free and keeps access. This only
+-- lifts a block an earlier version made, once the workspace subscribes again
+-- (a new subscription clears cancellation_source). A platform admin's block is
+-- never lifted here.
 create or replace function public.subscriptions_sync_tenant_block()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-    v_gave_up boolean :=
-        new.cancellation_source is distinct from old.cancellation_source
-        and (
-            new.cancellation_source = 'system'
-            or (
-                new.cancellation_source = 'paypal'
-                and (
-                    coalesce(old.payment_failure_count, 0) > 0
-                    or old.grace_period_ends_at is not null
-                )
-            )
-        );
 begin
-    if v_gave_up then
-        if coalesce(
-            (select block_on_payment_failure from public.platform_settings where id),
-            true
-        ) then
-            update public.tenants
-            set status = 'suspended',
-                block_source = 'payment',
-                block_reason = 'Subscription cancelled after failed payments.',
-                blocked_at = now()
-            where id = new.tenant_id
-              and status = 'active';
-        end if;
-    elsif old.cancellation_source is not null and new.cancellation_source is null then
+    if old.cancellation_source is not null and new.cancellation_source is null then
         update public.tenants
         set status = 'active',
             block_source = null,
@@ -81,7 +56,8 @@ begin
             blocked_at = null
         where id = new.tenant_id
           and status = 'suspended'
-          and block_source = 'payment';
+          and block_source = 'payment'
+          and deleted_at is null;
     end if;
 
     return null;

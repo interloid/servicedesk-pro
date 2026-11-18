@@ -34,11 +34,19 @@ create table if not exists public.platform_settings
         not null
         default false,
 
-    -- Block a workspace when its subscription is cancelled over failed payments
-    -- (functions/29_tenant_blocking.sql).
+    -- Deprecated (20261117150000): failed payments end in the Free plan, never
+    -- a block, so nothing reads this any more.
     block_on_payment_failure boolean
         not null
         default true,
+
+    -- Days a workspace keeps its paid plan after its first failed payment
+    -- (supabase/functions/_shared/payment-grace.ts).
+    payment_grace_days integer
+        not null
+        default 14
+        constraint chk_platform_settings_payment_grace_days
+            check (payment_grace_days between 1 and 30),
 
     updated_by uuid
         references auth.users(id)

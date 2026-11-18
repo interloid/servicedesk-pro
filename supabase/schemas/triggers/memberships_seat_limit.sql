@@ -7,6 +7,6 @@ DROP TRIGGER IF EXISTS enforce_team_seat_limit
 ON public.memberships;
 
 CREATE TRIGGER enforce_team_seat_limit
-BEFORE INSERT OR UPDATE OF role, status, tenant_id ON public.memberships
+BEFORE INSERT OR UPDATE OF role, role_id, status, tenant_id ON public.memberships
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_team_seat_limit();

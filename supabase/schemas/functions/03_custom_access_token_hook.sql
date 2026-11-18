@@ -15,16 +15,11 @@ BEGIN;
 -- not a display detail.
 
 create or replace function public.custom_access_token_hook(event jsonb)
-returns jsonb
-language plpgsql
--- VOLATILE, not STABLE: the body UPDATEs memberships to activate an invite on
--- first sign-in, and a STABLE function cannot write. Must match migration
--- 20260821103013, or the next `supabase db diff` would revert the live hook to
--- STABLE and every sign-in with a membership would error.
-volatile
-security definer
-set search_path = public
-as $$
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $$
 declare
     claims          jsonb;
     app_metadata    jsonb;
@@ -33,6 +28,8 @@ declare
     v_tenant_role   text;
     v_tenant_slug   text;
     v_membership_id uuid;
+    v_imp_tenant    uuid;
+    v_imp_by        text;
 begin
     --------------------------------------------------------
     -- Existing JWT claims
@@ -104,6 +101,42 @@ begin
         m.created_at,
         m.id
     limit 1;
+
+    --------------------------------------------------------
+    -- Platform support signed in as this user (impersonation_sessions).
+    --
+    -- The session is pinned to the workspace that granted access, whatever
+    -- the user's preferred workspace is, and carries impersonated_by so the
+    -- app shows its banner and every audit entry names the operator. The
+    -- claim stays after the session ends: impersonation_state() then locks
+    -- the data and the proxy signs the browser out.
+    --------------------------------------------------------
+
+    select s.tenant_id, s.platform_admin_email
+    into v_imp_tenant, v_imp_by
+    from public.impersonation_sessions s
+    where s.auth_session_id = case
+        when claims ->> 'session_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            then (claims ->> 'session_id')::uuid
+    end;
+
+    if v_imp_by is not null then
+        v_membership_id := null;
+        v_tenant_id := null;
+        v_tenant_role := null;
+        v_tenant_slug := null;
+
+        select m.id, m.tenant_id, m.role::text, t.slug
+        into v_membership_id, v_tenant_id, v_tenant_role, v_tenant_slug
+        from public.memberships m
+        join public.tenants t
+            on t.id = m.tenant_id
+        where m.user_id = (event ->> 'user_id')::uuid
+          and m.tenant_id = v_imp_tenant
+          and m.status = 'active';
+
+        claims := jsonb_set(claims, '{impersonated_by}', to_jsonb(v_imp_by), true);
+    end if;
 
     --------------------------------------------------------
     -- Activate the invite on first sign-in (idempotent).

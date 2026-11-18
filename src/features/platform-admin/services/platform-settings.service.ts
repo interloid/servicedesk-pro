@@ -11,7 +11,7 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   supportEmail: "support@servicedeskpro.com",
   allowSignups: true,
   maintenanceMode: false,
-  blockOnPaymentFailure: true,
+  paymentGraceDays: 14,
 };
 
 type SettingsRow = {
@@ -19,8 +19,8 @@ type SettingsRow = {
   support_email: string;
   allow_signups: boolean;
   maintenance_mode: boolean;
-  // Absent until migration 20261103140000 is applied.
-  block_on_payment_failure?: boolean;
+  // Absent until migration 20261117150000 is applied.
+  payment_grace_days?: number;
 };
 
 /**
@@ -61,7 +61,8 @@ export async function getPlatformSettings(): Promise<{
       supportEmail: data.support_email,
       allowSignups: data.allow_signups,
       maintenanceMode: data.maintenance_mode,
-      blockOnPaymentFailure: data.block_on_payment_failure ?? true,
+      paymentGraceDays:
+        data.payment_grace_days ?? DEFAULT_PLATFORM_SETTINGS.paymentGraceDays,
     },
     available: true,
   };
@@ -101,7 +102,7 @@ export async function updatePlatformSettings(
       support_email: settings.supportEmail,
       allow_signups: settings.allowSignups,
       maintenance_mode: settings.maintenanceMode,
-      block_on_payment_failure: settings.blockOnPaymentFailure,
+      payment_grace_days: settings.paymentGraceDays,
       updated_by: actorId,
       updated_at: new Date().toISOString(),
     });
@@ -109,7 +110,7 @@ export async function updatePlatformSettings(
   if (error) {
     throw new Error(
       error.code === "PGRST204"
-        ? "Blocking isn't set up on this database yet. Apply migration 20261103140000_tenant_blocking."
+        ? "The grace period isn't set up on this database yet. Apply migration 20261117150000_payment_grace_period."
         : error.code === "PGRST205"
           ? "Platform settings aren't set up on this database yet. Apply migration 20261031130000_platform_settings."
           : `Couldn't save platform settings: ${error.message}`,

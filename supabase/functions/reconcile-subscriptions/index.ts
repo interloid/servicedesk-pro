@@ -558,10 +558,11 @@ async function retryCapturedUpgrade(sub: SubscriptionRow): Promise<Outcome> {
 /**
  * A grace window that has closed.
  *
- * PayPal suspended the agreement for non-payment and the tenant was given
- * PAYMENT_GRACE_DAYS to fix it. This is the end of that: either PayPal is
- * billing again -- in which case the trouble is over and the window simply
- * clears -- or it still is not, and the tenant moves to Free.
+ * The window opened at the first failed charge (_shared/payment-grace.ts) and
+ * gave the tenant the platform's grace period to fix their payment method.
+ * This is the end of it: either PayPal is billing again -- in which case the
+ * trouble is over and the window simply clears -- or it still is not, and the
+ * tenant moves to Free. They keep access: nothing here blocks the workspace.
  *
  * PayPal is asked every time rather than trusting the stored status, because
  * a customer who fixed their card outside the app recovers through
@@ -582,8 +583,17 @@ async function enforceGracePeriod(
       return "notReady";
     }
 
-    // Paying again. Clear the dunning state and leave the plan alone.
-    if (lookup.status === "ACTIVE") {
+    // Paying again: ACTIVE with nothing owed. ACTIVE alone is not enough --
+    // the grace period starts at the first failed charge, so PayPal is often
+    // still retrying (agreement ACTIVE, balance outstanding) when it ends.
+    const owed = Number(
+      (
+        lookup.data?.billing_info as
+          { outstanding_balance?: { value?: string } } | undefined
+      )?.outstanding_balance?.value ?? 0,
+    );
+
+    if (lookup.status === "ACTIVE" && !(owed > 0)) {
       const { error } = await admin
         .from("subscriptions")
         .update({

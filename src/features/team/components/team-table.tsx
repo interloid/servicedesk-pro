@@ -51,9 +51,8 @@ import {
 } from "@/components/ui/tooltip";
 
 import {
-  TEAM_ROLE_VALUES,
   TEAM_STATUS_VALUES,
-  assignableRoles,
+  assignableRoleOptions,
   canEditMemberWithRole,
   canPerformTeamAction,
   formatAbsoluteDate,
@@ -61,6 +60,7 @@ import {
   roleWithArticle,
   type TeamMember,
   type TeamRole,
+  type TeamRoleOption,
   type TeamSeats,
   type TeamStatus,
 } from "@/features/team/types/team";
@@ -106,6 +106,8 @@ function statusDetail(member: TeamMember, now: number): string | null {
 interface TeamTableProps {
   members: TeamMember[];
   callerRole: TeamRole | null;
+  /** The platform's active staff roles (public.roles). */
+  roleOptions: readonly TeamRoleOption[];
   /** Used to block re-enabling a disabled member when every seat is taken. */
   seats: TeamSeats;
   /**
@@ -124,8 +126,8 @@ function displayName(member: TeamMember): string {
 
 function displayRole(member: TeamMember): string {
   return member.isPrimary && member.role === "Tenant Admin"
-    ? "Primary Tenant Admin"
-    : member.role;
+    ? `Primary ${member.roleName}`
+    : member.roleName;
 }
 
 interface RowAction {
@@ -137,18 +139,26 @@ interface RowAction {
   run: () => void;
 }
 
-export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
+export function TeamTable({
+  members,
+  callerRole,
+  roleOptions,
+  seats,
+  now,
+}: TeamTableProps) {
   const [isPending, startTransition] = useTransition();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<TeamStatus | "All">(
     "All",
   );
-  const [roleFilter, setRoleFilter] = React.useState<TeamRole | "All">("All");
+  // A role id, or "All".
+  const [roleFilter, setRoleFilter] = React.useState<string>("All");
   const [page, setPage] = React.useState(1);
   const [roleTarget, setRoleTarget] = React.useState<{
     member: TeamMember;
-    role: TeamRole | null;
+    /** The role id picked from the row select, if any. */
+    role: string | null;
     primaryOnly?: boolean;
   } | null>(null);
   const [removeTarget, setRemoveTarget] = React.useState<TeamMember | null>(
@@ -197,7 +207,15 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
   const canRole = callerRole ? canPerformTeamAction("role", callerRole) : false;
   // A Manager may only hand out and edit the non-admin roles; the server
   // enforces the same rule.
-  const rolesToOffer = assignableRoles(callerRole);
+  const rolesToOffer = assignableRoleOptions(callerRole, roleOptions);
+  // Every role on offer plus any one a member holds (an archived role stays on
+  // its holders), for the filter.
+  const filterRoles = React.useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const option of roleOptions) byId.set(option.id, option.name);
+    for (const member of members) byId.set(member.roleId, member.roleName);
+    return [...byId].map(([id, name]) => ({ id, name }));
+  }, [roleOptions, members]);
   const canEdit = (member: TeamMember) =>
     !member.isSelf &&
     !member.isPrimary &&
@@ -224,7 +242,7 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
     return members.filter((member) => {
       if (statusFilter !== "All" && member.status !== statusFilter)
         return false;
-      if (roleFilter !== "All" && member.role !== roleFilter) return false;
+      if (roleFilter !== "All" && member.roleId !== roleFilter) return false;
       if (
         q &&
         !member.name.toLowerCase().includes(q) &&
@@ -249,12 +267,17 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
   const goTo = (target: number) =>
     setPage(Math.min(totalPages, Math.max(1, target)));
 
-  const changeRole = (member: TeamMember, role: TeamRole) =>
+  const changeRole = (member: TeamMember, role: TeamRoleOption) =>
     run(
       member.id,
-      () => changeMemberRoleAction({ memberId: member.id, role }),
+      () =>
+        changeMemberRoleAction({
+          memberId: member.id,
+          role: role.base,
+          roleId: role.id,
+        }),
       {
-        success: `${displayName(member)} is now ${roleWithArticle(role)}.`,
+        success: `${displayName(member)} is now ${roleWithArticle(role.name)}.`,
         failure: `We couldn't change ${displayName(member)}'s role.`,
       },
       () => setRoleTarget(null),
@@ -430,13 +453,13 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
 
     return (
       <Select
-        value={member.role}
-        onValueChange={(role) => {
-          if (role === member.role) return;
+        value={member.roleId}
+        onValueChange={(roleId) => {
+          if (roleId === member.roleId) return;
           // Confirm first. The select stays on the server value until the
           // change actually lands, so a cancelled dialog leaves the row
           // untouched.
-          setRoleTarget({ member, role: role as TeamRole });
+          setRoleTarget({ member, role: roleId });
         }}
       >
         <SelectTrigger
@@ -452,9 +475,22 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
           position="popper"
           className="p-1"
         >
-          {rolesToOffer.map((role) => (
-            <SelectItem key={role} value={role} className="p-2 cursor-pointer">
-              {role}
+          {!rolesToOffer.some((option) => option.id === member.roleId) && (
+            <SelectItem
+              value={member.roleId}
+              disabled
+              className="p-2 cursor-pointer"
+            >
+              {member.roleName}
+            </SelectItem>
+          )}
+          {rolesToOffer.map((option) => (
+            <SelectItem
+              key={option.id}
+              value={option.id}
+              className="p-2 cursor-pointer"
+            >
+              {option.name}
             </SelectItem>
           ))}
         </SelectContent>
@@ -537,7 +573,7 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
     ) {
       return renderLockedActions(
         member,
-        `This is a ${member.role}, so cannot update.`,
+        `This is ${roleWithArticle(member.roleName)}, so cannot update.`,
       );
     }
 
@@ -690,7 +726,7 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
             <Select
               value={roleFilter}
               onValueChange={(value) => {
-                setRoleFilter(value as TeamRole | "All");
+                setRoleFilter(value);
                 setPage(1);
               }}
             >
@@ -709,13 +745,13 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
                 <SelectItem value="All" className="p-2">
                   All roles
                 </SelectItem>
-                {TEAM_ROLE_VALUES.map((role) => (
+                {filterRoles.map((role) => (
                   <SelectItem
-                    key={role}
-                    value={role}
+                    key={role.id}
+                    value={role.id}
                     className="p-2 cursor-pointer"
                   >
-                    {role}
+                    {role.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -840,7 +876,7 @@ export function TeamTable({ members, callerRole, seats, now }: TeamTableProps) {
 
       <ChangeRoleModal
         member={roleTarget?.member ?? null}
-        initialRole={roleTarget?.role ?? null}
+        initialRoleId={roleTarget?.role ?? null}
         isPending={isPending && pendingId === roleTarget?.member.id}
         onOpenChange={(open) => !open && setRoleTarget(null)}
         roles={rolesToOffer}

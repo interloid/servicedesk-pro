@@ -14,9 +14,14 @@ const memberId = z.uuid("Pick a member.");
 
 const role = z.enum(TEAM_ROLE_VALUES);
 
+// The catalogue role picked. When set, the server takes the tier from it and
+// ignores `role`.
+const roleId = z.uuid("Pick a role.").optional();
+
 const memberRoleInput = z.object({
   memberId,
   role,
+  roleId,
 });
 
 const memberStatusInput = z.object({
@@ -27,6 +32,7 @@ const memberStatusInput = z.object({
 const inviteMemberInput = z.object({
   email,
   role,
+  roleId,
 });
 
 const resendInviteInput = z.object({

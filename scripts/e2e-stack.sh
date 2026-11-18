@@ -96,7 +96,7 @@ NEXT_PUBLIC_SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY
 in_db -U postgres <<'SQL'
 update business_hours
 set schedule_json = schedule_json || '{"working_days":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"day_start":"00:00:00","day_end":"23:59:59"}'
-where tenant_id in (select id from tenants where slug in ('seed-cedar', 'seed-juniper'));
+where tenant_id in (select id from tenants where slug in ('cedar', 'juniper'));
 SQL
 
 mkdir -p "$(dirname "$OUT")"

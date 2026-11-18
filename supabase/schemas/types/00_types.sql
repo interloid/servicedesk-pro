@@ -19,14 +19,7 @@ CREATE TYPE public.tenant_status AS ENUM (
 -- Membership
 -- =====================================================
 
-CREATE TYPE public.membership_role AS ENUM (
-    'platform_admin',
-    'tenant_admin',
-    'manager',
-    'agent',
-    'billing_admin',
-    'customer'
-);
+-- Roles are rows in public.roles (tables/04a_roles.sql), not an enum.
 
 CREATE TYPE public.membership_status AS ENUM (
     'invited',
@@ -158,5 +151,7 @@ CREATE TYPE public.audit_action AS ENUM (
     'assign',
     'role_change',
     'export',
-    'login_failed'
+    'login_failed',
+    -- Platform support opened the read-only workspace view (support requests).
+    'support_access'
 );

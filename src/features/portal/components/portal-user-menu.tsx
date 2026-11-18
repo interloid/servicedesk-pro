@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { clearStoredChats } from "@/features/chatbot/chatbot";
 import { signOutAction } from "@/features/portal/actions/portal.actions";
 import { PortalPasswordDialog } from "@/features/portal/components/portal-password-dialog";
 import { PortalProfileDialog } from "@/features/portal/components/portal-profile-dialog";
@@ -40,6 +41,10 @@ export function PortalUserMenu({
       const result = await signOutAction(tenantSlug);
 
       if (result.success) {
+        // The saved assistant chat holds this customer's requests and files;
+        // the next person to sign in on this tab must not get it back.
+        clearStoredChats();
+
         // A full load rather than router.push: the auth cookies were just
         // cleared server-side, and every cached RSC payload above this point
         // was rendered for the signed-in customer.

@@ -19,5 +19,7 @@ export type ShellIdentity = {
     role: string;
     /** The login token still carries an older role than the live membership. */
     tokenRoleStale: boolean;
+    /** Platform support's email while support is signed in as this user. */
+    impersonatedBy: string | null;
   };
 };

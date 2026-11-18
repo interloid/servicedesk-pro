@@ -131,10 +131,11 @@ export function PortalRequestDetailView({
     );
   }
 
+  /** Text, files, or both. A files-only reply is saved as "Attached N files." */
+  const canSend = body.trim() !== "" || files.length > 0;
+
   async function sendReply() {
-    // A reply with only files still needs a line of text: the thread renders
-    // the body, and an empty bubble reads as a delivery failure.
-    if (!body.trim() || busy) {
+    if (!canSend || busy) {
       return;
     }
 
@@ -431,7 +432,7 @@ export function PortalRequestDetailView({
               maxLength={PORTAL_REPLY_MAX}
               disabled={busy}
               rows={1}
-              placeholder="Write your reply…"
+              placeholder="Write a reply or attach a file…"
               className="max-h-[min(15rem,35dvh)] min-h-10 min-w-0 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-1.5 py-2 text-sm leading-6 shadow-none focus-visible:ring-0 disabled:bg-transparent dark:bg-transparent dark:disabled:bg-transparent"
             />
 
@@ -440,7 +441,7 @@ export function PortalRequestDetailView({
               size="icon"
               className="size-10 shrink-0 rounded-full"
               onClick={() => void sendReply()}
-              disabled={busy || !body.trim()}
+              disabled={busy || !canSend}
             >
               {isSending ? (
                 <Loader2 aria-hidden className="size-4.5 animate-spin" />

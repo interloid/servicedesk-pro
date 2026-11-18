@@ -6,12 +6,15 @@ export type TenantClaims = {
   tenantId: string | null;
   tenantSlug: string | null;
   tenantRole: MembershipRole | null;
+  /** Platform support's email when this session is an impersonation. */
+  impersonatedBy: string | null;
 };
 
 export const EMPTY_TENANT_CLAIMS: TenantClaims = {
   tenantId: null,
   tenantSlug: null,
   tenantRole: null,
+  impersonatedBy: null,
 };
 
 export async function getTenantClaims(
@@ -40,5 +43,9 @@ export function readTenantClaims(claims: unknown): TenantClaims {
     tenantSlug:
       typeof record.tenant_slug === "string" ? record.tenant_slug : null,
     tenantRole: isMembershipRole(role) ? role : null,
+    impersonatedBy:
+      typeof record.impersonated_by === "string" && record.impersonated_by
+        ? record.impersonated_by
+        : null,
   };
 }

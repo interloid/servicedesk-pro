@@ -4,13 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  CUSTOMER_EMAIL_TLD,
-  MAX_TENANTS,
-  STAFF_EMAIL_SUFFIX,
-  TENANTS,
-  TICKET_PLANS,
-  peopleFor,
-} from "./seed-data.mjs";
+  DEMO_EMAIL_DOMAINS,
+  isDemoEmail,
+} from "../supabase/functions/_shared/demo-email-domains.ts";
+import { MAX_TENANTS, TENANTS, TICKET_PLANS, peopleFor } from "./seed-data.mjs";
 
 const US_ZONES = new Set([
   "America/New_York",
@@ -26,13 +23,23 @@ const everyone = TENANTS.flatMap((spec, i) => {
 });
 
 describe("seed data stays safe", () => {
-  it("never uses a deliverable email address", () => {
+  it("only uses email domains the mail sender never delivers to", () => {
     for (const person of everyone) {
-      expect(
-        person.email.endsWith(STAFF_EMAIL_SUFFIX) ||
-          person.email.endsWith(CUSTOMER_EMAIL_TLD),
-        person.email,
-      ).toBe(true);
+      expect(isDemoEmail(person.email), person.email).toBe(true);
+    }
+  });
+
+  it("lists exactly the domains the seed uses, so the block list stays tight", () => {
+    const used = new Set(everyone.map((p) => p.email.split("@")[1]));
+    expect([...used].sort()).toEqual([...DEMO_EMAIL_DOMAINS].sort());
+  });
+
+  it("looks like a live application: no seed or test markers", () => {
+    for (const spec of TENANTS) {
+      expect(spec.key, spec.key).not.toMatch(/seed|test|demo/);
+    }
+    for (const person of everyone) {
+      expect(person.email, person.email).not.toMatch(/seed|\.test$|\.example$/);
     }
   });
 
@@ -104,10 +111,11 @@ describe("seed data matches the e2e suite", () => {
 
   it("every seeded account the e2e suite signs in with exists", () => {
     const emails = new Set(everyone.map((p) => p.email));
-    const referenced = [
-      ...e2e.matchAll(/"([a-z0-9.]+@[a-z0-9.]+\.(?:seed\.test|example))"/g),
-    ]
+    const referenced = [...e2e.matchAll(/"([a-z0-9.]+@[a-z0-9.]+\.[a-z]+)"/g)]
       .map((m) => m[1])
+      // Only demo-domain addresses are seeded accounts; any other address in
+      // the suite is deliberately not one.
+      .filter((email) => isDemoEmail(email))
       // A deliberately unknown account, used to test failed sign-in.
       .filter((email) => !email.startsWith("nobody@"));
 

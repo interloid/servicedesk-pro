@@ -2,6 +2,7 @@ import { getPlatformBrand } from "../_shared/platform-brand.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createPayPalTokenProvider } from "../_shared/paypal-auth.ts";
 import { auditHeaders } from "../_shared/audit-headers.ts";
+import { isServiceRole } from "../_shared/service-role.ts";
 import {
   storePayPalPaymentMethod,
   type AdminClient,
@@ -736,6 +737,116 @@ async function scheduleCancellation(
   });
 }
 
+/**
+ * The platform console soft-deleted this workspace: stop billing it now.
+ *
+ * Called by the Next.js server with the service role key (closeWorkspaceBilling
+ * in platform-tenants.service.ts), never by a browser. The PayPal agreement is
+ * cancelled outright -- a deleted workspace has no period to run down -- and
+ * the workspace drops to Free, so a later restore starts unbilled. PayPal's
+ * cancel already treats a purged or ended agreement as done.
+ */
+async function closeForPlatform(
+  admin: Admin,
+  tenantSlug: string,
+): Promise<Response> {
+  const { data: tenant, error: tenantError } = await admin
+    .from("tenants")
+    .select("id")
+    .eq("slug", tenantSlug)
+    .maybeSingle();
+
+  if (tenantError || !tenant) {
+    return Response.json(
+      { success: false, message: "Tenant not found." },
+      { status: 404 },
+    );
+  }
+
+  const tenantId = tenant.id as string;
+  const sub = await loadSubscription(admin, tenantId);
+
+  if (!sub) {
+    return Response.json({ success: true, message: "Nothing to cancel." });
+  }
+
+  const agreementId = sub.paypal_subscription_id;
+
+  if (agreementId) {
+    const cancelled = await paypal.cancel(
+      agreementId,
+      "Workspace closed by the platform",
+    );
+
+    if (!cancelled) {
+      return Response.json(
+        {
+          success: false,
+          message: "PayPal could not cancel the subscription. Try again.",
+        },
+        { status: 502 },
+      );
+    }
+  }
+
+  const freePlan = await loadFreePlan(admin);
+
+  if (!freePlan) {
+    console.error("[billing] free plan lookup failed");
+    return Response.json(
+      { success: false, message: "Could not find the Free plan." },
+      { status: 500 },
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  await applySubscriptionPlan(asBillingAdmin(admin), {
+    tenantId,
+    planId: freePlan.id,
+    status: "active",
+    seats: seatsOf(freePlan),
+    periodStart: now,
+    clearPeriodEnd: true,
+    clearPaypalSubscriptionId: true,
+  });
+
+  const { error } = await admin
+    .from("subscriptions")
+    .update({
+      cancelled_at: now,
+      cancellation_source: "system",
+      paypal_status: agreementId ? "CANCELLED" : null,
+      cancel_at_period_end: false,
+      next_plan_id: null,
+      next_plan_effective_at: null,
+      pending_plan_id: null,
+      pending_order_id: null,
+      pending_paypal_subscription_id: null,
+      pending_started_at: null,
+      updated_at: now,
+    })
+    .eq("tenant_id", tenantId);
+
+  if (error) {
+    console.error("[billing] could not record the platform cancellation:", {
+      tenant_id: tenantId,
+      error,
+    });
+  }
+
+  logBilling("cancel.platform", {
+    tenant_id: tenantId,
+    paypal_subscription_id: agreementId,
+    target_plan: freePlan.name,
+  });
+
+  return Response.json({
+    success: true,
+    message: "Subscription cancelled. The workspace is on the Free plan.",
+  });
+}
+
 /** Records the one-time upgrade charge. Keyed on the PayPal capture id, so a
  *  retry or a redelivered webhook can never write it twice. */
 async function recordUpgradeInvoice(
@@ -831,6 +942,19 @@ Deno.serve(async (req) => {
         { success: false, message: "Tenant slug is required." },
         { status: 400 },
       );
+    }
+
+    // Platform console only: the Next.js server calls this with the service
+    // role key when a workspace is soft-deleted. No user session is involved.
+    if (action === "platform-close") {
+      if (!isServiceRole(req, SUPABASE_SERVICE_ROLE_KEY)) {
+        return Response.json(
+          { success: false, message: "Forbidden." },
+          { status: 403 },
+        );
+      }
+
+      return await closeForPlatform(createAdminClient(), tenantSlug);
     }
 
     // Where PayPal hands the buyer back when a revise needs their approval.

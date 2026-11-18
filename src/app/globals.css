@@ -310,6 +310,42 @@
   background-color: var(--foreground);
 }
 
+/* The customer portal's page scrollbar. The thin 4px bar above suits panels
+   and lists, but as the page's only scroll control it read as no scrollbar
+   at all to customers. The portal page gets a normal-width bar on a visible
+   track; everything inside the page keeps the thin one. Chrome, Edge and
+   Firefox use the standard
+   properties; the WebKit rules cover Safari. */
+html:has([data-portal-root]) {
+  scrollbar-width: auto;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 65%, transparent)
+    var(--muted);
+  scrollbar-gutter: auto;
+}
+
+html:has([data-portal-root])::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html:has([data-portal-root])::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+html:has([data-portal-root])::-webkit-scrollbar-thumb {
+  background-color: color-mix(
+    in oklab,
+    var(--muted-foreground) 65%,
+    transparent
+  );
+  border: 3px solid var(--muted);
+  border-radius: 9999px;
+}
+
+html:has([data-portal-root])::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
 .plan-card-current {
   border-color: var(--brand-accent);
 }

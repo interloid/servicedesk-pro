@@ -8,7 +8,11 @@ import {
   PLATFORM_SETTINGS_TAG,
   updatePlatformSettings,
 } from "../services/platform-settings.service";
-import type { PlatformSettings } from "../types";
+import {
+  PAYMENT_GRACE_DAYS_MAX,
+  PAYMENT_GRACE_DAYS_MIN,
+  type PlatformSettings,
+} from "../types";
 
 const settingsSchema = z.object({
   platformName: z
@@ -19,7 +23,11 @@ const settingsSchema = z.object({
   supportEmail: z.string().trim().toLowerCase().email("Enter a valid email."),
   allowSignups: z.boolean(),
   maintenanceMode: z.boolean(),
-  blockOnPaymentFailure: z.boolean(),
+  paymentGraceDays: z
+    .number("Enter a number of days.")
+    .int("Enter a whole number of days.")
+    .min(PAYMENT_GRACE_DAYS_MIN, `At least ${PAYMENT_GRACE_DAYS_MIN} day.`)
+    .max(PAYMENT_GRACE_DAYS_MAX, `At most ${PAYMENT_GRACE_DAYS_MAX} days.`),
 });
 
 export async function savePlatformSettingsAction(input: unknown): Promise<

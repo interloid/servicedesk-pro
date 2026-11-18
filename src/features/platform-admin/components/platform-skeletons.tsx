@@ -687,3 +687,31 @@ export function PlatformSettingsSkeleton() {
     </SkeletonPage>
   );
 }
+
+export function PlatformRolesSkeleton() {
+  return (
+    <SkeletonPage label="Loading roles…">
+      <PageHeaderSkeleton action="w-full sm:w-32" />
+      <StatGridSkeleton count={4} />
+
+      <div className="flex flex-col gap-4">
+        <PlatformFilterBar
+          tabs={<FilterPillsSkeleton count={4} />}
+          search={SEARCH_SKELETON}
+        />
+
+        <TableCardSkeleton
+          rows={6}
+          footer={false}
+          columns={[
+            { cell: BADGE },
+            { cell: WIDE_TEXT },
+            { cell: BADGE },
+            { cell: TEXT, right: true },
+            ICON_ACTION,
+          ]}
+        />
+      </div>
+    </SkeletonPage>
+  );
+}

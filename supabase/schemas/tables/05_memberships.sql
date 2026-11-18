@@ -17,8 +17,25 @@ create table if not exists public.memberships
         references public.users(id)
         on delete cascade,
 
-    role membership_role
-        not null,
+    -- The access tier (roles.base_role of role_id), kept in step by the
+    -- apply_membership_role trigger. RLS and the tenant_role claim read this;
+    -- role_id says which named role the member holds.
+    role text
+        not null
+        constraint chk_memberships_role
+            check (role in (
+                'platform_admin',
+                'tenant_admin',
+                'manager',
+                'agent',
+                'billing_admin',
+                'customer'
+            )),
+
+    role_id uuid
+        not null
+        references public.roles(id)
+        on delete restrict,
 
     status membership_status
         not null
@@ -53,3 +70,6 @@ create table if not exists public.memberships
 create unique index if not exists uq_memberships_primary_per_tenant
     on public.memberships (tenant_id)
     where is_primary;
+
+create index if not exists idx_memberships_role_id
+    on public.memberships (role_id);

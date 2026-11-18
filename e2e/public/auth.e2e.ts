@@ -4,14 +4,14 @@ import { PRO_TENANT, submitLogin } from "../support/accounts";
 
 test.describe("sign in", () => {
   test("rejects a wrong password", async ({ page }) => {
-    await submitLogin(page, "admin@cedar.seed.test", "not-the-password");
+    await submitLogin(page, "nicole.sanders@cedarhealthgroup.com", "not-the-password");
 
     await expect(page.getByText(/invalid email or password/i)).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 
   test("does not reveal whether an account exists", async ({ page }) => {
-    await submitLogin(page, "nobody@cedar.seed.test", "not-the-password");
+    await submitLogin(page, "nobody@cedarhealthgroup.com", "not-the-password");
 
     await expect(page.getByText(/invalid email or password/i)).toBeVisible();
   });

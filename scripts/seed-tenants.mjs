@@ -23,20 +23,23 @@
  *       --clean --project-ref <ref>
  *
  * The data itself (fictional US companies, people and ticket conversations) is in
- * scripts/seed-data.mjs.
+ * scripts/seed-data.mjs. It reads like a live application: workspace slugs are
+ * plain ("cedar", not "seed-cedar") and emails use realistic company domains.
  *
- * Seeded rows are recognised by slug (seed-*), and seeded accounts by the
- * seed_tenant tag in their user metadata (older seeds: a *.seed.test email),
- * which is what --clean deletes by. Staff emails end in .seed.test and customer
- * emails in .example; neither resolves, so nothing can reach a real inbox.
+ * Seeded accounts carry a seed_tenant tag (the workspace key) in their user
+ * metadata. --clean deletes a workspace only when its slug is one of the demo
+ * keys AND one of its members is an account tagged for that same key, so a real
+ * workspace that happens to use a demo slug is never touched. It also removes
+ * data from older seeds (slug seed-*, staff *.seed.test).
  * Tenants that already exist are skipped, so re-running is safe, but they keep
  * what they had: run --clean first to rebuild them with this data.
  *
  * Ticket triggers queue real mail, which the email-jobs cron would try to send
- * to these addresses. Seeded staff get email alerts switched off before
- * any ticket exists (that also covers later SLA alerts), and the customer mail
- * the inserts queue is deleted straight after them. A cron run landing inside
- * that gap can still try a few, which only bounce.
+ * to these addresses. Every demo domain is listed in
+ * supabase/functions/_shared/demo-email-domains.ts, and the mail sender skips
+ * them, so none of it leaves the app. On top of that, seeded staff get email
+ * alerts switched off before any ticket exists, and the customer mail the
+ * inserts queue is deleted straight after them.
  *
  * Seeded PayPal ids (I-SEED...) do not exist at PayPal. Nothing here sets
  * next_plan_id, pending_plan_id or grace_period_ends_at, which are the only
@@ -50,10 +53,10 @@ import { createClient } from "@supabase/supabase-js";
 
 import {
   MAX_TENANTS,
+  LEGACY_SLUG_PREFIX,
+  LEGACY_STAFF_EMAIL_SUFFIX,
   MIN_TENANTS,
-  SLUG_PREFIX,
   STAFF_BY_PLAN,
-  STAFF_EMAIL_SUFFIX,
   TENANTS,
   TICKET_PLANS,
   fillTemplate,
@@ -239,7 +242,10 @@ async function existingSlugs() {
   const { data, error } = await supabase
     .from("tenants")
     .select("slug")
-    .like("slug", `${SLUG_PREFIX}%`);
+    .in(
+      "slug",
+      TENANTS.map((spec) => spec.key),
+    );
   if (error) throw error;
   return new Set(data.map((row) => row.slug));
 }
@@ -311,7 +317,7 @@ async function must(promise, label) {
 }
 
 async function seedTenant(spec, tenantIndex, plans, timezones, password) {
-  const slug = `${SLUG_PREFIX}${spec.key}`;
+  const slug = spec.key;
   const { staff, customers } = peopleFor(spec, tenantIndex);
   const [owner, ...team] = staff;
   const plan = plans.get(spec.plan);
@@ -623,30 +629,73 @@ async function listSeedAuthUsers() {
       ...data.users.filter(
         (user) =>
           user.user_metadata?.seed_tenant ||
-          user.email?.endsWith(STAFF_EMAIL_SUFFIX),
+          user.email?.endsWith(LEGACY_STAFF_EMAIL_SUFFIX),
       ),
     );
     if (data.users.length < 200) return found;
   }
 }
 
-async function removeSeedData({ slugs } = {}) {
-  let query = supabase.from("tenants").delete();
-  query = slugs
-    ? query.in("slug", slugs)
-    : query.like("slug", `${SLUG_PREFIX}%`);
-  const tenants = await must(query.select("slug"), "delete tenants");
+/** The workspace key a seeded account belongs to, current or legacy seed. */
+function seedKeyOf(user) {
+  if (user.user_metadata?.seed_tenant) return user.user_metadata.seed_tenant;
+  const match = user.email?.match(/@([a-z0-9-]+)\.seed\.test$/);
+  return match ? match[1] : null;
+}
 
-  const keys = slugs?.map((slug) => slug.slice(SLUG_PREFIX.length));
-  const users = (await listSeedAuthUsers()).filter(
-    (user) =>
-      !keys ||
-      keys.some(
-        (key) =>
-          user.user_metadata?.seed_tenant === key ||
-          user.email?.endsWith(`@${key}${STAFF_EMAIL_SUFFIX}`),
-      ),
+/**
+ * Demo workspaces among `keys`: the slug is the key (or the legacy
+ * "seed-<key>") AND a member is an account the seed tagged for that key. A
+ * real workspace using a demo slug has no such member, so it is never chosen.
+ */
+async function seededTenantIds(keys, seedUsers) {
+  const slugs = keys.flatMap((key) => [key, `${LEGACY_SLUG_PREFIX}${key}`]);
+  const tenants = await must(
+    supabase.from("tenants").select("id, slug").in("slug", slugs),
+    "find seeded tenants",
   );
+  if (tenants.length === 0) return [];
+
+  const memberships = await must(
+    supabase
+      .from("memberships")
+      .select("tenant_id, user_id")
+      .in(
+        "tenant_id",
+        tenants.map((t) => t.id),
+      ),
+    "find seeded memberships",
+  );
+  const keyByUser = new Map(seedUsers.map((u) => [u.id, seedKeyOf(u)]));
+  const keyOfSlug = (slug) =>
+    slug.startsWith(LEGACY_SLUG_PREFIX)
+      ? slug.slice(LEGACY_SLUG_PREFIX.length)
+      : slug;
+
+  return tenants
+    .filter((tenant) =>
+      memberships.some(
+        (m) =>
+          m.tenant_id === tenant.id &&
+          keyByUser.get(m.user_id) === keyOfSlug(tenant.slug),
+      ),
+    )
+    .map((tenant) => tenant.id);
+}
+
+/** Removes the demo workspaces for `keys` (default: all) and their accounts. */
+async function removeSeedData({ keys = TENANTS.map((spec) => spec.key) } = {}) {
+  const seedUsers = await listSeedAuthUsers();
+  const tenantIds = await seededTenantIds(keys, seedUsers);
+  const tenants =
+    tenantIds.length > 0
+      ? await must(
+          supabase.from("tenants").delete().in("id", tenantIds).select("slug"),
+          "delete tenants",
+        )
+      : [];
+
+  const users = seedUsers.filter((user) => keys.includes(seedKeyOf(user)));
   for (const user of users) {
     const { error } = await supabase.auth.admin.deleteUser(user.id);
     if (error) throw new Error(`deleteUser ${user.email}: ${error.message}`);
@@ -657,7 +706,7 @@ async function removeSeedData({ slugs } = {}) {
 function printPlan(specs, plans) {
   console.table(
     specs.map((spec) => ({
-      slug: `${SLUG_PREFIX}${spec.key}`,
+      slug: spec.key,
       name: spec.name,
       plan: spec.plan,
       subscription: spec.status,
@@ -710,7 +759,7 @@ const [plans, timezones, existing] = await Promise.all([
   existingSlugs(),
 ]);
 
-const todo = specs.filter((spec) => !existing.has(`${SLUG_PREFIX}${spec.key}`));
+const todo = specs.filter((spec) => !existing.has(spec.key));
 console.log(`Project: ${projectRef}`);
 printPlan(specs, plans);
 console.log(
@@ -737,7 +786,7 @@ console.log(
 );
 
 for (const spec of todo) {
-  const slug = `${SLUG_PREFIX}${spec.key}`;
+  const slug = spec.key;
   try {
     const made = await seedTenant(
       spec,
@@ -754,7 +803,7 @@ for (const spec of todo) {
     console.error(
       `  FAILED ${slug}: ${error.message}\n  Rolling this tenant back.`,
     );
-    await removeSeedData({ slugs: [slug] });
+    await removeSeedData({ keys: [spec.key] });
     process.exit(1);
   }
 }

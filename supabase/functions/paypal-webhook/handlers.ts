@@ -11,7 +11,6 @@ import {
   applySubscriptionPlan,
   HEALTHY_PAYMENT_STATE,
   logBilling,
-  PAYMENT_GRACE_DAYS,
   nextBillingTime,
   PLAN_COLUMNS,
   priceOf,
@@ -22,6 +21,7 @@ import {
   type SubscriptionRow,
 } from "../_shared/paypal-subscriptions.ts";
 import { type PayPalSubscriber } from "../_shared/paypal-payment-method.ts";
+import { graceDeadline } from "../_shared/payment-grace.ts";
 
 // A tenant has ONE PayPal agreement, so every recurring event resolves
 // straight to its row:
@@ -471,6 +471,38 @@ export async function handleSubscriptionCancelled(event: WebhookEvent) {
     return;
   }
 
+  // PayPal ended it over non-payment (or while payments were failing). That
+  // must not close the subscription at once: the workspace keeps its plan
+  // until the grace deadline, and reconcile-subscriptions moves it to Free
+  // then. The agreement is dead, so nothing can bill in the meantime.
+  const inPaymentTrouble =
+    (sub.payment_failure_count ?? 0) > 0 ||
+    sub.grace_period_ends_at !== null ||
+    sub.payment_status === "failed";
+
+  if (inPaymentTrouble) {
+    const graceEndsAt = await graceDeadline(admin, sub.grace_period_ends_at);
+    const { error: graceError } = await admin
+      .from("subscriptions")
+      .update({
+        status: "past_due",
+        grace_period_ends_at: graceEndsAt,
+        updated_at: now,
+      })
+      .eq("tenant_id", sub.tenant_id);
+
+    if (graceError) {
+      throw graceError;
+    }
+
+    logBilling("webhook.cancelled.grace", {
+      tenant_id: sub.tenant_id,
+      paypal_subscription_id: paypalSubscriptionId,
+      grace_period_ends_at: graceEndsAt,
+    });
+    return;
+  }
+
   const freePlan = await loadFreePlan();
 
   if (!freePlan) {
@@ -549,16 +581,16 @@ export async function handleSubscriptionSuspended(event: WebhookEvent) {
 
   const now = new Date();
 
-  // PayPal has stopped retrying, so this is where restriction begins -- but
-  // as a deadline, not a cut-off. The tenant keeps the plan they are on until
-  // the window closes; reconcile-subscriptions moves them to Free after it,
-  // and only if PayPal still will not bill. A window already open is left
-  // alone so a redelivered event cannot keep pushing the deadline outwards.
-  const graceEndsAt =
-    match.sub.grace_period_ends_at ??
-    new Date(
-      now.getTime() + PAYMENT_GRACE_DAYS * 24 * 60 * 60 * 1000,
-    ).toISOString();
+  // PayPal has stopped retrying. The grace window normally opened at the
+  // first failed charge and is kept as it is; this only opens one if no
+  // failure was recorded (a missed webhook). The tenant keeps their plan until
+  // it closes; reconcile-subscriptions moves them to Free after it, and only
+  // if PayPal still will not bill.
+  const graceEndsAt = await graceDeadline(
+    admin,
+    match.sub.grace_period_ends_at,
+    now,
+  );
 
   const { error } = await admin
     .from("subscriptions")
@@ -815,16 +847,16 @@ export async function handleSubscriptionPaymentFailed(event: WebhookEvent) {
 
   // The PLAN STAYS ACTIVE, first failure and every retry alike.
   //
-  // PayPal retries a failed subscription charge on its own schedule before it
-  // gives up, and a customer with an expiring card is still a paying customer
-  // in the meantime. Cutting their access at the first failure punishes them
-  // for a problem PayPal has not finished trying to solve -- and every retry
-  // arrives as another PAYMENT.FAILED, so status would be rewritten on each
-  // one with nothing to distinguish the first from the fifth.
-  //
-  // Only the count moves here. Restriction starts at SUSPENDED, which is
-  // PayPal saying it has stopped trying.
+  // The first failure opens the grace period (_shared/payment-grace.ts): a
+  // fixed deadline the billing page shows straight away. PayPal keeps
+  // retrying inside it, and any successful charge closes it. Every retry
+  // arrives as another PAYMENT.FAILED; the deadline set by the first one is
+  // kept, so retries never extend it.
   const failureCount = (match.sub.payment_failure_count ?? 0) + 1;
+  const graceEndsAt = await graceDeadline(
+    admin,
+    match.sub.grace_period_ends_at,
+  );
 
   const { error } = await admin
     .from("subscriptions")
@@ -832,6 +864,8 @@ export async function handleSubscriptionPaymentFailed(event: WebhookEvent) {
       payment_failure_count: failureCount,
       last_payment_failure_at: nowIso,
       payment_status: "failed",
+      status: "past_due",
+      grace_period_ends_at: graceEndsAt,
       updated_at: nowIso,
     })
     .eq("tenant_id", match.sub.tenant_id);
@@ -845,6 +879,7 @@ export async function handleSubscriptionPaymentFailed(event: WebhookEvent) {
     paypal_subscription_id: paypalSubscriptionId,
     failure_count: failureCount,
     first_failure: failureCount === 1,
+    grace_period_ends_at: graceEndsAt,
   });
 }
 
@@ -1395,16 +1430,38 @@ export async function handlePaymentDenied(event: WebhookEvent) {
     return;
   }
 
-  // Mark the subscription past-due (existing behaviour) so the billing
-  // dashboard surfaces the collection problem immediately.
-  await admin
+  // A declined charge is a failed payment like PAYMENT.FAILED: it opens the
+  // grace period (or keeps the one already open) and takes nothing away. The
+  // count is left to PAYMENT.FAILED, which PayPal sends for the same charge.
+  const { data: deniedSub } = await admin
     .from("subscriptions")
-    .update({
-      status: "past_due",
+    .select("tenant_id, grace_period_ends_at, cancel_at_period_end")
+    .eq("paypal_subscription_id", payment.billing_agreement_id)
+    .maybeSingle();
 
-      updated_at: new Date().toISOString(),
-    })
-    .eq("paypal_subscription_id", payment.billing_agreement_id);
+  if (deniedSub && !deniedSub.cancel_at_period_end) {
+    const graceEndsAt = await graceDeadline(
+      admin,
+      deniedSub.grace_period_ends_at as string | null,
+    );
+
+    await admin
+      .from("subscriptions")
+      .update({
+        status: "past_due",
+        payment_status: "failed",
+        last_payment_failure_at: new Date().toISOString(),
+        grace_period_ends_at: graceEndsAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("tenant_id", deniedSub.tenant_id);
+
+    logBilling("payment.denied", {
+      tenant_id: deniedSub.tenant_id,
+      paypal_subscription_id: payment.billing_agreement_id,
+      grace_period_ends_at: graceEndsAt,
+    });
+  }
 
   // Also record the failed collection as a FAILED invoice (never PAID). A
   // denied payment may not carry full sale details, so the monthly plan rate

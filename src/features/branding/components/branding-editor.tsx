@@ -1831,7 +1831,7 @@ function TicketScreen({ palette }: { palette: BrandPalette }) {
       </div>
 
       <MiniInput palette={palette} className="mt-2.5">
-        Write your reply…
+        Write a reply or attach a file…
       </MiniInput>
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <span

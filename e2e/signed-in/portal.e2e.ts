@@ -30,7 +30,7 @@ test("a customer raises a request and replies to it", async ({ page }) => {
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
 
   const reply = `Follow-up ${subject}`;
-  const composer = page.getByPlaceholder("Write your reply…");
+  const composer = page.getByPlaceholder("Write a reply or attach a file…");
   await composer.fill(reply);
   await page.getByRole("button", { name: "Send reply" }).click();
   await expect(page.getByText(reply).first()).toBeVisible();
@@ -43,7 +43,7 @@ test("a customer raises a request and replies to it", async ({ page }) => {
 });
 
 test("a customer cannot read another customer's request", async ({ page }) => {
-  const otherId = await ticketIdOf("marcus.bell@baysidept.example");
+  const otherId = await ticketIdOf("marcus.bell@baysidept.com");
   expect(otherId).not.toBe(await ticketIdOf(ACCOUNTS.proCustomer));
 
   await page.goto(`/${PRO_TENANT}/portal/requests/${otherId}`);

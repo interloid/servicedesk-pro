@@ -13,9 +13,9 @@ import {
   BarChart3,
   ScrollText,
   Activity,
-  LogOut,
   PanelLeft,
   TerminalSquare,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -33,8 +33,6 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { useLogout } from "@/features/auth/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 interface PlatformNavItem {
@@ -50,13 +48,14 @@ interface PlatformNavGroup {
   items: PlatformNavItem[];
 }
 
-const PLATFORM_NAV: PlatformNavGroup[] = [
+export const PLATFORM_NAV: PlatformNavGroup[] = [
   {
     label: "Manage platform",
     items: [
       { label: "Overview", href: "/platform", icon: LayoutDashboard },
       { label: "Tenants", href: "/platform/tenants", icon: Building2 },
       { label: "Users", href: "/platform/users", icon: Users },
+      { label: "Roles", href: "/platform/roles", icon: ShieldCheck },
     ],
   },
   {
@@ -120,7 +119,7 @@ const NAV_BUTTON_CLASS = cn(
   "group-data-[collapsible=icon]:p-0",
 );
 
-function initialsOf(name: string): string {
+export function initialsOf(name: string): string {
   return (
     name
       .split(/[\s@.]+/)
@@ -131,15 +130,8 @@ function initialsOf(name: string): string {
   );
 }
 
-export function PlatformSidebar({
-  adminName,
-  adminEmail,
-}: {
-  adminName: string;
-  adminEmail: string;
-}) {
+export function PlatformSidebar({ adminName }: { adminName: string }) {
   const pathname = usePathname();
-  const { logout, isPending } = useLogout({ redirectTo: "/login" });
   const { platformName } = usePlatformBrand();
   const { isMobile, setOpenMobile } = useSidebar();
 
@@ -262,21 +254,9 @@ export function PlatformSidebar({
               {adminName}
             </span>
             <span className="truncate text-xs text-muted-foreground">
-              {adminEmail}
+              Platform Admin
             </span>
           </div>
-
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Sign out"
-            title="Sign out"
-            disabled={isPending}
-            onClick={() => void logout()}
-            className="shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
-          >
-            <LogOut className="size-4" />
-          </Button>
         </div>
       </SidebarFooter>
     </Sidebar>

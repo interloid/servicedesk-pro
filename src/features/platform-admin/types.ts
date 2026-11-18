@@ -22,6 +22,11 @@ export type PlatformTenant = {
   blockReason: string | null;
   blockSource: "admin" | "payment" | null;
   blockedAt: string | null;
+  /** Soft-deleted: locked, hidden from the default list, restorable. */
+  deletedAt: string | null;
+  deleteReason: string | null;
+  /** End of a trial the platform may extend (trialing, no PayPal agreement). */
+  trialEndsAt: string | null;
 };
 
 export type UserStatus = "active" | "invited" | "disabled";
@@ -74,8 +79,12 @@ export type PlatformSettings = {
   supportEmail: string;
   allowSignups: boolean;
   maintenanceMode: boolean;
-  blockOnPaymentFailure: boolean;
+  /** Days a workspace keeps its paid plan after its first failed payment. */
+  paymentGraceDays: number;
 };
+
+export const PAYMENT_GRACE_DAYS_MIN = 1;
+export const PAYMENT_GRACE_DAYS_MAX = 30;
 
 /* ── Subscriptions ─────────────────────────────────────────────────────── */
 
@@ -90,8 +99,25 @@ export type PlatformInvoice = {
   date: string;
 };
 
+/** One invoice in the console's per-workspace list (all of them, not the summary's 5). */
+export type PlatformTenantInvoice = {
+  id: string;
+  number: string;
+  type: "recurring" | "one_time";
+  plan: string;
+  amount: number;
+  currency: string;
+  status: string;
+  periodStart: string;
+  periodEnd: string;
+  date: string;
+  /** False when no PDF was stored, e.g. an unpaid or failed charge. */
+  hasPdf: boolean;
+};
+
 export type PlatformSubscription = {
   id: string;
+  tenantId: string;
   tenantName: string;
   tenantSlug: string;
   initials: string;
@@ -384,3 +410,6 @@ export type PlatformAnalytics = {
     last_ticket_at: string | null;
   }>;
 };
+
+/** What the console offers when extending a workspace's trial. */
+export const TRIAL_EXTENSION_DAYS = [7, 14, 30] as const;

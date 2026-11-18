@@ -5,21 +5,21 @@ import { expect, type Page } from "@playwright/test";
  * juniper's admin is also the platform admin: see PLATFORM_ADMIN_EMAILS in
  * playwright.config.ts.
  */
-export const PRO_TENANT = "seed-cedar";
-export const FREE_TENANT = "seed-bluepeak";
-export const BUSINESS_TENANT = "seed-juniper";
+export const PRO_TENANT = "cedar";
+export const FREE_TENANT = "bluepeak";
+export const BUSINESS_TENANT = "juniper";
 
 export const ACCOUNTS = {
-  proAdmin: "admin@cedar.seed.test",
-  proAgent: "agent@cedar.seed.test",
-  proBilling: "billing@cedar.seed.test",
-  proCustomer: "dana.whitfield@northfieldclinic.example",
-  freeAdmin: "admin@bluepeak.seed.test",
-  businessAdmin: "admin@juniper.seed.test",
-  businessManager: "manager@juniper.seed.test",
-  businessAgent: "agent@juniper.seed.test",
-  businessBilling: "billing@juniper.seed.test",
-  businessCustomer: "jasmine.patel@gulfcoastfab.example",
+  proAdmin: "nicole.sanders@cedarhealthgroup.com",
+  proAgent: "stephanie.mitchell@cedarhealthgroup.com",
+  proBilling: "ryan.nguyen@cedarhealthgroup.com",
+  proCustomer: "dana.whitfield@northfieldclinic.com",
+  freeAdmin: "christopher.perry@bluepeaksoftware.com",
+  businessAdmin: "david.russell@juniperridgeenergy.com",
+  businessManager: "emily.johnson@juniperridgeenergy.com",
+  businessAgent: "james.rodriguez@juniperridgeenergy.com",
+  businessBilling: "ashley.washington@juniperridgeenergy.com",
+  businessCustomer: "jasmine.patel@gulfcoastfab.com",
 } as const;
 
 export type AccountName = keyof typeof ACCOUNTS;

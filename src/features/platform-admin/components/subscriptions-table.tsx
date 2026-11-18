@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Eye } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Download, Eye, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,10 +17,12 @@ import {
 } from "@/features/team/components/modal-buttons";
 import { cn } from "@/lib/utils";
 
+import { listTenantInvoicesAction } from "../actions/platform-invoices.actions";
 import { formatCurrency, formatDate } from "../format";
 import {
   UNLIMITED_SEATS,
   type PlatformSubscription,
+  type PlatformTenantInvoice,
   type SubscriptionStage,
 } from "../types";
 import {
@@ -40,7 +42,7 @@ type Filter =
 const FILTERS: Array<{ label: string; value: Filter }> = [
   { label: "All", value: "all" },
   { label: "Active", value: "active" },
-  { label: "Trialing", value: "trialing" },
+  { label: "In trial", value: "trialing" },
   { label: "Past due", value: "past_due" },
   { label: "Cancelling", value: "cancelling" },
   { label: "Cancelled", value: "ended" },
@@ -48,7 +50,7 @@ const FILTERS: Array<{ label: string; value: Filter }> = [
 
 const STAGES: Record<SubscriptionStage, { label: string; tone: BadgeTone }> = {
   active: { label: "Active", tone: "green" },
-  trialing: { label: "Trialing", tone: "blue" },
+  trialing: { label: "In trial", tone: "blue" },
   past_due: { label: "Past due", tone: "amber" },
   cancelling: { label: "Cancelling", tone: "amber" },
   cancelled: { label: "Cancelled", tone: "red" },
@@ -79,6 +81,146 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+const INVOICE_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
+  paid: { label: "Paid", tone: "green" },
+  pending: { label: "Unpaid", tone: "blue" },
+  failed: { label: "Failed", tone: "red" },
+  refunded: { label: "Refunded", tone: "muted" },
+};
+
+function invoiceAmount(invoice: PlatformTenantInvoice): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: invoice.currency,
+    minimumFractionDigits: 2,
+  }).format(invoice.amount);
+}
+
+/**
+ * Every invoice of the workspace, loaded when the popup opens, each with its
+ * PDF. The download goes through /platform/billing/invoices/[id], which checks
+ * the console gate and hands out a one-minute signed link.
+ */
+function TenantInvoices({ tenantId }: { tenantId: string }) {
+  const [state, setState] = useState<
+    | { kind: "loading" }
+    | { kind: "error"; message: string }
+    | { kind: "ready"; invoices: PlatformTenantInvoice[] }
+  >({ kind: "loading" });
+
+  useEffect(() => {
+    let live = true;
+
+    listTenantInvoicesAction({ tenantId })
+      .then((result) => {
+        if (!live) return;
+        setState(
+          result.success
+            ? { kind: "ready", invoices: result.invoices }
+            : { kind: "error", message: result.message },
+        );
+      })
+      .catch(() => {
+        if (live) {
+          setState({
+            kind: "error",
+            message: "Couldn't load invoices. Check your connection.",
+          });
+        }
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [tenantId]);
+
+  return (
+    <section className="flex min-w-0 flex-col gap-2 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold text-foreground">
+        Invoices
+        {state.kind === "ready" && state.invoices.length > 0 && (
+          <span className="ml-1.5 font-normal text-muted-foreground">
+            {state.invoices.length}
+          </span>
+        )}
+      </h3>
+
+      {state.kind === "loading" && (
+        <p className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Loading invoices…
+        </p>
+      )}
+
+      {state.kind === "error" && (
+        <p className="py-1.5 text-sm text-destructive">{state.message}</p>
+      )}
+
+      {state.kind === "ready" && state.invoices.length === 0 && (
+        <p className="py-1.5 text-sm text-muted-foreground">No invoices yet.</p>
+      )}
+
+      {state.kind === "ready" && state.invoices.length > 0 && (
+        <ul className="max-h-72 divide-y divide-muted overflow-y-auto rounded-lg border border-border">
+          {state.invoices.map((invoice) => {
+            const status = INVOICE_STATUS[invoice.status] ?? {
+              label: invoice.status,
+              tone: "muted" as const,
+            };
+
+            return (
+              <li
+                key={invoice.id}
+                className="flex items-center gap-3 px-3 py-2.5 text-sm"
+              >
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-medium text-foreground">
+                    {invoice.number}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {formatDate(invoice.date)} · {invoice.plan} ·{" "}
+                    {invoice.type === "one_time" ? "One-time" : "Monthly"}
+                  </span>
+                </div>
+                <span className="shrink-0 tabular-nums text-foreground">
+                  {invoiceAmount(invoice)}
+                </span>
+                <ToneBadge tone={status.tone} className="hidden sm:inline-flex">
+                  {status.label}
+                </ToneBadge>
+                {invoice.hasPdf ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="icon"
+                    className={PLATFORM_ICON_BUTTON}
+                  >
+                    <a
+                      href={`/platform/billing/invoices/${invoice.id}`}
+                      download
+                      aria-label={`Download ${invoice.number} PDF`}
+                      title="Download PDF"
+                    >
+                      <Download className="size-4" aria-hidden />
+                    </a>
+                  </Button>
+                ) : (
+                  <span
+                    className="inline-flex h-9 w-14 shrink-0 items-center justify-center text-xs whitespace-nowrap text-muted-foreground"
+                    title="No PDF was stored for this invoice"
+                  >
+                    No PDF
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function SubscriptionDetails({ row }: { row: PlatformSubscription }) {
   const showCancellation =
     row.stage === "cancelled" ||
@@ -97,44 +239,49 @@ function SubscriptionDetails({ row }: { row: PlatformSubscription }) {
         </DialogDescription>
       </DialogHeader>
 
-      <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-4">
-          <section className="divide-y divide-muted">
-            <Detail label="Status" value={<StageBadge stage={row.stage} />} />
-            <Detail
-              label="Owner"
-              value={
-                row.ownerEmail ? `${row.owner} (${row.ownerEmail})` : row.owner
-              }
-            />
-            <Detail
-              label="Seats"
-              value={row.seats >= UNLIMITED_SEATS ? "Unlimited" : row.seats}
-            />
-            <Detail label="MRR" value={formatCurrency(row.mrr)} />
-            <Detail
-              label="Total paid"
-              value={formatCurrency(row.lifetimePaid)}
-            />
-            <Detail label="Started" value={formatDate(row.startedAt)} />
-            <Detail
-              label="Current period ends"
-              value={formatDate(row.periodEnd)}
-            />
-            <Detail label="PayPal subscription" value={row.paypalId ?? "—"} />
-            <Detail label="PayPal status" value={row.paypalStatus ?? "—"} />
-            {row.nextPlan && (
-              <Detail
-                label="Scheduled change"
-                value={`${row.nextPlan} on ${formatDate(row.nextPlanAt)}`}
-              />
-            )}
-          </section>
-        </div>
+      {/* Two columns of facts, so the popup's width is used even when there
+          is no cancellation or payment trouble to show beside them. */}
+      <div className="grid min-w-0 grid-cols-1 gap-x-8 md:grid-cols-2">
+        <section className="min-w-0 divide-y divide-muted">
+          <Detail label="Status" value={<StageBadge stage={row.stage} />} />
+          <Detail
+            label="Owner"
+            value={
+              row.ownerEmail ? `${row.owner} (${row.ownerEmail})` : row.owner
+            }
+          />
+          <Detail
+            label="Seats"
+            value={row.seats >= UNLIMITED_SEATS ? "Unlimited" : row.seats}
+          />
+          <Detail label="MRR" value={formatCurrency(row.mrr)} />
+          <Detail label="Total paid" value={formatCurrency(row.lifetimePaid)} />
+        </section>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        <section className="min-w-0 divide-y divide-muted border-t border-muted md:border-t-0">
+          <Detail label="Started" value={formatDate(row.startedAt)} />
+          <Detail
+            label="Current period ends"
+            value={formatDate(row.periodEnd)}
+          />
+          <Detail label="PayPal subscription" value={row.paypalId ?? "—"} />
+          <Detail label="PayPal status" value={row.paypalStatus ?? "—"} />
+          {row.nextPlan && (
+            <Detail
+              label="Scheduled change"
+              value={`${row.nextPlan} on ${formatDate(row.nextPlanAt)}`}
+            />
+          )}
+        </section>
+      </div>
+
+      {(showCancellation || paymentTrouble) && (
+        <div className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-4 border-t border-border pt-4 md:grid-cols-2">
           {showCancellation && (
-            <section>
+            // Alone, a section takes the full width rather than half of it.
+            <section
+              className={cn("min-w-0", !paymentTrouble && "md:col-span-2")}
+            >
               <h3 className="text-sm font-semibold text-foreground">
                 Cancellation
               </h3>
@@ -168,7 +315,9 @@ function SubscriptionDetails({ row }: { row: PlatformSubscription }) {
           )}
 
           {paymentTrouble && (
-            <section>
+            <section
+              className={cn("min-w-0", !showCancellation && "md:col-span-2")}
+            >
               <h3 className="text-sm font-semibold text-foreground">
                 Payment failures
               </h3>
@@ -185,29 +334,10 @@ function SubscriptionDetails({ row }: { row: PlatformSubscription }) {
               </div>
             </section>
           )}
-
-          <section>
-            <h3 className="text-sm font-semibold text-foreground">
-              Recent invoices
-            </h3>
-            {row.invoices.length === 0 ? (
-              <p className="py-1.5 text-sm text-muted-foreground">
-                No invoices yet.
-              </p>
-            ) : (
-              <div className="divide-y divide-muted">
-                {row.invoices.map((invoice, index) => (
-                  <Detail
-                    key={`${invoice.number}-${index}`}
-                    label={`${invoice.number} · ${formatDate(invoice.date)}`}
-                    value={`${formatCurrency(invoice.amount)} · ${invoice.status}`}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
         </div>
-      </div>
+      )}
+
+      <TenantInvoices tenantId={row.tenantId} />
     </>
   );
 }

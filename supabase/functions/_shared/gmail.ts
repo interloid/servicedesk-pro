@@ -9,6 +9,12 @@
 //
 // The access token is cached in module scope (isolates are reused across
 // requests) and refreshed shortly before it expires.
+//
+// Demo data uses realistic company domains (./demo-email-domains.ts); mail to
+// them is skipped here, in every environment, so the demo never emails a real
+// company that happens to own one.
+
+import { isDemoEmail } from "./demo-email-domains.ts";
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")?.trim();
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")?.trim();
@@ -331,11 +337,21 @@ async function gmailError(response: Response): Promise<Error> {
 }
 
 export async function sendEmail(message: EmailMessage): Promise<void> {
-  const config = getGmailConfig();
-
   if (!EMAIL_ADDRESS.test(message.to)) {
     throw new PermanentEmailError("Invalid recipient address.");
   }
+
+  // Treated as delivered, so the caller marks the job sent instead of
+  // retrying it. Checked before the Gmail config, so a demo-only project
+  // without mail credentials doesn't fail on these either.
+  if (isDemoEmail(message.to)) {
+    console.log(
+      `[gmail] demo recipient ${message.to}: not sent ("${message.subject}")`,
+    );
+    return;
+  }
+
+  const config = getGmailConfig();
 
   const raw = bytesToBase64(
     new TextEncoder().encode(buildMimeMessage(config.from, message)),
