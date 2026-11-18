@@ -3,7 +3,10 @@ import "server-only";
 import { cache } from "react";
 import { getTenantIdBySlug } from "@/features/tenancy/services/tenant-resolver";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  createAuditedAdminClient,
+  createSupabaseAdminClient,
+} from "@/lib/supabase/admin";
 import { statStoredObject } from "@/lib/supabase/storage-object";
 import type { Database } from "@/lib/supabase/database.types";
 import {
@@ -1552,7 +1555,10 @@ export async function recordStagedAttachments(
 ): Promise<TicketAttachment[]> {
   if (staged.files.length === 0) return [];
 
-  const { data, error } = await createSupabaseAdminClient()
+  // Audited: the "Uploaded ..." rows name the staff member, not "System".
+  const { data, error } = await (
+    await createAuditedAdminClient(staged.uploadedBy)
+  )
     .from("attachments")
     .insert(
       staged.files.map((f) => ({

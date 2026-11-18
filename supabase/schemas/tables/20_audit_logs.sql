@@ -30,18 +30,25 @@ create table if not exists public.audit_logs
     ip inet,
 
     -- Page section, filled from entity/action by audit_logs_fill().
+    -- 'general' is only the default (fill works the module out); sign-ins
+    -- recorded before 20261118120000 keep 'authentication' and are hidden.
     module text
         not null
         default 'general'
         constraint chk_audit_module check (
             module in (
-                'authentication',
-                'security',
-                'team',
+                'tickets',
+                'conversations',
+                'attachments',
+                'users',
+                'roles',
                 'customers',
                 'sla',
+                'tenant',
                 'billing',
-                'settings',
+                'platform',
+                'support',
+                'authentication',
                 'general'
             )
         ),

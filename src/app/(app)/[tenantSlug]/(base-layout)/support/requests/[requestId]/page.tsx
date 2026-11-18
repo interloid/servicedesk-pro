@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 
+import { BackLink } from "@/components/shared/back-link";
 import { SupportRequestView } from "@/features/support/components/support-request-view";
 import {
   getMySupportRequest,
@@ -32,13 +31,11 @@ export default async function SupportRequestPage({
     <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8">
       <div className="mx-auto flex w-full flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <Link
+          <BackLink
             href={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.REQUESTS)}
-            className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
-            <ChevronLeft className="size-4" aria-hidden />
             My support requests
-          </Link>
+          </BackLink>
           <h1 className="flex flex-wrap items-baseline gap-x-2 text-2xl font-bold tracking-tight">
             <span className="text-muted-foreground tabular-nums">
               {request.number}

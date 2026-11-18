@@ -89,7 +89,11 @@ export async function setPlatformSupportStatusAction(
   }
 
   try {
-    await setPlatformSupportStatus(parsed.data.requestId, parsed.data.status);
+    await setPlatformSupportStatus(
+      admin,
+      parsed.data.requestId,
+      parsed.data.status,
+    );
   } catch (error) {
     console.error("[platform] support status failed:", error);
     return {

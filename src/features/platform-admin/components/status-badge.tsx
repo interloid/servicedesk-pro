@@ -53,10 +53,18 @@ const USER_STATUS_TONES: Record<UserStatus, BadgeTone> = {
   disabled: "muted",
 };
 
+const TENANT_STATUS_LABELS: Record<TenantStatus, string> = {
+  active: "Active",
+  trialing: "In trial",
+  past_due: "Past due",
+  suspended: "Blocked",
+  cancelled: "Cancelled",
+};
+
 export function TenantStatusBadge({ status }: { status: TenantStatus }) {
   return (
-    <ToneBadge tone={TENANT_STATUS_TONES[status]} className="capitalize">
-      {status === "suspended" ? "Blocked" : status.replace("_", " ")}
+    <ToneBadge tone={TENANT_STATUS_TONES[status]}>
+      {TENANT_STATUS_LABELS[status]}
     </ToneBadge>
   );
 }

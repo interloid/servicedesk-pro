@@ -59,13 +59,22 @@ begin
         'ticket',
         new.id,
         jsonb_build_object(
+            'summary', format(
+                'Changed priority of ticket #%s from %s to %s',
+                new.number,
+                initcap(old.priority::text),
+                initcap(new.priority::text)
+            ),
+            'changes', jsonb_build_object('priority', jsonb_build_object(
+                'from', initcap(old.priority::text),
+                'to', initcap(new.priority::text)
+            )),
             'field', 'priority',
             'ticket_number', new.number,
             'from', old.priority,
             'to', new.priority,
             'direction', case when new.priority > old.priority then 'raised' else 'lowered' end,
             'reason', v_reason,
-            -- Clock types whose original deadline was kept (due soon).
             'sla_kept', coalesce(v_kept::jsonb, '[]'::jsonb)
         )
     );

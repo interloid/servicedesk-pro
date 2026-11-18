@@ -54,7 +54,6 @@ async function recordPlatformAudit(
   entry: {
     tenantId: string;
     action: "delete" | "update";
-    module: "settings" | "billing";
     summary: string;
     meta?: Record<string, Json>;
   },
@@ -72,7 +71,8 @@ async function recordPlatformAudit(
     action: entry.action,
     entity: "workspace",
     entity_id: entry.tenantId,
-    module: entry.module,
+    // Done from the platform console: filed under Platform admin.
+    module: "platform",
     meta_json: {
       summary: entry.summary,
       platform_admin_email: actor.email,
@@ -165,7 +165,6 @@ export async function softDeleteWorkspace(
   await recordPlatformAudit(actor, {
     tenantId: tenant.id,
     action: "delete",
-    module: "settings",
     summary: `Platform admin (${actor.email}) deleted the workspace`,
     meta: { reason: input.reason, soft_delete: true },
   });
@@ -206,7 +205,6 @@ export async function restoreWorkspace(
   await recordPlatformAudit(actor, {
     tenantId: tenant.id,
     action: "update",
-    module: "settings",
     summary: `Platform admin (${actor.email}) restored the deleted workspace; it stays blocked until activated`,
   });
 
@@ -237,7 +235,6 @@ export async function extendWorkspaceTrial(
   await recordPlatformAudit(actor, {
     tenantId: tenant.id,
     action: "update",
-    module: "billing",
     summary: `Platform admin (${actor.email}) extended the trial by ${input.days} day${input.days === 1 ? "" : "s"}`,
     meta: { days: input.days, trial_ends_at: endsAt },
   });

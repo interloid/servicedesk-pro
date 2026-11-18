@@ -1,6 +1,9 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  createAuditedAdminClient,
+  createSupabaseAdminClient,
+} from "@/lib/supabase/admin";
 import { serverNow } from "@/lib/server-now";
 
 import { getActorOrNull } from "@/features/team/services/team.service";
@@ -121,7 +124,10 @@ export async function createSupportRequest(
 ): Promise<{ id: string; number: string }> {
   const actor = await requireSupportActor();
   const now = await serverNow();
-  const { data, error } = await createSupabaseAdminClient()
+  // Audited: the trigger's rows name this admin, not "System".
+  const { data, error } = await (
+    await createAuditedAdminClient(actor.userId)
+  )
     .from("support_requests")
     .insert({
       tenant_id: actor.tenantId,
@@ -160,7 +166,7 @@ export async function replyAsTenant(
     );
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = await createAuditedAdminClient(actor.userId);
   const { error } = await admin.from("support_request_messages").insert({
     request_id: request.id,
     author_type: "tenant",
@@ -203,7 +209,9 @@ export async function setWorkspaceAccess(
   }
 
   const now = await serverNow();
-  const { error } = await createSupabaseAdminClient()
+  const { error } = await (
+    await createAuditedAdminClient(actor.userId)
+  )
     .from("support_requests")
     .update(
       allow
@@ -225,11 +233,14 @@ export async function setWorkspaceAccess(
 
 /** The tenant closes their own request; closing also ends workspace access. */
 export async function closeMySupportRequest(requestId: string): Promise<void> {
+  const actor = await requireSupportActor();
   const request = await readOwnRequest(requestId);
 
   if (request.status === "closed") return;
 
-  const { error } = await createSupabaseAdminClient()
+  const { error } = await (
+    await createAuditedAdminClient(actor.userId)
+  )
     .from("support_requests")
     .update({
       status: "closed",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { isChatbotEnabled } from "@/features/chatbot/providers";
 import { WorkspaceStatusWatcher } from "@/features/platform-admin/components/workspace-status-watcher";
 import { PortalShell } from "@/features/portal/components/portal-shell";
 import { portalFaviconDataUrl } from "@/features/portal/portal";
@@ -76,6 +77,7 @@ export default async function PortalLayout({ children, params }: LayoutProps) {
       tenant={tenant}
       customer={identity?.customer}
       supportHours={supportHours}
+      chatEnabled={identity !== null && isChatbotEnabled()}
     >
       <WorkspaceStatusWatcher slug={tenantSlug} />
       {children}

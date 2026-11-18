@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
+  ArrowLeft,
   ChevronRight,
   CircleCheck,
   Loader2,
@@ -177,9 +177,11 @@ function RequestDetail({
     <button
       type="button"
       onClick={onBack}
-      className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+      // BackLink's look: this one switches views inside the dialog rather
+      // than navigating, so it stays a button.
+      className="inline-flex w-fit items-center gap-1.5 rounded-md text-sm font-semibold text-brand-ink hover:text-brand-ink focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
     >
-      <ChevronLeft className="size-4" aria-hidden />
+      <ArrowLeft className="size-4" aria-hidden />
       All support requests
     </button>
   );
@@ -284,9 +286,11 @@ function RequestDetail({
         </div>
       </div>
 
-      <div className="max-h-[45vh] overflow-y-auto pr-1">
-        <SupportThread request={request} viewer="platform" />
-      </div>
+      <SupportThread
+        request={request}
+        viewer="platform"
+        className="max-h-[40vh] sm:max-h-[45vh]"
+      />
 
       <SupportReplyBox
         requestId={request.id}

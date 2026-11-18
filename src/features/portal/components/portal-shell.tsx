@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { BrandTheme } from "@/components/shared/layout/brand-theme";
+import { PortalChatWidget } from "@/features/chatbot/components/portal-chat-widget";
 import { PORTAL_ROUTES, portalPath } from "@/features/portal/portal";
 import type {
   PortalCustomer,
@@ -25,11 +26,14 @@ export function PortalShell({
   tenant,
   customer,
   supportHours,
+  chatEnabled = false,
   children,
 }: {
   tenant: PortalTenant;
   customer?: PortalCustomer | null;
   supportHours: PortalSupportHours;
+  /** Show the support assistant. Signed-in customers only. */
+  chatEnabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -40,7 +44,12 @@ export function PortalShell({
     // -- below it the page scrolls as any other would.
     // bg-background, not a fixed tint: BrandTheme points --background at the
     // tenant's background colour, which a hard-coded shade never showed.
-    <div className="group/portal flex min-h-dvh flex-col bg-background has-data-portal-fill:h-dvh has-data-portal-fill:min-h-136">
+    // data-portal-root: the page scrollbar is styled for the portal in
+    // globals.css (a full-width, visible bar instead of the app's thin one).
+    <div
+      data-portal-root
+      className="group/portal flex min-h-dvh flex-col bg-background has-data-portal-fill:h-dvh has-data-portal-fill:min-h-136"
+    >
       <BrandTheme
         primary={tenant.primaryColor}
         text={tenant.textColor}
@@ -54,11 +63,21 @@ export function PortalShell({
           header and the footer. Every page renders a single child here, so
           column flex is otherwise indistinguishable from block flow. Don't drop
           it without checking those three screens still centre. */}
-      <main className="flex flex-1 flex-col px-4 py-8 sm:px-5 md:px-6 md:py-12 group-has-data-portal-fill/portal:min-h-0 group-has-data-portal-fill/portal:py-4 md:group-has-data-portal-fill/portal:py-6">
+      {/* h-full + overflow-auto: main is its own scroll container; pb-2.5!
+          (10px) at every breakpoint, over the py-* values above. */}
+      <main className="flex h-full flex-1 flex-col overflow-auto px-4 py-8 pb-2.5! sm:px-5 md:px-6 md:py-12 group-has-data-portal-fill/portal:min-h-0 group-has-data-portal-fill/portal:py-4 md:group-has-data-portal-fill/portal:py-6">
         {children}
       </main>
 
       <PortalFooter tenant={tenant} supportHours={supportHours} />
+
+      {chatEnabled && customer ? (
+        <PortalChatWidget
+          slug={tenant.slug}
+          customerId={customer.id}
+          customerName={customer.fullName}
+        />
+      ) : null}
     </div>
   );
 }

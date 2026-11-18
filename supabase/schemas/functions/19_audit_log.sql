@@ -20,16 +20,21 @@ language sql
 immutable
 as $$
     select case
-        when p_action in ('login', 'logout') then 'authentication'
-        when p_action = 'login_failed' then 'security'
-        when p_entity in ('tenant_ownership', 'password', 'audit_log') then 'security'
+        when p_action in ('login', 'logout', 'login_failed') then 'authentication'
+        when p_action = 'support_access' then 'platform'
+        when p_entity in ('workspace', 'impersonation') then 'platform'
+        when p_entity = 'ticket' then 'tickets'
+        when p_entity = 'ticket_message' then 'conversations'
+        when p_entity = 'attachment' then 'attachments'
         when p_entity = 'membership' and p_meta ->> 'role' = 'customer' then 'customers'
-        when p_entity = 'membership' then 'team'
         when p_entity = 'customer' then 'customers'
-        when p_entity in ('sla_policy', 'business_hours') then 'sla'
+        when p_action = 'role_change' then 'roles'
+        when p_entity in ('role', 'tenant_ownership') then 'roles'
+        when p_entity in ('membership', 'user', 'password', 'notification_prefs') then 'users'
+        when p_entity in ('sla_policy', 'business_hours', 'sla_event') then 'sla'
         when p_entity in ('subscription', 'invoice', 'payment_method') then 'billing'
-        when p_entity = 'tenant' then 'settings'
-        else 'general'
+        when p_entity = 'support_request' then 'support'
+        else 'tenant'
     end;
 $$;
 
@@ -222,7 +227,7 @@ begin
     -- audit_record() and the other SECURITY DEFINER writers it is the owner.
     -- A client-sent module is never kept.
     if new.module is null
-       or new.module = 'general'
+       or new.module in ('general', 'authentication')
        or current_user in ('authenticated', 'anon') then
         new.module := public.audit_module_for(
             new.entity,
@@ -678,6 +683,15 @@ after insert or update or delete on public.business_hours
 for each row
 execute function public.audit_business_hours();
 
+-- Billing status names (migration 20261118130000).
+create or replace function public.audit_billing_status_label(p_status text)
+returns text
+language sql
+immutable
+as $$
+    select initcap(replace(coalesce(p_status, 'none'), '_', ' '));
+$$;
+
 -- Subscriptions -----------------------------------------------------------
 
 create or replace function public.audit_subscriptions()
@@ -798,6 +812,68 @@ begin
         );
     end if;
 
+    -- Subscription status: the payment outcome a workspace sees.
+    if new.status is distinct from old.status then
+        perform public.audit_record(
+            new.tenant_id,
+            'update',
+            'subscription',
+            new.id,
+            jsonb_strip_nulls(jsonb_build_object(
+                'summary',
+                case
+                    when old.status = 'past_due' and new.status = 'active'
+                        then 'Payment recovered: the subscription is active again'
+                    when new.status = 'past_due'
+                        then 'Payment failed: the subscription is past due'
+                    when old.status = 'trialing' and new.status = 'active'
+                        then 'Trial ended: the subscription is now paid'
+                    when new.status = 'cancelled'
+                        then 'Subscription cancelled'
+                    when new.status = 'expired'
+                        then 'Subscription expired'
+                    else format(
+                        'Subscription status changed from %s to %s',
+                        public.audit_billing_status_label(old.status::text),
+                        public.audit_billing_status_label(new.status::text)
+                    )
+                end,
+                'changes', jsonb_build_object('status', jsonb_build_object(
+                    'from', public.audit_billing_status_label(old.status::text),
+                    'to', public.audit_billing_status_label(new.status::text)
+                )),
+                'grace_period_ends_at', new.grace_period_ends_at,
+                'related', v_related
+            ))
+        );
+    -- PayPal's collection state on its own (the status row above covers it
+    -- when both move together).
+    elsif new.payment_status is distinct from old.payment_status
+          and new.payment_status is not null then
+        perform public.audit_record(
+            new.tenant_id,
+            'update',
+            'subscription',
+            new.id,
+            jsonb_build_object(
+                'summary',
+                case new.payment_status
+                    when 'paid' then 'Payment received'
+                    when 'failed' then 'Payment failed'
+                    else format(
+                        'Payment status changed to %s',
+                        public.audit_billing_status_label(new.payment_status)
+                    )
+                end,
+                'changes', jsonb_build_object('payment_status', jsonb_build_object(
+                    'from', public.audit_billing_status_label(old.payment_status),
+                    'to', public.audit_billing_status_label(new.payment_status)
+                )),
+                'related', v_related
+            )
+        );
+    end if;
+
     perform set_config('app.audit_fallback_actor', '', true);
     return null;
 end;
@@ -850,9 +926,11 @@ revoke execute on function public.subscriptions_billing_actor() from public, ano
 
 -- Payments ---------------------------------------------------------------
 
--- One row per invoice the moment it is paid. The person is whoever is acting
--- (an upgrade paid in the app), else the subscription's billing_actor_id: the
--- Tenant Admin or Billing Admin whose agreement a renewal is charged to.
+-- One row when an invoice is generated, and one each time it is paid, fails
+-- or is refunded (an invoice created already paid is a single "Paid" row).
+-- The person is whoever is acting (an upgrade paid in the app), else the
+-- subscription's billing_actor_id: the Tenant Admin or Billing Admin whose
+-- agreement a renewal is charged to.
 create or replace function public.audit_invoices()
 returns trigger
 language plpgsql
@@ -861,10 +939,58 @@ set search_path = public
 as $$
 declare
     v_actor uuid;
+    v_ref text;
+    v_amount text;
+    v_summary text;
+    v_action public.audit_action;
 begin
-    if new.status is distinct from 'paid'
-       or (tg_op = 'UPDATE' and old.status = 'paid') then
+    if tg_op = 'UPDATE' and new.status is not distinct from old.status then
         return null;
+    end if;
+
+    v_ref := case
+        when nullif(new.invoice_number, '') is not null
+            then format('invoice %s', new.invoice_number)
+        else 'an invoice'
+    end;
+    v_amount := format(
+        '%s %s',
+        new.currency,
+        to_char(coalesce(new.amount_paid, new.amount), 'FM999999990.00')
+    );
+
+    if new.status = 'paid' then
+        v_action := 'create';
+        v_summary := format(
+            'Paid %s for the %s plan%s',
+            v_amount,
+            coalesce(nullif(new.plan_name, ''), 'current'),
+            case
+                when nullif(new.invoice_number, '') is not null
+                then format(' (%s)', new.invoice_number)
+                else ''
+            end
+        );
+    elsif tg_op = 'INSERT' then
+        v_action := 'create';
+        v_summary := format(
+            'Generated %s for %s (%s plan)',
+            v_ref,
+            v_amount,
+            coalesce(nullif(new.plan_name, ''), 'current')
+        );
+    else
+        v_action := 'update';
+        v_summary := case new.status
+            when 'failed' then format('Payment failed for %s (%s)', v_ref, v_amount)
+            when 'refunded' then format('Refunded %s (%s)', v_ref, v_amount)
+            else format(
+                'Changed %s from %s to %s',
+                v_ref,
+                public.audit_billing_status_label(old.status::text),
+                public.audit_billing_status_label(new.status::text)
+            )
+        end;
     end if;
 
     select s.billing_actor_id into v_actor
@@ -881,26 +1007,23 @@ begin
 
     perform public.audit_record(
         new.tenant_id,
-        'create',
+        v_action,
         'invoice',
         new.id,
         jsonb_strip_nulls(jsonb_build_object(
-            'summary', format(
-                'Paid %s %s for the %s plan%s',
-                new.currency,
-                to_char(coalesce(new.amount_paid, new.amount), 'FM999999990.00'),
-                coalesce(nullif(new.plan_name, ''), 'current'),
-                case
-                    when nullif(new.invoice_number, '') is not null
-                    then format(' (%s)', new.invoice_number)
-                    else ''
-                end
-            ),
+            'summary', v_summary,
             'amount', coalesce(new.amount_paid, new.amount),
             'currency', new.currency,
             'invoice_number', new.invoice_number,
             'invoice_type', new.invoice_type,
             'payment_method', new.payment_method,
+            'status', new.status,
+            'changes', case when tg_op = 'UPDATE' then jsonb_build_object(
+                'status', jsonb_build_object(
+                    'from', public.audit_billing_status_label(old.status::text),
+                    'to', public.audit_billing_status_label(new.status::text)
+                )
+            ) end,
             'related', jsonb_strip_nulls(jsonb_build_object(
                 'paypal_subscription_id', new.paypal_subscription_id
             ))
@@ -921,7 +1044,7 @@ execute function public.audit_invoices();
 
 revoke execute on function public.audit_invoices() from public, anon, authenticated;
 
--- Workspace settings ------------------------------------------------------
+-- Workspace (tenant) ------------------------------------------------------
 
 create or replace function public.audit_tenants()
 returns trigger
@@ -1008,6 +1131,587 @@ after update on public.tenants
 for each row
 execute function public.audit_tenants();
 
+-- Activity (migration 20261118120000) -----------------------------------
+
+-- "Jane Doe", else the email, else a fallback.
+create or replace function public.audit_user_label(p_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select coalesce(
+        (
+            select coalesce(nullif(btrim(u.full_name), ''), u.email::text)
+            from public.users u
+            where u.id = p_user_id
+        ),
+        'a deleted user'
+    );
+$$;
+
+revoke execute on function public.audit_user_label(uuid) from public, anon, authenticated;
+
+create or replace function public.audit_ticket_status_label(p_status text)
+returns text
+language sql
+immutable
+as $$
+    select case p_status
+        when 'on_hold' then 'On hold'
+        else initcap(coalesce(p_status, ''))
+    end;
+$$;
+
+-- Tickets ----------------------------------------------------------------
+
+-- Who acted, when nobody is signed in ------------------------------------
+
+-- The app writes some rows with the admin client (portal, support requests,
+-- uploads), where auth.uid() is null. The row itself names the person:
+-- these set app.audit_fallback_actor (audit_fallback_actor) for the rows
+-- that follow, so they name that person instead of "System". A signed-in
+-- user or an x-audit-actor header still wins. Reset with null afterwards.
+create or replace function public.audit_use_actor(p_user_id uuid)
+returns void
+language sql
+volatile
+as $$
+    select set_config('app.audit_fallback_actor', coalesce(p_user_id::text, ''), true);
+$$;
+
+revoke execute on function public.audit_use_actor(uuid) from public, anon, authenticated;
+
+-- A customer's portal sign-in, as a users id.
+create or replace function public.audit_customer_user(p_customer_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select c.portal_user_id from public.customers c where c.id = p_customer_id;
+$$;
+
+revoke execute on function public.audit_customer_user(uuid) from public, anon, authenticated;
+
+create or replace function public.audit_tickets()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_ref text;
+    v_old_assignee text;
+    v_new_assignee text;
+    v_meta jsonb;
+    v_changes jsonb;
+begin
+    if tg_op = 'INSERT' then
+        perform public.audit_use_actor(coalesce(
+            new.created_by,
+            public.audit_customer_user(new.requester_customer_id)
+        ));
+        perform public.audit_record(
+            new.tenant_id,
+            'create',
+            'ticket',
+            new.id,
+            jsonb_build_object(
+                'summary', format('Created ticket #%s: %s', new.number, new.subject),
+                'ticket_number', new.number
+            )
+        );
+        perform public.audit_use_actor(null);
+        return null;
+    elsif tg_op = 'DELETE' then
+        -- A whole workspace going is not a ticket deletion.
+        if pg_trigger_depth() > 1 then
+            return null;
+        end if;
+
+        perform public.audit_record(
+            old.tenant_id,
+            'delete',
+            'ticket',
+            old.id,
+            jsonb_build_object(
+                'summary', format('Deleted ticket #%s: %s', old.number, old.subject),
+                'ticket_number', old.number
+            )
+        );
+        return null;
+    end if;
+
+    v_ref := format('ticket #%s', new.number);
+    v_meta := jsonb_build_object('ticket_number', new.number);
+
+    if new.assignee_user_id is distinct from old.assignee_user_id then
+        v_old_assignee := case when old.assignee_user_id is not null
+            then public.audit_user_label(old.assignee_user_id) end;
+        v_new_assignee := case when new.assignee_user_id is not null
+            then public.audit_user_label(new.assignee_user_id) end;
+
+        perform public.audit_record(
+            new.tenant_id,
+            'assign',
+            'ticket',
+            new.id,
+            v_meta || jsonb_build_object(
+                'summary',
+                case
+                    when v_old_assignee is null
+                        then format('Assigned %s to %s', v_ref, v_new_assignee)
+                    when v_new_assignee is null
+                        then format('Unassigned %s from %s', v_ref, v_old_assignee)
+                    else format('Reassigned %s from %s to %s', v_ref, v_old_assignee, v_new_assignee)
+                end,
+                'changes', jsonb_build_object('assignee', jsonb_build_object(
+                    'from', coalesce(v_old_assignee, 'Unassigned'),
+                    'to', coalesce(v_new_assignee, 'Unassigned')
+                ))
+            )
+        );
+    end if;
+
+    if new.status is distinct from old.status then
+        perform public.audit_record(
+            new.tenant_id,
+            'update',
+            'ticket',
+            new.id,
+            v_meta || jsonb_build_object(
+                'summary',
+                case
+                    when old.status in ('resolved', 'closed')
+                         and new.status not in ('resolved', 'closed')
+                        then format('Reopened %s', v_ref)
+                    when new.status = 'closed'
+                        then format('Closed %s', v_ref)
+                    when new.status = 'resolved'
+                        then format('Resolved %s', v_ref)
+                    else format(
+                        'Changed status of %s from %s to %s',
+                        v_ref,
+                        public.audit_ticket_status_label(old.status::text),
+                        public.audit_ticket_status_label(new.status::text)
+                    )
+                end,
+                'changes', jsonb_build_object('status', jsonb_build_object(
+                    'from', public.audit_ticket_status_label(old.status::text),
+                    'to', public.audit_ticket_status_label(new.status::text)
+                ))
+            )
+        );
+    end if;
+
+    -- Priority is recorded by tickets_audit_priority_change, with its reason.
+    v_changes := public.audit_diff(
+        jsonb_build_object('subject', old.subject),
+        jsonb_build_object('subject', new.subject),
+        array['subject']
+    );
+
+    if new.description is distinct from old.description then
+        v_changes := v_changes || jsonb_build_object(
+            'description', jsonb_build_object('from', 'Previous text', 'to', 'Updated')
+        );
+    end if;
+
+    if v_changes <> '{}'::jsonb then
+        perform public.audit_record(
+            new.tenant_id,
+            'update',
+            'ticket',
+            new.id,
+            v_meta || jsonb_build_object(
+                'summary', format('Updated %s', v_ref),
+                'changes', v_changes
+            )
+        );
+    end if;
+
+    return null;
+end;
+$$;
+
+revoke execute on function public.audit_tickets() from public, anon, authenticated;
+
+drop trigger if exists audit_tickets on public.tickets;
+
+create trigger audit_tickets
+after insert or update of assignee_user_id, status, subject, description or delete
+on public.tickets
+for each row
+execute function public.audit_tickets();
+
+-- Replies and internal notes ---------------------------------------------
+
+create or replace function public.audit_ticket_messages()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_row public.ticket_messages := case when tg_op = 'DELETE' then old else new end;
+    v_number bigint;
+    v_kind text;
+begin
+    -- Automatic messages, and replies going with their ticket or workspace.
+    if v_row.author_type = 'system'
+       or (tg_op = 'DELETE' and pg_trigger_depth() > 1) then
+        return null;
+    end if;
+
+    if tg_op = 'UPDATE' and new.body is not distinct from old.body then
+        return null;
+    end if;
+
+    select t.number into v_number
+    from public.tickets t
+    where t.tenant_id = v_row.tenant_id and t.id = v_row.ticket_id;
+
+    v_kind := case when v_row.visibility = 'internal' then 'internal note' else 'reply' end;
+
+    -- Written or edited by its author; a deletion may be anyone's.
+    if tg_op <> 'DELETE' then
+        perform public.audit_use_actor(case
+            when v_row.author_type = 'customer'
+                then public.audit_customer_user(v_row.author_id)
+            else v_row.author_id
+        end);
+    end if;
+
+    perform public.audit_record(
+        v_row.tenant_id,
+        case tg_op when 'INSERT' then 'create' when 'DELETE' then 'delete' else 'update' end::public.audit_action,
+        'ticket_message',
+        v_row.id,
+        jsonb_build_object(
+            'summary',
+            case tg_op
+                when 'INSERT' then
+                    case
+                        when v_row.visibility = 'internal'
+                            then format('Added an internal note on ticket #%s', v_number)
+                        when v_row.author_type = 'customer'
+                            then format('Customer replied on ticket #%s', v_number)
+                        else format('Replied on ticket #%s', v_number)
+                    end
+                when 'DELETE' then format('Deleted a %s on ticket #%s', v_kind, v_number)
+                else format('Edited a %s on ticket #%s', v_kind, v_number)
+            end,
+            'ticket_number', v_number,
+            'ticket_id', v_row.ticket_id,
+            'visibility', v_row.visibility,
+            'author_type', v_row.author_type
+        )
+    );
+
+    perform public.audit_use_actor(null);
+    return null;
+end;
+$$;
+
+revoke execute on function public.audit_ticket_messages() from public, anon, authenticated;
+
+drop trigger if exists audit_ticket_messages on public.ticket_messages;
+
+create trigger audit_ticket_messages
+after insert or update of body or delete on public.ticket_messages
+for each row
+execute function public.audit_ticket_messages();
+
+-- Attachments -------------------------------------------------------------
+
+create or replace function public.audit_attachments()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_row public.attachments := case when tg_op = 'DELETE' then old else new end;
+    v_number bigint;
+begin
+    if tg_op = 'DELETE' and pg_trigger_depth() > 1 then
+        return null;
+    end if;
+
+    select t.number into v_number
+    from public.tickets t
+    where t.tenant_id = v_row.tenant_id and t.id = v_row.ticket_id;
+
+    if tg_op = 'INSERT' then
+        perform public.audit_use_actor(v_row.uploaded_by);
+    end if;
+
+    perform public.audit_record(
+        v_row.tenant_id,
+        case when tg_op = 'INSERT' then 'create' else 'delete' end::public.audit_action,
+        'attachment',
+        v_row.id,
+        jsonb_build_object(
+            'summary',
+            case when tg_op = 'INSERT'
+                then format('Uploaded %s to ticket #%s', v_row.original_filename, v_number)
+                else format('Deleted %s from ticket #%s', v_row.original_filename, v_number)
+            end,
+            'filename', v_row.original_filename,
+            'size', v_row.size,
+            'mime', v_row.mime,
+            'ticket_number', v_number,
+            'ticket_id', v_row.ticket_id
+        )
+    );
+
+    perform public.audit_use_actor(null);
+    return null;
+end;
+$$;
+
+revoke execute on function public.audit_attachments() from public, anon, authenticated;
+
+drop trigger if exists audit_attachments on public.attachments;
+
+create trigger audit_attachments
+after insert or delete on public.attachments
+for each row
+execute function public.audit_attachments();
+
+-- Customers ---------------------------------------------------------------
+
+create or replace function public.audit_customers()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_changes jsonb;
+begin
+    if tg_op = 'INSERT' then
+        perform public.audit_record(
+            new.tenant_id,
+            'create',
+            'customer',
+            new.id,
+            jsonb_build_object(
+                'summary', format('Added customer %s', coalesce(nullif(new.full_name, ''), new.email::text)),
+                'email', new.email
+            )
+        );
+        return null;
+    elsif tg_op = 'DELETE' then
+        if pg_trigger_depth() > 1 then
+            return null;
+        end if;
+
+        perform public.audit_record(
+            old.tenant_id,
+            'delete',
+            'customer',
+            old.id,
+            jsonb_build_object(
+                'summary', format('Deleted customer %s', coalesce(nullif(old.full_name, ''), old.email::text)),
+                'email', old.email
+            )
+        );
+        return null;
+    end if;
+
+    -- Portal sign-in bookkeeping isn't an edit.
+    v_changes := public.audit_diff(
+        to_jsonb(old),
+        to_jsonb(new),
+        array['full_name', 'email', 'company', 'phone']
+    );
+
+    if v_changes = '{}'::jsonb then
+        return null;
+    end if;
+
+    perform public.audit_record(
+        new.tenant_id,
+        'update',
+        'customer',
+        new.id,
+        jsonb_build_object(
+            'summary', format('Updated customer %s', coalesce(nullif(new.full_name, ''), new.email::text)),
+            'email', new.email,
+            'changes', v_changes
+        )
+    );
+
+    return null;
+end;
+$$;
+
+revoke execute on function public.audit_customers() from public, anon, authenticated;
+
+drop trigger if exists audit_customers on public.customers;
+
+create trigger audit_customers
+after insert or update or delete on public.customers
+for each row
+execute function public.audit_customers();
+
+-- SLA breaches ------------------------------------------------------------
+
+-- Breaches are found by the SLA cron, so the row names nobody ("System")
+-- rather than whoever's statement happened to tip the clock over.
+create or replace function public.audit_sla_breaches()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_number bigint;
+begin
+    if new.status <> 'breached' or old.status = 'breached' then
+        return null;
+    end if;
+
+    select t.number into v_number
+    from public.tickets t
+    where t.tenant_id = new.tenant_id and t.id = new.ticket_id;
+
+    insert into public.audit_logs (tenant_id, actor_id, action, entity, entity_id, meta_json)
+    values (
+        new.tenant_id,
+        null,
+        'update',
+        'sla_event',
+        new.id,
+        jsonb_build_object(
+            'summary', format(
+                'SLA breached on ticket #%s (%s)',
+                v_number,
+                case new.type when 'first_response' then 'first response' else 'resolution' end
+            ),
+            'ticket_number', v_number,
+            'ticket_id', new.ticket_id,
+            'sla_type', new.type,
+            'due_at', new.due_at
+        )
+    );
+
+    return null;
+exception
+    when others then
+        raise warning 'audit_sla_breaches not written: %', sqlerrm;
+        return null;
+end;
+$$;
+
+revoke execute on function public.audit_sla_breaches() from public, anon, authenticated;
+
+drop trigger if exists audit_sla_breaches on public.sla_events;
+
+create trigger audit_sla_breaches
+after update of status on public.sla_events
+for each row
+execute function public.audit_sla_breaches();
+
+-- Support requests --------------------------------------------------------
+
+create or replace function public.audit_support_requests()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_ref text;
+    v_meta jsonb;
+begin
+    if tg_op = 'INSERT' then
+        perform public.audit_use_actor(new.created_by);
+        perform public.audit_record(
+            new.tenant_id,
+            'create',
+            'support_request',
+            new.id,
+            jsonb_build_object(
+                'summary', format('Created support request #%s: %s', new.number, new.subject),
+                'request_number', new.number
+            )
+        );
+        perform public.audit_use_actor(null);
+        return null;
+    end if;
+
+    v_ref := format('support request #%s', new.number);
+    v_meta := jsonb_build_object('request_number', new.number);
+
+    if new.status is distinct from old.status then
+        perform public.audit_record(
+            new.tenant_id,
+            'update',
+            'support_request',
+            new.id,
+            v_meta || jsonb_build_object(
+                'summary',
+                case
+                    when old.status in ('resolved', 'closed')
+                         and new.status not in ('resolved', 'closed')
+                        then format('Reopened %s', v_ref)
+                    when new.status = 'resolved' then format('Resolved %s', v_ref)
+                    when new.status = 'closed' then format('Closed %s', v_ref)
+                    else format(
+                        'Changed status of %s to %s',
+                        v_ref,
+                        initcap(replace(new.status, '_', ' '))
+                    )
+                end,
+                'changes', jsonb_build_object('status', jsonb_build_object(
+                    'from', initcap(replace(old.status, '_', ' ')),
+                    'to', initcap(replace(new.status, '_', ' '))
+                ))
+            )
+        );
+    end if;
+
+    if new.allow_workspace_access is distinct from old.allow_workspace_access then
+        -- A grant names its admin; a withdrawal relies on the caller.
+        if new.allow_workspace_access then
+            perform public.audit_use_actor(new.access_granted_by);
+        end if;
+
+        perform public.audit_record(
+            new.tenant_id,
+            'update',
+            'support_request',
+            new.id,
+            v_meta || jsonb_build_object(
+                'summary',
+                case when new.allow_workspace_access
+                    then format('Allowed support to access the workspace for %s', v_ref)
+                    else format('Withdrew support access for %s', v_ref)
+                end,
+                'access_expires_at', new.access_expires_at
+            )
+        );
+        perform public.audit_use_actor(null);
+    end if;
+
+    return null;
+end;
+$$;
+
+revoke execute on function public.audit_support_requests() from public, anon, authenticated;
+
+drop trigger if exists audit_support_requests on public.support_requests;
+
+create trigger audit_support_requests
+after insert or update of status, allow_workspace_access on public.support_requests
+for each row
+execute function public.audit_support_requests();
+
 ------------------------------------------------------------
 -- 5. Plan features
 ------------------------------------------------------------
@@ -1039,7 +1743,7 @@ grant execute on function public.current_tenant_has_feature(text) to authenticat
 -- 6. Stat cards
 ------------------------------------------------------------
 
--- The four cards for [p_from, p_to), and the same figures for the period of
+-- The four cards (the "security" figure counts platform access and failures) for [p_from, p_to), and the same figures for the period of
 -- equal length just before it. SECURITY INVOKER: the select policy above does
 -- the tenant, role and plan checks, so a caller without access gets zeros.
 create or replace function public.audit_log_summary(
@@ -1073,11 +1777,12 @@ as $$
         'prev_users', count(distinct actor_id) filter (where not is_current),
         'modules', count(distinct module) filter (where is_current),
         'prev_modules', count(distinct module) filter (where not is_current),
+        -- Key kept as "security" for the app: platform access and failures.
         'security', count(*) filter (
-            where is_current and (module = 'security' or result = 'failure')
+            where is_current and (module = 'platform' or result = 'failure')
         ),
         'prev_security', count(*) filter (
-            where not is_current and (module = 'security' or result = 'failure')
+            where not is_current and (module = 'platform' or result = 'failure')
         )
     )
     from scoped;

@@ -2,43 +2,62 @@
  * Audit log vocabulary shared by the server service and the page.
  *
  * The values mirror the database: `module` and `result` are the columns added
- * by migration 20261021120000_audit_log_page.sql, `action` is the audit_action
+ * by migration 20261021120000_audit_log_page.sql (modules regrouped by
+ * 20261118120000_audit_log_modules.sql), `action` is the audit_action
  * enum. Labels and badge colours live here so the table, the details panel and
  * the CSV export all name an event the same way.
  */
 
 export const AUDIT_MODULES = [
-  "authentication",
-  "security",
-  "team",
+  "tickets",
+  "conversations",
+  "attachments",
+  "users",
+  "roles",
   "customers",
   "sla",
+  "tenant",
   "billing",
-  "settings",
-  "general",
+  "platform",
+  "support",
 ] as const;
 
 export type AuditModule = (typeof AUDIT_MODULES)[number];
 
 export const AUDIT_MODULE_LABELS: Record<AuditModule, string> = {
-  authentication: "Authentication",
-  security: "Security",
-  team: "Team & roles",
-  customers: "Customers",
-  sla: "SLA policies",
-  billing: "Billing",
-  settings: "Workspace settings",
-  general: "Other",
+  tickets: "Ticket management",
+  conversations: "Ticket conversations",
+  attachments: "Attachments",
+  users: "User management",
+  roles: "Roles & permissions",
+  customers: "Customer management",
+  sla: "SLA management",
+  tenant: "Tenant management",
+  billing: "Subscription & billing",
+  platform: "Platform admin",
+  support: "Support requests",
 };
 
 /** The quick-filter tabs above the table, after "All events". */
 export const AUDIT_TAB_MODULES = [
-  "authentication",
-  "team",
+  "tickets",
+  "users",
   "sla",
   "billing",
-  "security",
+  "platform",
 ] as const satisfies readonly AuditModule[];
+
+/** Shorter names for the tabs, where the full label would crowd the row. */
+export const AUDIT_TAB_LABELS: Record<
+  (typeof AUDIT_TAB_MODULES)[number],
+  string
+> = {
+  tickets: "Tickets",
+  users: "Users",
+  sla: "SLA",
+  billing: "Billing",
+  platform: "Platform admin",
+};
 
 export const AUDIT_ACTIONS = [
   "create",
@@ -69,6 +88,16 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   export: "Exported",
   support_access: "Support access",
 };
+
+/**
+ * What the Actions filter offers. Sign-ins are no longer recorded (migration
+ * 20261118120000), so login, logout and failed login stay in the enum for old
+ * rows but aren't offered.
+ */
+export const AUDIT_FILTER_ACTIONS = AUDIT_ACTIONS.filter(
+  (action) =>
+    action !== "login" && action !== "logout" && action !== "login_failed",
+);
 
 /** The Actions filter says "Failed login" where a row badge only has room for "Failed". */
 export const AUDIT_ACTION_FILTER_LABELS: Record<AuditAction, string> = {
@@ -102,14 +131,17 @@ export const AUDIT_ACTION_BADGE: Record<AuditAction, string> = {
 };
 
 export const AUDIT_MODULE_BADGE: Record<AuditModule, string> = {
-  authentication: `${BADGE} bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300`,
-  security: `${BADGE} bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300`,
-  team: `${BADGE} bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300`,
+  tickets: `${BADGE} bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300`,
+  conversations: `${BADGE} bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300`,
+  attachments: `${BADGE} bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300`,
+  users: `${BADGE} bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300`,
+  roles: `${BADGE} bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300`,
   customers: `${BADGE} bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300`,
   sla: `${BADGE} bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300`,
+  tenant: `${BADGE} bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300`,
   billing: `${BADGE} bg-pink-50 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300`,
-  settings: `${BADGE} bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300`,
-  general: `${BADGE} bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300`,
+  platform: `${BADGE} bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300`,
+  support: `${BADGE} bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/60 dark:text-fuchsia-300`,
 };
 
 export const AUDIT_RESULT_BADGE: Record<AuditResult, string> = {

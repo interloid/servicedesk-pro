@@ -15,6 +15,8 @@ USING (
     -- Audit logs are a Business feature (plans.features_json.audit_logs).
     -- Rows are written on every plan; only reading is gated.
     AND (SELECT public.current_tenant_has_feature('audit_logs'))
+    -- Sign-ins are no longer part of the audit log (20261118120000).
+    AND module <> 'authentication'
 );
 
 -- A user's own notification-preference changes ("Settings history"), on any
@@ -30,8 +32,8 @@ USING (
 );
 
 -- Direct inserts are limited to staff and to the events the app writes with
--- the user's own client (auth.service.ts login/logout, notifications.service.ts
--- preference history, audit.service.ts export). Everything else goes through
+-- the user's own client (notifications.service.ts preference history,
+-- audit.service.ts export). Everything else goes through
 -- SECURITY DEFINER audit_record() or the admin client. WITH CHECK runs after
 -- the audit_logs_fill trigger, so module and result are the filled values.
 CREATE POLICY "audit_logs_insert"
@@ -47,11 +49,8 @@ WITH CHECK (
             (SELECT public.current_tenant_role()) <> 'customer'
             AND entity_id = actor_id
             AND NOT (meta_json ? 'summary')
-            AND (action::text, entity) IN (
-                ('login', 'user'),
-                ('logout', 'user'),
-                ('update', 'notification_prefs')
-            )
+            AND action::text = 'update'
+            AND entity = 'notification_prefs'
         )
         OR (
             (SELECT public.current_tenant_role()) IN ('tenant_admin', 'manager')

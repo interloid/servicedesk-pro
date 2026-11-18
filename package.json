@@ -26,6 +26,7 @@
     "e2e:stack:stop": "bash scripts/e2e-stack.sh stop"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
     "@hookform/resolvers": "^5.7.1",
     "@sentry/nextjs": "^11.10.0",
     "@supabase/ssr": "^0.12.4",
@@ -45,7 +46,9 @@
     "react-dom": "19.2.8",
     "react-hook-form": "^7.85.0",
     "react-icons": "^5.7.0",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
     "slugify": "^1.6.9",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",

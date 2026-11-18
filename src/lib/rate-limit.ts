@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requestClientInfo } from "@/lib/request-context";
 
@@ -8,7 +10,14 @@ type Bucket = {
   resetAt: number;
 };
 
-type RateLimitResult = { allowed: boolean; retryAfterMs: number };
+type RateLimitResult = {
+  allowed: boolean;
+  retryAfterMs: number;
+  /** Hits in the current window, this one included. */
+  count: number;
+  /** When the current window ends (epoch ms). */
+  resetAt: number;
+};
 
 // Fallback only: used while the rate_limit_hit migration is missing or the
 // database can't be reached. Each server instance has its own copy.
@@ -115,8 +124,72 @@ export async function rateLimit(
     return {
       allowed: false,
       retryAfterMs: Math.max(0, bucket.resetAt - Date.now()),
+      count: bucket.count,
+      resetAt: bucket.resetAt,
     };
   }
 
-  return { allowed: true, retryAfterMs: 0 };
+  return {
+    allowed: true,
+    retryAfterMs: 0,
+    count: bucket.count,
+    resetAt: bucket.resetAt,
+  };
+}
+
+/**
+ * The hits counted so far against `key` in its current window, without adding
+ * one -- for showing a quota before it is spent. `resetAt` is null when the key
+ * has no live window (nothing counted yet, or the window has ended).
+ */
+export async function peekRateLimit(
+  key: string,
+): Promise<{ count: number; resetAt: number | null }> {
+  const now = Date.now();
+
+  try {
+    // rate_limit_buckets is only ever written through rate_limit_hit, so it
+    // is not in the generated table types (database.types.ts). The client is
+    // untyped for this one read, so the row is checked at runtime instead: a
+    // renamed column fails loudly here rather than reading as "nothing used".
+    const { data, error } = await (
+      createSupabaseAdminClient() as unknown as SupabaseClient
+    )
+      .from("rate_limit_buckets")
+      .select("count, reset_at")
+      .eq("key", key)
+      .maybeSingle<unknown>();
+
+    if (error) {
+      console.error("[rate-limit] peek failed:", error.message);
+    } else if (data === null) {
+      return { count: 0, resetAt: null };
+    } else if (isBucketRow(data)) {
+      const resetAt = new Date(data.reset_at).getTime();
+
+      return resetAt > now
+        ? { count: data.count, resetAt }
+        : { count: 0, resetAt: null };
+    } else {
+      console.error("[rate-limit] peek read an unexpected row:", data);
+    }
+  } catch (error) {
+    console.error("[rate-limit] peek failed:", error);
+  }
+
+  // Fall back to this instance's own counter, as rateLimit does.
+  const bucket = buckets.get(key);
+
+  return bucket && bucket.resetAt > now
+    ? { count: bucket.count, resetAt: bucket.resetAt }
+    : { count: 0, resetAt: null };
+}
+
+function isBucketRow(row: unknown): row is { count: number; reset_at: string } {
+  return (
+    typeof row === "object" &&
+    row !== null &&
+    typeof (row as { count?: unknown }).count === "number" &&
+    typeof (row as { reset_at?: unknown }).reset_at === "string"
+  );
 }

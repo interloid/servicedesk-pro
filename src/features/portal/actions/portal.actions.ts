@@ -708,6 +708,11 @@ export async function postReplyAction(
     return invalidInput(files.error);
   }
 
+  // Text, files, or both -- but not neither.
+  if (!parsed.data.body && files.data.length === 0) {
+    return invalid({ body: ["Write a reply or attach a file before sending"] });
+  }
+
   const identity = await getPortalIdentity(slug);
 
   if (!identity) {

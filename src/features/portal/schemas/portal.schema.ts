@@ -113,11 +113,14 @@ export const portalSignedInRequestFormSchema = portalGuestRequestSchema.extend({
 /** Same cap as an agent's reply (TICKET_REPLY_MAX). */
 export const PORTAL_REPLY_MAX = 10_000;
 
+/**
+ * The text may be empty when the reply carries files -- postReplyAction checks
+ * that one or the other is there, since only it sees the files.
+ */
 export const portalReplySchema = z.object({
   body: z
     .string()
     .trim()
-    .min(1, "Write a reply before sending")
     .max(
       PORTAL_REPLY_MAX,
       `A reply can be up to ${PORTAL_REPLY_MAX.toLocaleString("en-US")} characters`,

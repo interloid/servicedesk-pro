@@ -1,6 +1,9 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  createAuditedAdminClient,
+  createSupabaseAdminClient,
+} from "@/lib/supabase/admin";
 import { serverNow } from "@/lib/server-now";
 
 import {
@@ -149,7 +152,8 @@ export async function replyAsPlatform(
     );
   }
 
-  const db = createSupabaseAdminClient();
+  // Audited: the status change below names this operator, not "System".
+  const db = await createAuditedAdminClient(admin.id);
   const { error } = await db.from("support_request_messages").insert({
     request_id: request.id,
     author_type: "platform",
@@ -174,6 +178,7 @@ export async function replyAsPlatform(
 }
 
 export async function setPlatformSupportStatus(
+  admin: Admin,
   requestId: string,
   status: SupportStatus,
 ): Promise<void> {
@@ -182,7 +187,9 @@ export async function setPlatformSupportStatus(
   if (!request) throw new Error("That support request no longer exists.");
 
   const open = isOpenSupportStatus(status);
-  const { error } = await createSupabaseAdminClient()
+  const { error } = await (
+    await createAuditedAdminClient(admin.id)
+  )
     .from("support_requests")
     .update({
       status,
@@ -286,7 +293,7 @@ export async function openWorkspaceView(
     action: "support_access",
     entity: "support_request",
     entity_id: request.id,
-    module: "security",
+    module: "platform",
     meta_json: {
       summary: `Platform support (${admin.email}) viewed the workspace for ${request.number}`,
       request_number: request.number,

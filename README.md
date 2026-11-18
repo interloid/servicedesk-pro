@@ -43,6 +43,7 @@ These rules prevent the most expensive mistakes on this project:
 | Tickets          | Queues, saved views, priorities, tags, assignment, conversations, and attachments                         |
 | SLA policies     | Targets, business hours, holidays, and time zones, with clocks enforced in the database                   |
 | Customer portal  | Self-service requests, help search, threaded replies, and guest ticket creation                           |
+| Portal chatbot   | Assistant in the portal that looks up a customer's requests, drafts new ones, and explains the portal     |
 | Customers, team  | Invitations, roles, portal access, seat limits, and ownership transfer                                    |
 | Notifications    | Live in-app bell and email alerts, based on each user's preferences                                       |
 | Reports          | Workspace-wide reporting on paid plans                                                                    |
@@ -344,6 +345,90 @@ Database triggers create rows in `notifications` and queue emails based on `noti
 ### Platform console
 
 Console settings reach tenants through the proxy and the brand provider. The proxy caches the maintenance status for about 10 seconds per server instance, so changes aren't instant. If the check fails, the proxy lets traffic through rather than locking every workspace out.
+
+### Portal chatbot
+
+The support assistant in the customer portal. Signed-in customers can list and
+look up their requests, draft a new one (they confirm it themselves), read
+their own profile, and ask how the portal works.
+
+#### Layout
+
+```
+src/features/chatbot/
+├── chatbot.ts               Shared types and limits (client-safe)
+├── actions/
+│   └── chatbot.actions.ts   Server actions: send a message, read the usage meter
+├── schemas/
+│   └── chatbot.schema.ts    Validation of the transcript sent by the browser
+├── services/
+│   └── chat.service.ts      Runs one turn: prompt + tools + provider → reply
+├── lib/
+│   ├── prompt.ts            The system prompt
+│   ├── portal-guide.ts      Customer-facing guide text (get_portal_guide)
+│   └── suggestions.ts       Follow-up chips, worked out from tool use
+├── tools/                   What the assistant can do, one file per tool
+│   ├── index.ts             Registry (CHAT_TOOLS) and runTool
+│   ├── types.ts             ToolContext, ChatTool, ToolOutcome
+│   ├── helpers.ts           ok / fail / invalidInput / clip / day
+│   ├── list-my-tickets.ts
+│   ├── get-ticket.ts
+│   ├── draft-ticket.ts
+│   ├── get-portal-guide.ts
+│   └── get-my-profile.ts
+├── providers/               Which model answers
+│   ├── index.ts             Picks the provider from the environment
+│   ├── config.ts            CHATBOT_PROVIDER / CHATBOT_MODEL resolution
+│   ├── types.ts             ChatProvider, errors, canned replies
+│   ├── anthropic.ts         Claude (Messages API)
+│   ├── groq.ts              Groq (open models, free tier)
+│   └── ollama.ts            A local model
+└── components/              The widget
+    ├── portal-chat-widget.tsx   Panel, composer, state (entry point)
+    ├── chat-launcher.tsx        Floating button and teaser
+    ├── chat-messages.tsx        Bubbles, typing dots, suggestion chips
+    ├── chat-markdown.tsx        Safe Markdown (tables, internal links only)
+    ├── chat-attachments.tsx     Image previews and file cards
+    ├── chat-profile-card.tsx    The customer's profile card
+    ├── chat-draft-card.tsx      Draft request with Confirm / Edit
+    └── chat-usage-meter.tsx     "84 of 100 messages left today"
+```
+
+Tests sit next to what they cover (`*.test.ts`).
+
+#### How a message flows
+
+1. The widget sends the plain-text transcript to `sendChatMessageAction`.
+2. The action validates it, checks the session (`getPortalIdentity`) and the
+   per-customer limits, then calls `runChat` in `services/chat.service.ts`.
+3. The provider loops: model → tool calls → `runTool` → results → model.
+4. The reply goes back with any draft, attachment cards, profile card,
+   suggestions and the usage meter.
+
+#### Rules that keep it safe
+
+- Tools take the customer's identity from the session, never from the model,
+  and only call portal services that already filter by tenant and requester.
+- Nothing writes to the database. `draft_ticket` only records a draft; the
+  customer creates it with Confirm, through the normal `submitRequestAction`.
+- Download links and profile photos go to the widget from the server; the
+  model only sees file names.
+- Markdown never renders HTML, and only links inside the portal are clickable.
+
+#### Adding a tool
+
+1. Create `tools/<name>.ts` exporting a `ChatTool`: a strict JSON schema
+   (`additionalProperties: false`, every property required), a Zod check of
+   the input, and `execute(ctx, input)` returning `ok(...)` or `fail(...)`.
+2. Add it to `CHAT_TOOLS` in `tools/index.ts`.
+3. Say when to use it in `lib/prompt.ts` if the description isn't enough.
+4. Add tests to `tools/tools.test.ts`.
+
+#### Adding a provider
+
+Implement `ChatProvider` in `providers/<name>.ts`, add it to `config.ts` and
+`index.ts`, and add its settings to `src/config/server-env.ts`,
+`.env.example` and (if deployed) `scripts/ci/sync-env.mjs`.
 
 ### Security controls
 

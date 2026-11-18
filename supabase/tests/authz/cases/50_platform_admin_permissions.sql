@@ -50,7 +50,7 @@ SELECT authz.expect_allowed(
     'service_role',
     format(
         $sql$INSERT INTO public.audit_logs (tenant_id, action, entity, module, meta_json)
-            VALUES (%L, 'update', 'workspace', 'settings', '{"summary": "test"}')$sql$,
+            VALUES (%L, 'update', 'workspace', 'platform', '{"summary": "test"}')$sql$,
         authz.id('a_tenant')
     )
 );

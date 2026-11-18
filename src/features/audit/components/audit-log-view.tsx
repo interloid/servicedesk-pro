@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowDown,
-  Bell,
   Box,
   CreditCard,
   Download,
@@ -16,8 +15,9 @@ import {
   LayoutList,
   Loader2,
   Search,
-  Shield,
   ShieldAlert,
+  ShieldCheck,
+  Ticket,
   Timer,
   User,
   Users,
@@ -57,7 +57,7 @@ import {
   AUDIT_ACTION_BADGE,
   AUDIT_ACTION_FILTER_LABELS,
   AUDIT_ACTION_LABELS,
-  AUDIT_ACTIONS,
+  AUDIT_FILTER_ACTIONS,
   AUDIT_MODULE_BADGE,
   AUDIT_MODULE_LABELS,
   AUDIT_MODULES,
@@ -65,6 +65,7 @@ import {
   AUDIT_RESULT_BADGE,
   AUDIT_RESULT_LABELS,
   AUDIT_RESULTS,
+  AUDIT_TAB_LABELS,
   AUDIT_TAB_MODULES,
   auditFiltersToQuery,
   formatAuditTimestamp,
@@ -90,11 +91,11 @@ const TH =
 const SCROLL_TABLE_ABOVE = 10;
 
 const TAB_ICONS: Record<(typeof AUDIT_TAB_MODULES)[number], LucideIcon> = {
-  authentication: Bell,
-  team: Users,
+  tickets: Ticket,
+  users: Users,
   sla: Timer,
   billing: CreditCard,
-  security: Shield,
+  platform: ShieldCheck,
 };
 
 type Draft = Pick<AuditFilters, "q" | "module" | "action" | "user" | "result">;
@@ -269,8 +270,8 @@ export function AuditLogView({
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                Track administrative and security-related activity across your
-                workspace.
+                Track tickets, users, SLAs, billing and platform support
+                activity across your workspace.
               </p>
             </div>
 
@@ -323,7 +324,7 @@ export function AuditLogView({
             <StatCard
               icon={ShieldAlert}
               tone="bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300"
-              label="Security events"
+              label="Platform access"
               value={data.summary.security}
             />
           </div>
@@ -370,7 +371,7 @@ export function AuditLogView({
                 label="Action"
                 value={draft.action}
                 allLabel="All actions"
-                options={AUDIT_ACTIONS.map((value) => ({
+                options={AUDIT_FILTER_ACTIONS.map((value) => ({
                   value,
                   label: AUDIT_ACTION_FILTER_LABELS[value],
                 }))}
@@ -443,7 +444,7 @@ export function AuditLogView({
                   active={filters.module === module}
                   onClick={() => selectTab(module)}
                   icon={TAB_ICONS[module]}
-                  label={AUDIT_MODULE_LABELS[module]}
+                  label={AUDIT_TAB_LABELS[module]}
                   count={data.tabCounts[module]}
                 />
               ))}

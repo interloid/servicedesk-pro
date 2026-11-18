@@ -42,7 +42,7 @@ type Filter =
 const FILTERS: Array<{ label: string; value: Filter }> = [
   { label: "All", value: "all" },
   { label: "Active", value: "active" },
-  { label: "Trialing", value: "trialing" },
+  { label: "In trial", value: "trialing" },
   { label: "Past due", value: "past_due" },
   { label: "Cancelling", value: "cancelling" },
   { label: "Cancelled", value: "ended" },
@@ -50,7 +50,7 @@ const FILTERS: Array<{ label: string; value: Filter }> = [
 
 const STAGES: Record<SubscriptionStage, { label: string; tone: BadgeTone }> = {
   active: { label: "Active", tone: "green" },
-  trialing: { label: "Trialing", tone: "blue" },
+  trialing: { label: "In trial", tone: "blue" },
   past_due: { label: "Past due", tone: "amber" },
   cancelling: { label: "Cancelling", tone: "amber" },
   cancelled: { label: "Cancelled", tone: "red" },

@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import {
   Ban,
   CalendarPlus,
+  CircleAlert,
+  CircleCheck,
   Eye,
+  Hourglass,
   LifeBuoy,
   LockOpen,
   MoreHorizontal,
@@ -65,7 +68,7 @@ type CreatedFilter = "any" | "7" | "30" | "90" | "365";
 const STATUS_LABELS: Record<Exclude<StatusFilter, "support">, string> = {
   all: "All",
   active: "Active",
-  trialing: "Trialing",
+  trialing: "In trial",
   past_due: "Past due",
   suspended: "Blocked",
   cancelled: "Cancelled",
@@ -93,16 +96,17 @@ const NO_SUPPORT: Support = { requests: [], open: [], accessActive: false };
 function StatFilterCard({
   label,
   value,
-  dot,
   icon: Icon,
+  iconClass = "text-muted-foreground",
   active,
   alert = false,
   onClick,
 }: {
   label: string;
   value: number;
-  dot?: string;
-  icon?: React.ElementType;
+  icon: React.ElementType;
+  /** The icon's colour, when it isn't the alert red. */
+  iconClass?: string;
   active: boolean;
   alert?: boolean;
   onClick: () => void;
@@ -123,17 +127,13 @@ function StatFilterCard({
       )}
     >
       <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        {Icon ? (
-          <Icon
-            className={cn(
-              "size-4",
-              alert && value > 0 ? "text-red-600" : "text-muted-foreground",
-            )}
-            aria-hidden
-          />
-        ) : (
-          <span className={cn("size-2 rounded-full", dot)} aria-hidden />
-        )}
+        <Icon
+          className={cn(
+            "size-4 shrink-0",
+            alert && value > 0 ? "text-red-600" : iconClass,
+          )}
+          aria-hidden
+        />
         <span className="truncate">{label}</span>
       </span>
       <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
@@ -287,14 +287,16 @@ export function TenantsTable({
         <StatFilterCard
           label="Active"
           value={countOf("active")}
-          dot="bg-emerald-500"
+          icon={CircleCheck}
+          iconClass="text-emerald-600"
           active={status === "active"}
           onClick={() => update(setStatus)("active")}
         />
         <StatFilterCard
-          label="Trialing"
+          label="In trial"
           value={countOf("trialing")}
-          dot="bg-sky-500"
+          icon={Hourglass}
+          iconClass="text-sky-600"
           active={status === "trialing"}
           onClick={() => update(setStatus)("trialing")}
         />
@@ -309,14 +311,16 @@ export function TenantsTable({
         <StatFilterCard
           label="Past Due"
           value={countOf("past_due")}
-          dot="bg-amber-500"
+          icon={CircleAlert}
+          iconClass="text-amber-600"
           active={status === "past_due"}
           onClick={() => update(setStatus)("past_due")}
         />
         <StatFilterCard
           label="Blocked"
           value={countOf("suspended")}
-          dot="bg-slate-400"
+          icon={Ban}
+          iconClass="text-slate-500"
           active={status === "suspended"}
           onClick={() => update(setStatus)("suspended")}
         />

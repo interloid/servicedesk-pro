@@ -51,6 +51,11 @@ export const MANIFEST = [
   { name: "PLATFORM_ADMIN_EMAILS", to: "app" },
   { name: "SUPABASE_MANAGEMENT_TOKEN", to: "app", secret: true },
   { name: "SUPABASE_PROJECT_REF", to: "app" },
+  // App: portal chatbot (hidden when its provider isn't configured)
+  { name: "ANTHROPIC_API_KEY", to: "app", secret: true },
+  { name: "GROQ_API_KEY", to: "app", secret: true },
+  { name: "CHATBOT_PROVIDER", to: "app" },
+  { name: "CHATBOT_MODEL", to: "app" },
   // App: payments and monitoring
   { name: "NEXT_PUBLIC_PAYPAL_CLIENT_ID", to: "app" },
   { name: "NEXT_PUBLIC_SENTRY_DSN", to: "app" },

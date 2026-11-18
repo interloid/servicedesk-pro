@@ -23,10 +23,10 @@ export default async function PlatformLayout({
             without this it escapes every scroll area below and makes the whole
             document scroll, past the shell into blank space. */}
         <div className="relative flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
-          <PlatformSidebar adminName={admin.name} adminEmail={admin.email} />
+          <PlatformSidebar adminName={admin.name} />
 
           <div className="flex flex-1 flex-col min-w-0 h-full w-full">
-            <PlatformHeader />
+            <PlatformHeader adminName={admin.name} adminEmail={admin.email} />
 
             <main className="w-full flex-1 overflow-y-auto p-4 has-data-no-page-scrollbar:scrollbar-none sm:p-6 lg:p-8">
               {children}

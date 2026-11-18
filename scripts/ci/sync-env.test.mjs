@@ -234,9 +234,10 @@ describe("manifest", () => {
   it("covers every deployed setting in .env.example", () => {
     const example = readFileSync(join(process.cwd(), ".env.example"), "utf8");
     // Group 1 (runtime) and group 8 (local scripts) are never deployed.
+    // Lettered groups ("5b.") belong to the number before them.
     const deployed = example
       .split(/^# ── /m)
-      .filter((section) => /^[2-7]\./.test(section))
+      .filter((section) => /^[2-7][a-z]?\./.test(section))
       .flatMap((section) => [...section.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)])
       .map((m) => m[1]);
     expect(new Set(MANIFEST.map((e) => e.name))).toEqual(new Set(deployed));

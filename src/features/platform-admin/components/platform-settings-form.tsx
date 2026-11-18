@@ -8,7 +8,6 @@ import {
   Loader2,
   Save,
   Settings,
-  Users,
   Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -117,7 +116,6 @@ export function PlatformSettingsForm({
   const dirty =
     settings.platformName !== saved.platformName ||
     settings.supportEmail !== saved.supportEmail ||
-    settings.allowSignups !== saved.allowSignups ||
     settings.maintenanceMode !== saved.maintenanceMode ||
     settings.paymentGraceDays !== saved.paymentGraceDays;
   const leaveGuard = useUnsavedChangesGuard(dirty);
@@ -201,20 +199,6 @@ export function PlatformSettingsForm({
             />
           </div>
         </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={Users}
-        title="Access"
-        description="Control who can create and keep a workspace."
-      >
-        <ToggleRow
-          id="allow-signups"
-          label="Allow new signups"
-          description="Let anyone create a workspace from the landing page."
-          checked={settings.allowSignups}
-          onCheckedChange={(checked) => update({ allowSignups: checked })}
-        />
       </SettingsSection>
 
       <SettingsSection

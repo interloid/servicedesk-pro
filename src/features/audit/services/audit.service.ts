@@ -435,6 +435,13 @@ const ENTITY_LABELS: Record<string, string> = {
   tenant: "Workspace",
   tenant_ownership: "Membership",
   audit_log: "Audit log",
+  ticket: "Ticket",
+  ticket_message: "Reply",
+  attachment: "Attachment",
+  customer: "Customer",
+  sla_event: "SLA clock",
+  support_request: "Support request",
+  workspace: "Workspace",
 };
 
 function toRelated(row: AuditRow, meta: Record<string, unknown>) {
@@ -530,7 +537,7 @@ function toEvent(row: AuditRow, actors: Map<string, AuditActor>): AuditEvent {
     id: row.id,
     createdAt: row.created_at,
     action,
-    module: isAuditModule(row.module) ? row.module : "general",
+    module: isAuditModule(row.module) ? row.module : "tenant",
     result: row.result === "failure" ? "failure" : "success",
     entity: row.entity,
     entityId: row.entity_id,

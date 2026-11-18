@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { ChevronLeft, Eye, Lock, LogIn } from "lucide-react";
+import { Eye, Lock, LogIn } from "lucide-react";
 
+import { BackLink } from "@/components/shared/back-link";
 import { formatSupportTime } from "@/features/support/support";
 import { cn } from "@/lib/utils";
 
@@ -83,13 +83,7 @@ export function WorkspaceView({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        href="/platform/tenants"
-        className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" aria-hidden />
-        Tenants
-      </Link>
+      <BackLink href="/platform/tenants">Tenants</BackLink>
 
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">

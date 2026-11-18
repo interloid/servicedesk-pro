@@ -30,7 +30,7 @@ test("a customer raises a request and replies to it", async ({ page }) => {
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
 
   const reply = `Follow-up ${subject}`;
-  const composer = page.getByPlaceholder("Write your reply…");
+  const composer = page.getByPlaceholder("Write a reply or attach a file…");
   await composer.fill(reply);
   await page.getByRole("button", { name: "Send reply" }).click();
   await expect(page.getByText(reply).first()).toBeVisible();

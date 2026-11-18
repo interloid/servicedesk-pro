@@ -2637,6 +2637,40 @@ async function readPortalAttachments(
 }
 
 /**
+ * The id of the caller's own request with this ticket number, or null.
+ *
+ * Customers know their requests by number ("#1042"), while the detail lookup
+ * takes the id. Read through RLS as the customer with the same tenant and
+ * requester filters as getPortalRequest, so another customer's number comes
+ * back as null -- indistinguishable from a number that does not exist.
+ */
+export async function findPortalRequestIdByNumber(
+  identity: PortalIdentity,
+  number: number,
+): Promise<string | null> {
+  if (!Number.isSafeInteger(number) || number < 1) {
+    return null;
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("tickets")
+    .select("id")
+    .eq("tenant_id", identity.tenant.id)
+    .eq("requester_customer_id", identity.customer.id)
+    .eq("number", number)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[portal] request number lookup failed:", error.message);
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
+/**
  * Cached per request: the detail page's generateMetadata and the page itself
  * both need it, and each load is several round trips plus a signed URL per
  * attachment. Keyed on the identity object, which getPortalIdentity's own
@@ -2939,6 +2973,16 @@ export async function postPortalReply(
     throw new PortalError("We couldn't find that request.", "not_found");
   }
 
+  // Same as the opening post: a customer can't fake a mention chip.
+  const text = stripAllMentions(body).trim();
+
+  if (!text && uploads.length === 0) {
+    throw new PortalError(
+      "Write a reply or attach a file before sending.",
+      "validation",
+    );
+  }
+
   const { data: message, error } = await supabase
     .from("ticket_messages")
     .insert({
@@ -2946,8 +2990,12 @@ export async function postPortalReply(
       ticket_id: requestId,
       author_type: "customer",
       author_id: identity.customer.id,
-      // Same as the opening post: a customer can't fake a mention chip.
-      body: stripAllMentions(body).trim(),
+      // A files-only reply still needs text: chk_message_body requires it, and
+      // the thread and the team's notification show it. Same wording as a
+      // files-only reply from the team (sendTicketMessage).
+      body:
+        text ||
+        `Attached ${uploads.length} file${uploads.length === 1 ? "" : "s"}.`,
       visibility: "public",
     })
     .select("id")

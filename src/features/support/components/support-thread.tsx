@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Headset, Loader2, Send, User } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,21 +35,21 @@ function Message({
   const Icon = fromSupport ? Headset : User;
 
   return (
-    <li className={cn("flex gap-3", ownSide && "flex-row-reverse")}>
+    <li className={cn("flex gap-2 sm:gap-3", ownSide && "flex-row-reverse")}>
       <span
         className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-full",
+          "flex size-7 shrink-0 items-center justify-center rounded-full sm:size-8",
           fromSupport
             ? "bg-primary/10 text-primary"
             : "bg-muted text-muted-foreground",
         )}
         aria-hidden
       >
-        <Icon className="size-4" />
+        <Icon className="size-3.5 sm:size-4" />
       </span>
       <div
         className={cn(
-          "flex max-w-[85%] min-w-0 flex-col gap-1",
+          "flex max-w-[88%] min-w-0 flex-col gap-1 sm:max-w-[80%]",
           ownSide && "items-end",
         )}
       >
@@ -60,7 +60,9 @@ function Message({
         </p>
         <div
           className={cn(
-            "rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap",
+            // A long message scrolls inside its own bubble, so one paste can't
+            // push the rest of the conversation out of view.
+            "max-h-72 overflow-y-auto overscroll-contain rounded-xl border px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] sm:max-h-80 sm:px-3.5 sm:py-2.5",
             ownSide
               ? "border-primary/20 bg-primary/5 text-foreground"
               : "border-border bg-card text-foreground",
@@ -80,35 +82,55 @@ function Message({
 export function SupportThread({
   request,
   viewer,
+  className,
 }: {
   request: SupportRequestDetail;
   viewer: Viewer;
+  /** Overrides the scroll area's height. */
+  className?: string;
 }) {
-  return (
-    <ol className="flex flex-col gap-4" aria-label="Conversation">
-      <Message
-        author={request.createdByName}
-        fromSupport={false}
-        ownSide={viewer === "tenant"}
-        time={formatSupportTime(request.createdAt)}
-        label="opened the request"
-        body={request.description}
-      />
-      {request.messages.map((message) => {
-        const fromSupport = message.authorType === "platform";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const count = request.messages.length;
 
-        return (
-          <Message
-            key={message.id}
-            author={message.authorName}
-            fromSupport={fromSupport}
-            ownSide={fromSupport === (viewer === "platform")}
-            time={formatSupportTime(message.createdAt)}
-            body={message.body}
-          />
-        );
-      })}
-    </ol>
+  // Keep the newest message in view when the thread opens or a reply lands.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [request.id, count]);
+
+  return (
+    <div
+      ref={scrollRef}
+      className={cn(
+        "max-h-[60vh] min-h-0 overflow-y-auto overscroll-contain pr-1 sm:max-h-[32rem]",
+        className,
+      )}
+    >
+      <ol className="flex flex-col gap-4" aria-label="Conversation">
+        <Message
+          author={request.createdByName}
+          fromSupport={false}
+          ownSide={viewer === "tenant"}
+          time={formatSupportTime(request.createdAt)}
+          label="opened the request"
+          body={request.description}
+        />
+        {request.messages.map((message) => {
+          const fromSupport = message.authorType === "platform";
+
+          return (
+            <Message
+              key={message.id}
+              author={message.authorName}
+              fromSupport={fromSupport}
+              ownSide={fromSupport === (viewer === "platform")}
+              time={formatSupportTime(message.createdAt)}
+              body={message.body}
+            />
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
@@ -180,7 +202,7 @@ export function SupportReplyBox({
         value={body}
         maxLength={SUPPORT_BODY_MAX}
         placeholder={placeholder}
-        className="resize-y"
+        className="max-h-60 min-h-24 resize-y"
         onChange={(event) => setBody(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -189,14 +211,14 @@ export function SupportReplyBox({
           }
         }}
       />
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <span className="hidden text-xs text-muted-foreground sm:inline">
           Ctrl + Enter to send
         </span>
         <Button
           type="submit"
           disabled={isSending || !body.trim()}
-          className="h-10 gap-2 rounded-lg bg-brand-accent px-4 font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90"
+          className="h-10 w-full gap-2 rounded-lg bg-brand-accent px-4 sm:w-auto font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90"
         >
           {isSending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />

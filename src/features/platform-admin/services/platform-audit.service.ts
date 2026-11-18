@@ -84,6 +84,8 @@ export async function getPlatformAuditPage(filters: PlatformAuditFilters) {
     .from("audit_logs")
     .select(`tenant_id, ${AUDIT_ROW_SELECT}`, { count: "exact" })
     .gte("created_at", from)
+    // Sign-ins are no longer part of the audit log (20261118120000).
+    .neq("module", "authentication")
     .order("created_at", { ascending: false });
 
   if (filters.tenant) query = query.eq("tenant_id", filters.tenant);

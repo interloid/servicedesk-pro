@@ -60,7 +60,7 @@ async function recordAudit(
       action: "support_access",
       entity: "support_request",
       entity_id: requestId,
-      module: "security",
+      module: "platform",
       meta_json: { summary, ...meta },
     });
 

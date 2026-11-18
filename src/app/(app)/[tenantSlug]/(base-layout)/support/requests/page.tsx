@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus } from "lucide-react";
 
+import { BackLink } from "@/components/shared/back-link";
 import { Button } from "@/components/ui/button";
 import { MySupportRequests } from "@/features/support/components/my-support-requests";
 import {
@@ -27,13 +28,9 @@ export default async function MySupportRequestsPage({
     <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8">
       <div className="mx-auto flex w-full flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <Link
-            href={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.HOME)}
-            className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" aria-hidden />
+          <BackLink href={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.HOME)}>
             Help & Support
-          </Link>
+          </BackLink>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-bold tracking-tight">
@@ -58,6 +55,7 @@ export default async function MySupportRequestsPage({
         <MySupportRequests
           requests={requests}
           requestHref={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.REQUESTS)}
+          searchable
         />
       </div>
     </div>
