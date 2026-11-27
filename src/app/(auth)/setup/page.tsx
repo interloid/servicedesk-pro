@@ -5,7 +5,12 @@ import { Ban, Wrench } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { OnboardingWizard } from "@/features/onboarding/components/onboarding-wizard";
 import { getTimezones } from "@/features/onboarding/services/onboarding.service";
-import { AuthShell } from "@/features/auth/components/auth-card";
+import {
+  AuthShell,
+  AuthSplitShell,
+} from "@/features/auth/components/auth-card";
+import { AuthShowcase } from "@/features/auth/components/auth-showcase";
+import { AUTH_COLUMN_CLASS } from "@/features/auth/components/auth-styles";
 import { PlatformStatusCard } from "@/features/platform-admin/components/platform-status-card";
 import {
   getCachedPlatformSettings,
@@ -88,8 +93,11 @@ export default async function SetupPage() {
   const timezones = await getTimezones();
 
   return (
-    <AuthShell>
+    <AuthSplitShell
+      showcase={<AuthShowcase variant="signup" />}
+      contentClassName={AUTH_COLUMN_CLASS}
+    >
       <OnboardingWizard timezones={timezones} />
-    </AuthShell>
+    </AuthSplitShell>
   );
 }

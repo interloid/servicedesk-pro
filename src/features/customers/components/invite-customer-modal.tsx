@@ -7,7 +7,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DASHBOARD_BUTTON } from "@/components/shared/dashboard-ui";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -69,17 +71,20 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
         const result = await inviteCustomerAction({ email });
 
         if (!result.ok) {
-          toast.error(result.message, { id: toastId });
+          toast.error("Couldn't send the portal link", {
+            id: toastId,
+            description: result.message,
+          });
           return;
         }
 
-        toast.success(`Portal link sent to ${email}.`, { id: toastId });
+        toast.success(`Portal link sent to ${email}`, { id: toastId });
       } catch (error) {
         console.error("[customers] inviteCustomerAction failed", error);
-        toast.error(
-          `We couldn't email ${email}. Check your connection and try again.`,
-          { id: toastId },
-        );
+        toast.error(`Couldn't email ${email}`, {
+          id: toastId,
+          description: "Check your connection and try again.",
+        });
       }
     });
   };
@@ -98,7 +103,10 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
       <DialogTrigger asChild>
         <Button
           disabled={isPending}
-          className="h-10 gap-2 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90"
+          className={cn(
+            DASHBOARD_BUTTON,
+            "gap-2 bg-brand-accent text-sm text-brand-accent-foreground hover:bg-brand-accent/90",
+          )}
         >
           <Share2 className="size-4" aria-hidden />
           Invite customer
@@ -106,17 +114,25 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
       </DialogTrigger>
 
       <DialogContent className={`sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Share customer portal
-          </DialogTitle>
-          <DialogDescription>
-            Give your customers access to your support portal. They can sign in
-            to raise and track tickets.
-          </DialogDescription>
+        <DialogHeader className="flex-row items-start gap-3.5 pr-6 text-left">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+            <Share2 className="size-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+              Share customer portal
+            </DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              Give your customers access to your support portal. They can sign
+              in to raise and track tickets.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <div className="space-y-1.5">
+          <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+            Share the link
+          </p>
           <Label htmlFor="portal-link" className="text-sm font-semibold">
             Customer portal
           </Label>
@@ -135,8 +151,11 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
         <form
           id="share-portal-form"
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-1.5"
+          className="space-y-1.5 border-t border-border pt-4"
         >
+          <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+            Or invite by email
+          </p>
           <Label htmlFor="customer-email" className="text-sm font-semibold">
             Send by email
           </Label>
@@ -160,7 +179,7 @@ export function InviteCustomerModal({ portalUrl }: { portalUrl: string }) {
           )}
         </form>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={cn(TEAM_DIALOG_FOOTER, "bg-slate-50/60")}>
           <DialogClose asChild>
             <Button
               type="button"

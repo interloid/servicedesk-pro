@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { User } from "lucide-react";
+import { ChevronDown, Keyboard, LogOut, User, UserCog } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -59,14 +59,14 @@ export function ProfileMenu({ identity }: ProfileMenuProps) {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-11 items-center gap-2 rounded-lg px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-11 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
           >
             <Avatar className="size-8">
               <AvatarImage
                 src={identity?.user.avatarUrl}
                 alt={identity?.user.name ?? "Unknown user"}
               />
-              <AvatarFallback className="bg-foreground text-xs font-bold text-background">
+              <AvatarFallback className="bg-brand-700 text-xs font-bold text-white">
                 {identity?.user.initials ? (
                   identity.user.initials
                 ) : (
@@ -87,6 +87,11 @@ export function ProfileMenu({ identity }: ProfileMenuProps) {
                 {displayRole}
               </span>
             </div>
+
+            <ChevronDown
+              className="hidden size-4 text-muted-foreground sm:block"
+              aria-hidden
+            />
           </button>
         </DropdownMenuTrigger>
 
@@ -112,27 +117,30 @@ export function ProfileMenu({ identity }: ProfileMenuProps) {
           <div className="p-1.5">
             <DropdownMenuItem
               onSelect={() => setIsProfileOpen(true)}
-              className="h-9 px-3 text-sm font-medium cursor-pointer"
+              className="h-9 cursor-pointer gap-2 px-3 text-sm font-medium"
             >
+              <UserCog className="size-4" aria-hidden />
               Profile settings
             </DropdownMenuItem>
 
             <DropdownMenuItem
               onSelect={() => setIsKeyboardOpen(true)}
-              className="h-9 px-3 text-sm font-medium cursor-pointer"
+              className="h-9 cursor-pointer gap-2 px-3 text-sm font-medium"
             >
+              <Keyboard className="size-4" aria-hidden />
               Keyboard shortcuts
             </DropdownMenuItem>
 
             <DropdownMenuItem
               variant="destructive"
-              className="h-9 px-3 text-sm font-medium cursor-pointer"
+              className="h-9 cursor-pointer gap-2 px-3 text-sm font-medium"
               disabled={isPending}
               onSelect={(event) => {
                 event.preventDefault();
                 void onSignOut();
               }}
             >
+              <LogOut className="size-4" aria-hidden />
               {isPending ? "Signing out…" : "Sign out"}
             </DropdownMenuItem>
           </div>

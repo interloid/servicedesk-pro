@@ -33,7 +33,9 @@ export async function copyText(value: string, what: string) {
     await navigator.clipboard.writeText(value);
     return true;
   } catch {
-    toast.error(`Couldn't copy the ${what.toLowerCase()}.`);
+    toast.error(`Couldn't copy the ${what.toLowerCase()}`, {
+      description: "Select the text and copy it yourself instead.",
+    });
     return false;
   }
 }
@@ -89,15 +91,24 @@ function Row({
   return (
     <div
       className={cn(
-        "gap-2",
+        "gap-2 px-3.5 py-3",
         stacked
           ? "flex flex-col"
           : "grid grid-cols-[5.5rem_minmax(0,1fr)] items-center sm:grid-cols-[7rem_minmax(0,1fr)]",
       )}
     >
-      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
+  );
+}
+
+/** A small uppercase label over a block of the popup. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+      {children}
+    </h3>
   );
 }
 
@@ -123,168 +134,162 @@ export function AuditEventDetails({
   return (
     <>
       <DialogHeader className="min-w-0 pr-6">
-        <DialogTitle className={TEAM_DIALOG_TITLE}>Event details</DialogTitle>
+        <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+          Event details
+        </DialogTitle>
         <DialogDescription>
           Everything recorded about this event.
         </DialogDescription>
       </DialogHeader>
 
       {/* Only the body scrolls: the title stays in view. */}
-      <div className="-mx-5 max-h-[60vh] min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-5">
-        <div className="flex items-start gap-3 border-b border-border pb-4">
+      <div className="-mx-5 flex max-h-[60vh] min-h-0 min-w-0 flex-col gap-5 overflow-x-hidden overflow-y-auto px-5 pb-1">
+        {/* What happened, when, and its result, module and action at a glance. */}
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-xl border p-4",
+            failed
+              ? "border-red-200! bg-red-50/50 dark:border-red-900/60! dark:bg-red-950/20"
+              : "border-border bg-slate-50/70 dark:bg-muted/30",
+          )}
+        >
           <span
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-full",
               failed
-                ? "bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300"
-                : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
+                ? "bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-300"
+                : "bg-brand-50 text-brand-700 dark:bg-emerald-950/60 dark:text-emerald-300",
             )}
           >
             <ActionIcon className="size-5" aria-hidden />
           </span>
-          <div className="min-w-0">
-            <p className="font-semibold break-words">{event.summary}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {formatAuditTimestamp(event.createdAt, timeZone)}
-              {relative ? ` (${relative})` : ""}
-            </p>
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="min-w-0">
+              <p className="font-heading font-bold break-words text-foreground">
+                {event.summary}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {formatAuditTimestamp(event.createdAt, timeZone)}
+                {relative ? ` (${relative})` : ""}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge className={AUDIT_RESULT_BADGE[event.result]}>
+                {AUDIT_RESULT_LABELS[event.result]}
+              </Badge>
+              <Badge className={AUDIT_MODULE_BADGE[event.module]}>
+                {AUDIT_MODULE_LABELS[event.module]}
+              </Badge>
+              <Badge className={cn("gap-1", AUDIT_ACTION_BADGE[event.action])}>
+                <ActionIcon className="size-3" aria-hidden />
+                {AUDIT_ACTION_LABELS[event.action]}
+              </Badge>
+            </div>
           </div>
         </div>
 
-        <dl className="flex flex-col gap-3.5 py-4">
-          <Row label="Result">
-            <Badge className={AUDIT_RESULT_BADGE[event.result]}>
-              {AUDIT_RESULT_LABELS[event.result]}
-            </Badge>
-          </Row>
-
-          <Row label="User">
-            {event.actor ? (
-              <div className="flex min-w-0 items-center gap-2.5">
-                <Avatar className="size-8">
-                  {event.actor.avatarUrl && (
-                    <AvatarImage src={event.actor.avatarUrl} alt="" />
-                  )}
-                  <AvatarFallback className="text-xs font-semibold">
-                    {getInitials(event.actor.name, event.actor.email)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{event.actor.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {event.actor.role ?? event.actor.email}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">System</span>
-            )}
-          </Row>
-
-          <Row label="Module">
-            <Badge className={AUDIT_MODULE_BADGE[event.module]}>
-              {AUDIT_MODULE_LABELS[event.module]}
-            </Badge>
-          </Row>
-
-          <Row label="Action">
-            <Badge className={cn("gap-1", AUDIT_ACTION_BADGE[event.action])}>
-              <ActionIcon className="size-3" aria-hidden />
-              {AUDIT_ACTION_LABELS[event.action]}
-            </Badge>
-          </Row>
-
-          <Row label="IP address">
-            {event.ip ? (
-              <div className="flex items-start justify-between gap-2">
-                <span className="min-w-0 font-mono text-[13px] break-all">
-                  {event.ip}
-                </span>
-                <CopyButton value={event.ip} what="IP address" />
-              </div>
-            ) : (
-              <span className="text-muted-foreground">Not recorded</span>
-            )}
-          </Row>
-
-          <Row label="Event ID">
-            <div className="flex items-start justify-between gap-2">
-              <span className="min-w-0 font-mono text-[13px] break-all">
-                {event.id}
-              </span>
-              <CopyButton value={event.id} what="Event ID" />
-            </div>
-          </Row>
-
-          <Row label="User agent" stacked>
-            {event.userAgent ? (
-              <div className="flex items-start justify-between gap-2">
-                <span className="min-w-0 text-xs break-all text-muted-foreground">
-                  {event.userAgent}
-                </span>
-                <CopyButton value={event.userAgent} what="User agent" />
-              </div>
-            ) : (
-              <span className="text-muted-foreground">Not recorded</span>
-            )}
-          </Row>
-        </dl>
-
-        <div className="rounded-xl border border-border bg-muted/40 p-3.5">
-          <p className="text-sm font-semibold">Details</p>
-          <p className="mt-1 text-sm break-words text-muted-foreground">
-            {event.summary}
-          </p>
-        </div>
-
         {event.changes.length > 0 && (
-          <section className="mt-5">
-            <h3 className="text-sm font-semibold">Changes</h3>
-            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2">
-              <div className="rounded-xl border border-border bg-muted/40 p-3">
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  Previous value
-                </p>
-                {event.changes.map((change) => (
-                  <p key={change.field} className="text-xs break-words">
-                    <span className="text-muted-foreground">
-                      {change.label}:
-                    </span>{" "}
-                    {change.from}
-                  </p>
-                ))}
-              </div>
-              <ArrowRight
-                className="size-4 self-center text-muted-foreground"
-                aria-hidden
-              />
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-                <p className="mb-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                  New value
-                </p>
-                {event.changes.map((change) => (
-                  <p key={change.field} className="text-xs break-words">
-                    <span className="text-muted-foreground">
-                      {change.label}:
-                    </span>{" "}
-                    {change.to}
-                  </p>
-                ))}
-              </div>
-            </div>
+          <section>
+            <SectionTitle>Changes</SectionTitle>
+            <ul className="flex flex-col divide-y divide-slate-100! overflow-hidden rounded-xl border border-border">
+              {event.changes.map((change) => (
+                <li
+                  key={change.field}
+                  className="flex flex-col gap-1.5 px-3.5 py-3 sm:flex-row sm:items-center sm:gap-3"
+                >
+                  <span className="shrink-0 text-xs font-medium text-slate-500 sm:w-28">
+                    {change.label}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-sm">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 break-words text-slate-600 line-through decoration-slate-400/70 dark:bg-muted">
+                      {change.from || "—"}
+                    </span>
+                    <ArrowRight
+                      className="size-3.5 shrink-0 text-slate-400"
+                      aria-hidden
+                    />
+                    <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-medium break-words text-emerald-700 ring-1 ring-emerald-600/15 ring-inset dark:bg-emerald-950/40 dark:text-emerald-300">
+                      {change.to || "—"}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
+        <section>
+          <SectionTitle>Information</SectionTitle>
+          <dl className="flex flex-col divide-y divide-slate-100! rounded-xl border border-border">
+            <Row label="User">
+              {event.actor ? (
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar className="size-8">
+                    {event.actor.avatarUrl && (
+                      <AvatarImage src={event.actor.avatarUrl} alt="" />
+                    )}
+                    <AvatarFallback className="text-xs font-semibold">
+                      {getInitials(event.actor.name, event.actor.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{event.actor.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {event.actor.role ?? event.actor.email}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">System</span>
+              )}
+            </Row>
+
+            <Row label="IP address">
+              {event.ip ? (
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 font-mono text-[13px] break-all">
+                    {event.ip}
+                  </span>
+                  <CopyButton value={event.ip} what="IP address" />
+                </div>
+              ) : (
+                <span className="text-muted-foreground">Not recorded</span>
+              )}
+            </Row>
+
+            <Row label="Event ID">
+              <div className="flex items-start justify-between gap-2">
+                <span className="min-w-0 font-mono text-[13px] break-all">
+                  {event.id}
+                </span>
+                <CopyButton value={event.id} what="Event ID" />
+              </div>
+            </Row>
+
+            <Row label="User agent" stacked>
+              {event.userAgent ? (
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 text-xs break-all text-muted-foreground">
+                    {event.userAgent}
+                  </span>
+                  <CopyButton value={event.userAgent} what="User agent" />
+                </div>
+              ) : (
+                <span className="text-muted-foreground">Not recorded</span>
+              )}
+            </Row>
+          </dl>
+        </section>
+
         {event.related && (
-          <section className="mt-5">
-            <h3 className="text-sm font-semibold">Related resources</h3>
-            <div className="mt-2 flex items-center gap-3">
-              <FileText
-                className="size-5 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <span className="text-sm">{event.related.label}</span>
-              <span className="ml-auto min-w-0 truncate font-mono text-xs text-muted-foreground">
+          <section>
+            <SectionTitle>Related resource</SectionTitle>
+            <div className="flex items-center gap-3 rounded-xl border border-border px-3.5 py-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                <FileText className="size-4" strokeWidth={1.75} aria-hidden />
+              </span>
+              <span className="text-sm font-medium">{event.related.label}</span>
+              <span className="ml-auto min-w-0 truncate font-mono text-xs text-slate-500">
                 {event.related.value}
               </span>
               <CopyButton value={event.related.value} what="Resource ID" />

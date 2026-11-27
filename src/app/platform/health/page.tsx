@@ -1,3 +1,4 @@
+import { Activity } from "lucide-react";
 import type { Metadata } from "next";
 
 import { PlatformPageHeader } from "@/features/platform-admin/components/platform-ui";
@@ -31,6 +32,8 @@ export default async function PlatformHealthPage() {
   return (
     <div className="flex flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Operations"
+        icon={Activity}
         title="System Health"
         description="Services, database and API traffic."
         action={<RefreshButton />}

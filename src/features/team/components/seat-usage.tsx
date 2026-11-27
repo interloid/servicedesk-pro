@@ -1,3 +1,7 @@
+import { Armchair } from "lucide-react";
+
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
+import { cn } from "@/lib/utils";
 import type { TeamSeats, TeamStatusCounts } from "@/features/team/types/team";
 
 /**
@@ -9,7 +13,8 @@ function seatTone(seats: TeamSeats) {
 
   if (seats.limit > 0 && ratio >= 1) {
     return {
-      badge: "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300",
+      badge:
+        "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
       text: "text-red-600 dark:text-red-400",
     };
   }
@@ -17,13 +22,14 @@ function seatTone(seats: TeamSeats) {
   if (seats.limit > 0 && ratio >= 0.8) {
     return {
       badge:
-        "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
+        "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
       text: "text-amber-700 dark:text-amber-400",
     };
   }
 
   return {
-    badge: "bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300",
+    badge:
+      "bg-brand-50 text-brand-700 ring-brand-700/15 dark:bg-brand-700/20 dark:text-brand-100",
     text: "text-muted-foreground",
   };
 }
@@ -65,9 +71,9 @@ export function SeatUsage({ seats, counts }: SeatUsageProps) {
         ? "bg-red-500"
         : isFull
           ? "bg-red-500 opacity-30"
-          : "bg-teal-700 dark:bg-emerald-400",
+          : "bg-brand-700 dark:bg-emerald-400",
       // Active people are fine however full the plan is, so the dot stays green.
-      dot: "bg-teal-700 dark:bg-emerald-400",
+      dot: "bg-brand-700 dark:bg-emerald-400",
     },
     {
       key: "invited",
@@ -95,19 +101,32 @@ export function SeatUsage({ seats, counts }: SeatUsageProps) {
     .join(", ");
 
   return (
-    <div className="flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 shadow-xs sm:px-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-          <span className="text-sm font-bold">Team seats</span>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {hasLimit
-              ? `${seats.used} of ${seats.limit} used`
-              : `${seats.used} used`}
+    <section
+      className={cn(DASHBOARD_CARD, "flex flex-col gap-4 p-5")}
+      aria-label="Team seats"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700/20">
+            <Armchair className="size-5" strokeWidth={1.75} aria-hidden />
           </span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+              Team seats
+            </span>
+            <span className="text-sm text-slate-500 tabular-nums">
+              {hasLimit
+                ? `${seats.used} of ${seats.limit} used`
+                : `${seats.used} used`}
+            </span>
+          </div>
         </div>
         {hasLimit && (
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap ${tone.badge}`}
+            className={cn(
+              "inline-flex h-6 shrink-0 items-center rounded-md px-2 text-xs font-semibold whitespace-nowrap tabular-nums ring-1 ring-inset",
+              tone.badge,
+            )}
           >
             {isFull ? "Full" : `${seats.seatsLeft} left`}
           </span>
@@ -117,7 +136,7 @@ export function SeatUsage({ seats, counts }: SeatUsageProps) {
       <div
         role="img"
         aria-label={`Seats: ${summary}.`}
-        className="flex h-3 gap-0.5 overflow-hidden rounded-full"
+        className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-slate-100 dark:bg-muted"
       >
         {scale > 0 &&
           segments
@@ -140,8 +159,8 @@ export function SeatUsage({ seats, counts }: SeatUsageProps) {
                 className={`size-2.5 shrink-0 rounded-full ${segment.dot ?? segment.fill}`}
                 aria-hidden
               />
-              <span className="text-muted-foreground">{segment.label}</span>
-              <span className="ml-auto font-semibold tabular-nums sm:ml-0">
+              <span className="text-slate-500">{segment.label}</span>
+              <span className="ml-auto font-semibold text-foreground tabular-nums sm:ml-0">
                 {segment.count}
               </span>
             </li>
@@ -151,11 +170,11 @@ export function SeatUsage({ seats, counts }: SeatUsageProps) {
             title="Disabled members don't use a seat."
           >
             <span
-              className="size-2.5 shrink-0 rounded-full border-[1.5px] border-slate-400 dark:border-slate-500"
+              className="size-2.5 shrink-0 rounded-full border-[1.5px] border-slate-400! dark:border-slate-500!"
               aria-hidden
             />
-            <span className="text-muted-foreground">Disabled</span>
-            <span className="ml-auto font-semibold tabular-nums sm:ml-0">
+            <span className="text-slate-500">Disabled</span>
+            <span className="ml-auto font-semibold text-foreground tabular-nums sm:ml-0">
               {counts.Disabled}
             </span>
           </li>
@@ -169,6 +188,6 @@ export function SeatUsage({ seats, counts }: SeatUsageProps) {
           </p>
         )}
       </div>
-    </div>
+    </section>
   );
 }

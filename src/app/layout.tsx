@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { connection } from "next/server";
 import { siteConfig } from "@/config/site";
 import { Providers } from "./providers";
@@ -12,6 +12,12 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+});
+// Headings (h1–h4 and font-heading). Variable font, self-hosted by next/font,
+// so the CSP's font-src 'self' still holds.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -67,6 +73,7 @@ export default async function RootLayout({
         "font-sans",
         inter.variable,
         jetbrainsMono.variable,
+        plusJakartaSans.variable,
       )}
     >
       <body className="h-full">

@@ -1,3 +1,4 @@
+import { Building2 } from "lucide-react";
 import type { Metadata } from "next";
 
 import { requirePlatformAdmin } from "@/features/platform-admin/services/platform-access";
@@ -26,6 +27,8 @@ export default async function PlatformTenantsPage() {
     // Exactly the height the shell leaves, so only the table's rows scroll.
     <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Manage platform"
+        icon={Building2}
         title="Tenants"
         description="All workspaces on the platform, with plan, seats, status and support requests."
       />

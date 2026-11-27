@@ -409,14 +409,18 @@ export default function DirectResetPasswordPage() {
         if (!result.success) {
           if (result.reason === "retry") {
             form.setError("root", { message: result.error });
-            toast.error(result.error);
+            toast.error("Couldn't update your password", {
+              description: result.error,
+            });
             return;
           }
 
           await createSupabaseClient().auth.signOut({ scope: "local" });
           setBlockedReason(result.reason);
           setAuthError(result.error);
-          toast.error(result.error);
+          toast.error("Couldn't update your password", {
+            description: result.error,
+          });
           return;
         }
 
@@ -424,11 +428,11 @@ export default function DirectResetPasswordPage() {
         await createSupabaseClient().auth.signOut({ scope: "local" });
 
         setUpdated(true);
-        toast.success(
-          isFirstPassword
-            ? "Password set. Sign in to open your workspace."
-            : "Password updated. Sign in with your new password.",
-        );
+        toast.success(isFirstPassword ? "Password set" : "Password updated", {
+          description: isFirstPassword
+            ? "Taking you to sign in so you can open your workspace."
+            : "Taking you to sign in with your new password.",
+        });
 
         setTimeout(() => {
           router.push(tenantLoginPath(tenantSlug));
@@ -443,7 +447,7 @@ export default function DirectResetPasswordPage() {
           "We couldn't update your password. Check your connection and try again.";
 
         form.setError("root", { message });
-        toast.error(message);
+        toast.error("Couldn't update your password", { description: message });
       }
     });
   }

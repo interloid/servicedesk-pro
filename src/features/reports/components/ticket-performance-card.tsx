@@ -6,6 +6,7 @@ import {
   AreaChart as AreaIcon,
   Inbox,
   CheckCheck,
+  TrendingUp,
 } from "lucide-react";
 import {
   Area,
@@ -20,16 +21,22 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/ui/card";
+import {
+  CHART_COLORS,
+  CHART_TICK,
+} from "@/features/platform-admin/components/chart-theme";
 import { cn } from "@/lib/utils";
 import { ReportsData, TrendPoint } from "../types/types";
+import { ReportPanelHeading } from "./panel-heading";
 import { REPORT_CARD } from "./styles";
 
+// The dashboards' chart palette: brand teal leads, sky for the second series.
 const SERIES = [
-  { key: "opened", label: "Opened", color: "var(--chart-opened)" },
-  { key: "resolved", label: "Resolved", color: "var(--chart-resolved)" },
+  { key: "opened", label: "Opened", color: CHART_COLORS.primary },
+  { key: "resolved", label: "Resolved", color: "#38bdf8" },
 ] as const;
 
-const AXIS_TICK = { fill: "var(--chart-axis)", fontSize: 11 };
+const AXIS_TICK = CHART_TICK;
 
 const BAR_GAP = 2;
 
@@ -73,24 +80,22 @@ function TrendTooltip({ active, payload }: TrendTooltipProps) {
   if (!active || !point) return null;
 
   return (
-    <div className="min-w-56 rounded-xl border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg">
-      <p className="mb-2 border-b pb-2 font-bold text-foreground">
-        {point.title}
-      </p>
+    <div className="min-w-44 rounded-[10px] border border-slate-200! bg-popover px-3 py-2.5 text-xs text-popover-foreground shadow-[0_8px_24px_-8px_rgba(15,23,42,0.18)] dark:border-border!">
+      <p className="mb-1.5 font-semibold text-foreground">{point.title}</p>
       {SERIES.map((series) => (
         <div
           key={series.key}
-          className="flex items-center justify-between gap-8 py-1"
+          className="flex items-center justify-between gap-6 py-0.5"
         >
-          <span className="flex items-center gap-2 text-muted-foreground">
+          <span className="flex items-center gap-2 text-slate-500">
             <span
               aria-hidden
-              className="size-2.5 rounded-full"
+              className="size-2.5 rounded-sm"
               style={{ background: series.color }}
             />
             {series.label}
           </span>
-          <span className="text-base font-bold tabular-nums text-foreground">
+          <span className="font-semibold text-foreground tabular-nums">
             {point[series.key]}
           </span>
         </div>
@@ -112,22 +117,19 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
   return (
     <Card className={REPORT_CARD}>
       <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">
-            Support Ticket Performance
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Opened vs resolved tickets over time
-          </p>
-        </div>
+        <ReportPanelHeading
+          icon={TrendingUp}
+          title="Support Ticket Performance"
+          description="Opened vs resolved tickets over time"
+        />
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex h-10 items-center gap-4 rounded-lg border px-4 text-sm text-muted-foreground">
+          <div className="flex h-10 items-center gap-4 rounded-lg border border-border bg-card px-3.5 text-xs font-medium text-slate-500">
             {SERIES.map((series) => (
               <span key={series.key} className="flex items-center gap-1.5">
                 <span
                   aria-hidden
-                  className="size-2 rounded-full"
+                  className="size-2.5 rounded-sm"
                   style={{ background: series.color }}
                 />
                 {series.label}
@@ -138,7 +140,7 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
           <div
             role="group"
             aria-label="Chart type"
-            className="flex h-10 items-center gap-0.5 rounded-lg border p-1"
+            className="flex h-10 items-center gap-1 rounded-lg border border-border bg-slate-100/70 p-1 dark:bg-muted"
           >
             {(
               [
@@ -153,8 +155,9 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
                 aria-pressed={kind === value}
                 onClick={() => setKind(value)}
                 className={cn(
-                  "flex h-full w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground",
-                  kind === value && "bg-muted text-foreground",
+                  "flex h-full w-9 items-center justify-center rounded-md text-slate-500 transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
+                  kind === value &&
+                    "bg-white text-brand-700 shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 dark:bg-card dark:ring-border",
                 )}
               >
                 <Icon className="size-4" />
@@ -165,25 +168,37 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
       </div>
 
       <div className="mt-5 flex flex-col gap-5 md:flex-row md:items-stretch">
-        <div className="flex shrink-0 gap-4 border-b pb-4 md:w-40 md:flex-col md:justify-center md:border-r md:border-b-0 md:pb-0 md:pr-5">
+        <div className="flex shrink-0 gap-4 border-b border-border pb-4 md:w-40 md:flex-col md:justify-center md:border-r md:border-b-0 md:pr-5 md:pb-0">
           <div className="flex-1 md:flex-none">
-            <Inbox className="size-5 text-chart-opened" aria-hidden />
-            <p className="mt-2 text-sm text-muted-foreground">Open Tickets</p>
-            <p className="text-3xl font-bold tabular-nums text-foreground">
+            <span
+              aria-hidden
+              className="flex size-9 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+            >
+              <Inbox className="size-4.5" strokeWidth={1.75} />
+            </span>
+            <p className="mt-2.5 text-sm font-medium text-slate-600">
+              Open Tickets
+            </p>
+            <p className="text-[1.75rem] leading-tight font-bold tracking-tight text-foreground tabular-nums">
               {data.summary.openBacklog}
             </p>
-            <p className="text-xs text-muted-foreground">Currently open</p>
+            <p className="text-xs text-slate-400">Currently open</p>
           </div>
-          <div className="hidden border-t md:block" />
+          <div className="hidden border-t border-border md:block" />
           <div className="flex-1 md:flex-none">
-            <CheckCheck className="size-5 text-chart-resolved" aria-hidden />
-            <p className="mt-2 text-sm text-muted-foreground">
+            <span
+              aria-hidden
+              className="flex size-9 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
+            >
+              <CheckCheck className="size-4.5" strokeWidth={1.75} />
+            </span>
+            <p className="mt-2.5 text-sm font-medium text-slate-600">
               Resolved Tickets
             </p>
-            <p className="text-3xl font-bold tabular-nums text-foreground">
+            <p className="text-[1.75rem] leading-tight font-bold tracking-tight text-foreground tabular-nums">
               {data.summary.ticketsSolved}
             </p>
-            <p className="text-xs text-muted-foreground">In this period</p>
+            <p className="text-xs text-slate-400">In this period</p>
           </div>
         </div>
 
@@ -198,7 +213,11 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
                 barGap={BAR_GAP}
                 barCategoryGap="20%"
               >
-                <CartesianGrid vertical={false} stroke="var(--border)" />
+                <CartesianGrid
+                  vertical={false}
+                  stroke={CHART_COLORS.grid}
+                  strokeDasharray="3 3"
+                />
                 <XAxis
                   dataKey="label"
                   axisLine={false}
@@ -213,7 +232,7 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
                   tick={AXIS_TICK}
                 />
                 <Tooltip
-                  cursor={{ fill: "var(--muted)", opacity: 0.6 }}
+                  cursor={{ fill: CHART_COLORS.cursor }}
                   content={(props) => <TrendTooltip {...props} />}
                 />
                 {SERIES.map((series, index) => (
@@ -256,7 +275,11 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
                     </linearGradient>
                   ))}
                 </defs>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
+                <CartesianGrid
+                  vertical={false}
+                  stroke={CHART_COLORS.grid}
+                  strokeDasharray="3 3"
+                />
                 <XAxis
                   dataKey="label"
                   axisLine={false}
@@ -271,7 +294,7 @@ export function TicketPerformanceCard({ data }: TicketPerformanceCardProps) {
                   tick={AXIS_TICK}
                 />
                 <Tooltip
-                  cursor={{ stroke: "var(--chart-axis)", strokeDasharray: 4 }}
+                  cursor={{ stroke: CHART_COLORS.tick, strokeDasharray: 4 }}
                   content={(props) => <TrendTooltip {...props} />}
                 />
                 {SERIES.map((series) => (

@@ -292,7 +292,7 @@ export function HeaderSearch({
                   index === active ? "bg-accent" : "hover:bg-accent/60",
                 )}
               >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 font-mono text-xs font-semibold text-primary">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary tabular-nums">
                   #{hit.number}
                 </span>
                 <span className="min-w-0 flex-1">

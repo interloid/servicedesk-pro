@@ -8,6 +8,9 @@ import { fetchTenantBillingData } from "@/features/billing/services/billing-dash
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import type { Metadata } from "next";
+import { BadgeDollarSign, Lock } from "lucide-react";
+
+import { DashboardPageHeader } from "@/components/shared/dashboard-ui";
 
 import {
   canManageTenantBilling,
@@ -52,38 +55,40 @@ export default async function TenantBillingPage({
   }
 
   return (
-    <div className="min-h-full w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-      <div className="mx-auto max-w-7xl space-y-8 sm:space-y-10">
-        <header className="mx-auto max-w-2xl space-y-2 text-center">
-          <h1 className="text-xl font-bold tracking-tight text-foreground text-balance sm:text-2xl lg:text-3xl">
-            Plans & pricing
-          </h1>
-
-          <p className="text-xs text-muted-foreground text-pretty sm:text-sm">
-            One flat monthly price per plan, with agent seats included. Change
-            or cancel anytime.
-          </p>
-        </header>
+    <div className="min-h-full w-full p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <DashboardPageHeader
+          eyebrow="Account"
+          icon={BadgeDollarSign}
+          title="Plans & pricing"
+          description="One flat monthly price per plan, with agent seats included. Change or cancel anytime."
+        />
 
         {!canManageBilling ? (
-          <div className="mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-center shadow-sm sm:p-6 md:p-8">
-            <p className="text-sm font-semibold text-card-foreground">
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-3 rounded-xl border border-border bg-card px-6 py-10 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <Lock className="size-5" aria-hidden />
+            </span>
+            <p className="font-heading text-base font-bold text-foreground">
               You don&apos;t have permission to change plans.
             </p>
 
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="-mt-2 text-sm text-slate-500">
               Ask a tenant admin or billing admin to manage subscriptions for
               this workspace.
             </p>
           </div>
         ) : plans.length === 0 ? (
           /* No plans */
-          <div className="mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-center shadow-sm sm:p-6 md:p-8">
-            <p className="text-sm font-semibold text-card-foreground">
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-3 rounded-xl border border-border bg-card px-6 py-10 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <Lock className="size-5" aria-hidden />
+            </span>
+            <p className="font-heading text-base font-bold text-foreground">
               Plans aren&apos;t available right now.
             </p>
 
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="-mt-2 text-sm text-slate-500">
               Please try again shortly. If the problem persists, contact
               support.
             </p>

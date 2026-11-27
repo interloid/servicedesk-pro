@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { AuthShell } from "@/features/auth/components/auth-card";
+import { AuthSplitShell } from "@/features/auth/components/auth-card";
+import { AuthShowcase } from "@/features/auth/components/auth-showcase";
+import { AUTH_COLUMN_CLASS } from "@/features/auth/components/auth-styles";
 import { loginErrorMessage } from "@/features/auth/login-errors";
 import { LoginForm } from "@/features/auth/components/login-form";
 
@@ -26,8 +28,11 @@ export default async function LoginPage(props: PageProps) {
   const next = Array.isArray(nextParam) ? nextParam[0] : nextParam;
 
   return (
-    <AuthShell>
+    <AuthSplitShell
+      showcase={<AuthShowcase variant="signin" />}
+      contentClassName={AUTH_COLUMN_CLASS}
+    >
       <LoginForm initialError={initialError} next={next} />
-    </AuthShell>
+    </AuthSplitShell>
   );
 }

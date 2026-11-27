@@ -18,35 +18,39 @@ const PLANS = [
 
 export default function PlansLoading() {
   return (
-    <div className="min-h-full w-full  px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10 ">
-      <div className="mx-auto max-w-7xl space-y-8 sm:space-y-10">
-        <header className="mx-auto max-w-2xl space-y-2 text-center">
-          <Skeleton className="mx-auto h-8 w-48 sm:h-9 sm:w-52 bg-slate-200 " />
-          <Skeleton className="mx-auto h-4 w-80 max-w-full sm:h-5 bg-slate-200" />
+    <div className="min-h-full w-full p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <header className="flex flex-col gap-1.5">
+          <Skeleton className="h-4 w-24 bg-slate-200" />
+          <Skeleton className="h-9 w-56 bg-slate-200" />
+          <Skeleton className="h-5 w-96 max-w-full bg-slate-200" />
         </header>
 
         <div className="flex flex-wrap items-stretch justify-center gap-5 xl:gap-6">
           {PLANS.map((plan, index) => (
             <Card
               key={index}
-              className="flex min-h-136 w-full flex-col rounded-2xl border! border-border! bg-card p-6 shadow-sm sm:w-[calc(50%-0.625rem)] xl:w-[calc(33.333%-1rem)]"
+              className="flex min-h-136 w-full flex-col gap-0 rounded-xl border! border-border! bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0 sm:w-[calc(50%-0.625rem)] xl:w-[calc(33.333%-1rem)]"
             >
               <div className="flex h-full flex-1 flex-col">
                 <div className="min-h-25">
-                  <Skeleton className={`h-7 ${plan.title}`} />
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-10 shrink-0 rounded-full" />
+                    <Skeleton className={`h-6 ${plan.title}`} />
+                  </div>
 
-                  <div className="mt-2 min-h-10 space-y-2">
+                  <div className="mt-3 min-h-10 space-y-2">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-4/5" />
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-baseline gap-1.5">
-                  <Skeleton className="h-10 w-24" />
+                  <Skeleton className="h-8 w-24" />
                   <Skeleton className="h-4 w-14" />
                 </div>
 
-                <div className="mt-5 flex h-11.5 items-center gap-2.5 rounded-xl border border-border/80 px-3.5">
+                <div className="mt-5 flex h-11.5 items-center gap-2.5 rounded-lg bg-slate-50 px-3.5 dark:bg-muted/40">
                   <Skeleton className="size-4 shrink-0" />
                   <Skeleton className="h-4 w-40" />
                 </div>
@@ -82,7 +86,7 @@ export default function PlansLoading() {
                 </div>
 
                 <div className="mt-6">
-                  <Skeleton className="h-11 w-full rounded-xl" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
                 </div>
               </div>
             </Card>

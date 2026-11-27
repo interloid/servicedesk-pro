@@ -167,11 +167,15 @@ function ResetPasswordForm() {
           message: result.error || "Failed to update password.",
         });
 
-        toast.error(result.error || "Failed to update password.");
+        toast.error("Couldn't update your password", {
+          description: result.error || "Failed to update password.",
+        });
         return;
       }
 
-      toast.success("Password updated successfully");
+      toast.success("Password updated", {
+        description: "Taking you to sign in with your new password.",
+      });
 
       setUpdated(true);
 

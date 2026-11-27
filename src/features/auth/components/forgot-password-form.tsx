@@ -50,19 +50,26 @@ export function ForgotPasswordForm() {
               "Too many attempts from this address - try again in 60 seconds, or contact your admin.",
           });
           form.setError("email", { message: "Rate limited" });
-          toast.error(response.error || "Too many attempts. Try again later.");
+          toast.error("Too many reset requests", {
+            description:
+              response.error || "Too many attempts. Try again later.",
+          });
         } else {
           form.setError("root", {
             message:
               response.error || "An error occurred while sending the email.",
           });
-          toast.error(response.error || "Failed to send reset email.");
+          toast.error("Couldn't send the reset link", {
+            description: response.error || "Failed to send reset email.",
+          });
         }
         setSent(false);
         return;
       }
 
-      toast.success("Reset link sent. Check your inbox.");
+      toast.success("Reset link sent", {
+        description: "Check your inbox for a link to reset your password.",
+      });
       setSent(true);
     });
   }

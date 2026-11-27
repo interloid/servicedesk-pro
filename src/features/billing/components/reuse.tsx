@@ -10,46 +10,55 @@ const PILL_TONES: Record<
   { pill: string; dot: string; text: string }
 > = {
   emerald: {
-    pill: "bg-emerald-50 text-emerald-700",
+    pill: "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-950/60 dark:text-emerald-300",
     dot: "bg-emerald-500",
     text: "text-emerald-700",
   },
   sky: {
-    pill: "bg-sky-50 text-sky-700",
+    pill: "bg-sky-50 text-sky-700 ring-sky-600/15 dark:bg-sky-950/60 dark:text-sky-300",
     dot: "bg-sky-500",
     text: "text-sky-700",
   },
   amber: {
-    pill: "bg-amber-50 text-amber-800",
+    pill: "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
     dot: "bg-amber-500",
     text: "text-amber-800",
   },
   red: {
-    pill: "bg-red-50 text-red-700",
+    pill: "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
     dot: "bg-red-500",
     text: "text-red-700",
   },
   slate: {
-    pill: "bg-slate-100 text-slate-600",
+    pill: "bg-slate-100 text-slate-600 ring-slate-500/15",
     dot: "bg-slate-400",
     text: "text-slate-500",
   },
 };
+
+/** Round icon tints, from the palette the platform pages use. */
+const ICON_TONES = {
+  teal: "bg-brand-50 text-brand-700",
+  blue: "bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300",
+  violet:
+    "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300",
+  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+} as const;
+
+type IconTone = keyof typeof ICON_TONES;
 
 export function IconTile({
   icon: Icon,
   tone,
 }: {
   icon: IconType;
-  tone: "teal" | "blue";
+  tone: IconTone;
 }) {
   return (
     <span
       className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-lg",
-        tone === "teal"
-          ? "bg-teal-50 text-teal-700"
-          : "bg-blue-50 text-blue-600",
+        "flex size-10 shrink-0 items-center justify-center rounded-full",
+        ICON_TONES[tone],
       )}
     >
       <Icon className="size-5" />
@@ -61,7 +70,7 @@ export function StatusPill({ tone, label }: { tone: PillTone; label: string }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold leading-5",
+        "inline-flex h-6 shrink-0 items-center rounded-md px-2 text-xs font-semibold whitespace-nowrap ring-1 ring-inset",
         PILL_TONES[tone].pill,
       )}
     >
@@ -100,11 +109,13 @@ export function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="flex items-center gap-2.5 text-slate-600">
+      <dt className="flex items-center gap-2.5 text-slate-500">
         <Icon className="size-4 text-slate-400" />
         {label}
       </dt>
-      <dd className="text-right font-semibold text-slate-900">{value}</dd>
+      <dd className="text-right font-semibold text-foreground tabular-nums">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -117,16 +128,18 @@ export function DashboardCard({
   footer,
 }: {
   icon: IconType;
-  iconTone: "teal" | "blue";
+  iconTone: IconTone;
   label: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
-    <section className="flex h-full min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+    <section className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <header className="flex items-center gap-3">
         <IconTile icon={icon} tone={iconTone} />
-        <h2 className="text-base font-semibold text-slate-900">{label}</h2>
+        <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+          {label}
+        </h2>
       </header>
       <div className="mt-5 flex flex-1 flex-col">{children}</div>
       {footer && (
@@ -156,14 +169,14 @@ export function NoticeBanner({
   const styles =
     tone === "red"
       ? {
-          box: "border-red-200 bg-red-50",
-          tile: "bg-red-500",
+          box: "border-red-200! bg-red-50 dark:border-red-900/60! dark:bg-red-950/40",
+          tile: "bg-white text-red-600 ring-1 ring-red-200 dark:bg-red-950 dark:ring-red-900/60",
           title: "text-red-950",
           text: "text-red-800",
         }
       : {
-          box: "border-amber-200 bg-amber-50",
-          tile: "bg-amber-500",
+          box: "border-amber-200! bg-amber-50 dark:border-amber-900/60! dark:bg-amber-950/40",
+          tile: "bg-white text-amber-600 ring-1 ring-amber-200 dark:bg-amber-950 dark:ring-amber-900/60",
           title: "text-amber-950",
           text: "text-amber-800",
         };
@@ -202,11 +215,11 @@ export function NoticeBanner({
         <span
           className={cn(
             "flex size-9 shrink-0 items-center justify-center",
-            "rounded-lg text-white",
+            "rounded-full",
             styles.tile,
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-4.5" />
         </span>
 
         <h3
@@ -246,11 +259,11 @@ export function NoticeBanner({
         <span
           className={cn(
             "flex size-9 shrink-0 items-center justify-center",
-            "rounded-lg text-white",
+            "rounded-full",
             styles.tile,
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-4.5" />
         </span>
 
         <div className="min-w-0">
@@ -294,11 +307,11 @@ export function NoticeBanner({
         <span
           className={cn(
             "flex size-9 shrink-0 items-center justify-center",
-            "rounded-lg text-white",
+            "rounded-full",
             styles.tile,
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-4.5" />
         </span>
 
         <div className="min-w-0">
@@ -352,9 +365,9 @@ export function PayPalMark({ className }: { className?: string }) {
 
 function CardSkeleton() {
   return (
-    <div className="flex h-full min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+    <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-center gap-3">
-        <Skeleton className="size-10 rounded-lg bg-slate-100" />
+        <Skeleton className="size-10 rounded-full bg-slate-100" />
         <Skeleton className="h-4 w-28 bg-slate-100" />
       </div>
 
@@ -364,7 +377,7 @@ function CardSkeleton() {
             <Skeleton className="h-8 w-4/5 max-w-44 bg-slate-100" />
             <Skeleton className="mt-1 h-8 w-28 bg-slate-100" />
           </div>
-          <Skeleton className="mt-1 h-6 w-16 shrink-0 rounded-full bg-slate-100" />
+          <Skeleton className="mt-1 h-6 w-16 shrink-0 rounded-md bg-slate-100" />
         </div>
 
         <Skeleton className="mt-2 h-4 w-3/4 bg-slate-100" />
@@ -396,11 +409,12 @@ function CardSkeleton() {
 
 export function LoadingState({ showBanner }: { showBanner: boolean }) {
   return (
-    <div className="h-full p-4 font-sans text-slate-900 sm:p-8">
+    <div className="h-full p-4 font-sans text-foreground sm:p-6 lg:p-8">
       <div className="mx-auto space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1">
-            <Skeleton className="h-8 w-32 bg-slate-200" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-4 w-24 bg-slate-200" />
+            <Skeleton className="h-9 w-32 bg-slate-200" />
             <Skeleton className="h-5 w-72 max-w-full bg-slate-200" />
           </div>
           <Skeleton className="h-10 w-full rounded-lg bg-slate-200 sm:w-36" />
@@ -413,10 +427,10 @@ export function LoadingState({ showBanner }: { showBanner: boolean }) {
             <CardSkeleton key={i} />
           ))}
         </div>
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <header className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <header className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <Skeleton className="size-10 rounded-lg bg-slate-100" />
+              <Skeleton className="size-10 rounded-full bg-slate-100" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-28 bg-slate-100" />
                 <Skeleton className="h-3 w-16 bg-slate-100" />
@@ -424,7 +438,7 @@ export function LoadingState({ showBanner }: { showBanner: boolean }) {
             </div>
           </header>
           <div className="border-t border-slate-100">
-            <div className="flex items-center gap-4 border-b border-slate-100 bg-slate-50 px-4 py-3.5 sm:px-6">
+            <div className="flex h-10 items-center gap-4 border-b border-border bg-slate-50 px-4">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton
                   key={i}
@@ -434,19 +448,16 @@ export function LoadingState({ showBanner }: { showBanner: boolean }) {
             </div>
             <div className="divide-y divide-slate-100">
               {Array.from({ length: INVOICES_PER_PAGE }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 px-4 py-4 sm:px-6"
-                >
+                <div key={i} className="flex items-center gap-4 px-4 py-4">
                   <Skeleton className="h-3 w-16 shrink-0 bg-slate-100" />
                   <Skeleton className="h-3 w-20 shrink-0 bg-slate-100" />
                   <Skeleton className="hidden h-3 flex-1 bg-slate-100 sm:block" />
                   <Skeleton className="h-3 w-14 shrink-0 bg-slate-100" />
-                  <Skeleton className="h-5 w-14 shrink-0 rounded-full bg-slate-100" />
+                  <Skeleton className="h-6 w-14 shrink-0 rounded-md bg-slate-100" />
                 </div>
               ))}
             </div>
-            <nav className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <nav className="flex flex-col gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <Skeleton className="h-4 w-40 bg-slate-100" />
               <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-2">
                 <Skeleton className="size-9 rounded-lg bg-slate-100" />

@@ -148,9 +148,9 @@ interface SlaEditorProps {
 const CONTROL = "h-10 border-slate-200 text-sm";
 /** shadcn Card at the page's 20px padding, with a border instead of its ring. */
 const CARD =
-  "gap-4 border border-slate-200/80 bg-white shadow-xs ring-0 [--card-spacing:--spacing(5)]";
+  "gap-4 rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0 [--card-spacing:--spacing(5)]";
 /** A table set inside a card: its own rounded border, header tinted. */
-const INSET_TABLE = "overflow-hidden rounded-xl border border-slate-200";
+const INSET_TABLE = "overflow-hidden rounded-xl border border-border";
 /**
  * The holidays table is always three rows tall (40px header + 3 × 52px rows +
  * borders = 199px), locked or not; more holidays scroll inside it under a
@@ -158,11 +158,12 @@ const INSET_TABLE = "overflow-hidden rounded-xl border border-slate-200";
  */
 const HOLIDAY_TABLE_SCROLL =
   "[&_[data-slot=table-container]]:h-[199px] [&_[data-slot=table-container]]:overflow-y-auto";
-const TABLE_HEAD_ROW = "border-slate-200 bg-slate-50/70 hover:bg-slate-50/70";
-const TH = "px-3 text-xs font-semibold text-slate-600";
+const TABLE_HEAD_ROW = "border-border bg-slate-50/80 hover:bg-slate-50/80";
+const TH =
+  "h-10 px-3 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase";
 /** Same as the billing page's in-card buttons (e.g. "Refresh"). */
 const CARD_BUTTON =
-  "h-10 gap-2 rounded-lg px-4 text-sm font-semibold duration-200 ease-out motion-safe:active:scale-[0.98]";
+  "h-10 gap-2 rounded-lg px-4 text-sm font-semibold shadow-none duration-200 ease-out hover:bg-slate-50 hover:text-foreground motion-safe:active:scale-[0.98]";
 
 /* ── Number + unit durations ─────────────────────────────────────────── */
 
@@ -336,10 +337,14 @@ export default function SlaEditor({
     const result = await removeHolidayAction(tenant, calendarId, holiday.id);
     setRemovingHolidayId(null);
     if (!result.success) {
-      toast.error(result.error ?? "Couldn't remove the holiday.");
+      toast.error(`Couldn't remove ${holiday.name}`, {
+        description: result.error,
+      });
       return;
     }
-    toast.success(`Removed ${holiday.name}.`);
+    toast.success(`${holiday.name} removed`, {
+      description: "The SLA clock no longer skips this day.",
+    });
     replaceCalendar(result.businessHours);
   };
 
@@ -486,11 +491,20 @@ export default function SlaEditor({
 
       if (!result.success) {
         setFormError(result.error ?? "Something went wrong.");
-        toast.error(result.error ?? "Something went wrong.");
+        toast.error(
+          mode === "new"
+            ? "Couldn't create the SLA policy"
+            : "Couldn't save the SLA policy",
+          { description: result.error ?? "Something went wrong." },
+        );
         return;
       }
 
-      toast.success(mode === "new" ? "Policy created." : "Policy saved.");
+      toast.success(
+        mode === "new"
+          ? `${payload.name} policy created`
+          : `${payload.name} policy saved`,
+      );
       router.push(`/${tenant}/sla`);
       router.refresh();
     });
@@ -502,20 +516,24 @@ export default function SlaEditor({
         <div className="min-w-0 space-y-1.5">
           <Link
             href={`/${tenant}/sla`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-accent transition-colors hover:text-brand-accent/80"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-accent transition-colors hover:text-brand-accent/80"
           >
             <ArrowLeft className="size-4" aria-hidden />
             SLA policies
           </Link>
+          <span className="flex w-fit items-center gap-1.5 pt-1 text-xs font-semibold tracking-[0.08em] text-brand-700 uppercase">
+            <Clock className="size-3.5" strokeWidth={2} aria-hidden />
+            Workspace
+          </span>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="truncate text-2xl capitalize font-bold tracking-tight text-slate-900">
+            <h1 className="truncate font-heading text-[1.75rem] leading-tight font-bold tracking-tight text-foreground capitalize sm:text-[2rem]">
               {mode === "new"
                 ? "Create SLA policy"
                 : initial.name || "Edit SLA policy"}
             </h1>
             {mode === "edit" && <StatusBadge status={initial.status} />}
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
             Define how quickly your team should respond to and resolve customer
             tickets.
           </p>
@@ -545,7 +563,7 @@ export default function SlaEditor({
               asChild
               variant="outline"
               size="sm"
-              className="h-10 gap-2 rounded-lg bg-white px-4 text-sm font-semibold shadow-none"
+              className="h-10 gap-2 rounded-lg bg-card px-4 text-sm font-semibold shadow-none hover:bg-slate-50 hover:text-foreground"
             >
               <Link href={`/${tenant}/sla`}>Cancel</Link>
             </Button>
@@ -554,7 +572,7 @@ export default function SlaEditor({
       </div>
 
       {readOnly && (
-        <p className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
+        <p className="flex items-start gap-2 rounded-xl border border-border bg-slate-50 px-4 py-3 text-sm text-slate-700">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
           You can view this policy. Only tenant admins and managers can change
           it.
@@ -562,14 +580,14 @@ export default function SlaEditor({
       )}
 
       {inUse && !readOnly && (
-        <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <p className="flex items-start gap-2 rounded-xl border border-amber-200! bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
           {POLICY_IN_USE_MESSAGE}
         </p>
       )}
 
       {formError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+        <p className="rounded-xl border border-red-200! bg-red-50 px-4 py-3 text-sm text-red-700">
           {formError}
         </p>
       )}
@@ -1148,9 +1166,18 @@ export default function SlaEditor({
             >
               <AlertDialogHeader className="block px-6 pt-5 pb-4 text-left">
                 <div className="flex items-center justify-between gap-4">
-                  <AlertDialogTitle className="text-xl font-bold text-foreground">
-                    Remove holiday
-                  </AlertDialogTitle>
+                  <div className="flex items-center gap-3.5">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/40">
+                      <Trash2
+                        className="size-5"
+                        strokeWidth={1.75}
+                        aria-hidden
+                      />
+                    </span>
+                    <AlertDialogTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                      Remove holiday
+                    </AlertDialogTitle>
+                  </div>
                   <AlertDialogCancel
                     disabled={removingHolidayId !== null}
                     className="
@@ -1192,10 +1219,10 @@ export default function SlaEditor({
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex flex-col-reverse gap-2 px-6 pb-6 sm:flex-row sm:justify-end">
+              <AlertDialogFooter className="flex flex-col-reverse gap-3 border-t border-border bg-slate-50/60 px-6 py-4 sm:flex-row sm:justify-end">
                 <AlertDialogCancel
                   disabled={removingHolidayId !== null}
-                  className="h-10 px-4"
+                  className="h-10 rounded-lg px-5 font-semibold shadow-none"
                 >
                   Cancel
                 </AlertDialogCancel>
@@ -1206,7 +1233,7 @@ export default function SlaEditor({
                     await removeHoliday(holidayToDelete);
                     setHolidayToDelete(null);
                   }}
-                  className="h-10 px-4 border-red-600 bg-background text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-600 disabled:border-red-300 disabled:bg-background disabled:text-red-300 disabled:opacity-100 dark:hover:bg-red-950/30"
+                  className="h-10 rounded-lg px-5 font-semibold shadow-none border-red-200! bg-background text-red-600 hover:border-red-300! hover:bg-red-50 hover:text-red-600 disabled:border-red-300 disabled:bg-background disabled:text-red-300 disabled:opacity-100 dark:hover:bg-red-950/30"
                 >
                   Remove
                 </AlertDialogAction>
@@ -1235,11 +1262,11 @@ function Section({
   return (
     <Card className={CARD}>
       <CardHeader className="flex items-start gap-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-accent text-sm font-bold text-brand-accent-foreground">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-sm font-bold text-brand-700 tabular-nums">
           {step}
         </span>
-        <div className="space-y-0.5">
-          <CardTitle className="text-base font-semibold  text-slate-900">
+        <div className="min-w-0 space-y-0.5">
+          <CardTitle className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
             {title}
             {optional && (
               <span className="ml-1 text-xs font-normal text-slate-500">
@@ -1281,8 +1308,8 @@ function AppliesToOption({
         disabled
           ? "cursor-not-allowed border-slate-200 opacity-60"
           : selected
-            ? "cursor-pointer border-brand-accent bg-brand-accent/5"
-            : "cursor-pointer border-slate-200 hover:bg-slate-50",
+            ? "cursor-pointer border-brand-accent! bg-brand-accent/5 ring-1 ring-brand-accent/20"
+            : "cursor-pointer border-border hover:bg-slate-50",
       )}
     >
       <RadioGroupItem
@@ -1335,7 +1362,9 @@ function DefaultSlaCheckbox({
     <div
       className={cn(
         "rounded-xl border p-3.5 transition-colors",
-        checked ? "border-brand-accent bg-brand-accent/5" : "border-slate-200",
+        checked
+          ? "border-brand-accent! bg-brand-accent/5 ring-1 ring-brand-accent/20"
+          : "border-border",
       )}
     >
       <label
@@ -1423,14 +1452,14 @@ function ChoiceCard({
       className={cn(
         "flex items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         selected
-          ? "border-brand-accent bg-brand-accent/5"
-          : "border-slate-200 hover:bg-slate-50",
+          ? "border-brand-accent! bg-brand-accent/5 ring-1 ring-brand-accent/20"
+          : "border-border hover:bg-slate-50",
       )}
     >
       <span
         className={cn(
           "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2",
-          selected ? "border-brand-accent" : "border-slate-300",
+          selected ? "border-brand-accent!" : "border-slate-300!",
         )}
       >
         {selected && <span className="size-2.5 rounded-full bg-brand-accent" />}
@@ -1466,9 +1495,11 @@ function Fact({
 }) {
   return (
     <div className={cn("flex items-center gap-3", !bare && "px-4 py-3")}>
-      <Icon className="size-5 shrink-0 text-slate-500" />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+        <Icon className="size-4" />
+      </span>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
         <p className="truncate text-xs text-slate-500">{value}</p>
       </div>
     </div>
@@ -1557,18 +1588,18 @@ function IconCard({
         >
           <span
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg",
+              "flex size-9 shrink-0 items-center justify-center rounded-full",
               locked
                 ? "bg-slate-100 text-slate-500"
                 : solid
-                  ? "bg-brand-accent text-brand-accent-foreground"
-                  : "bg-brand-accent/10 text-brand-accent",
+                  ? "bg-brand-700 text-white"
+                  : "bg-brand-50 text-brand-700",
             )}
           >
-            <Icon className="size-5" />
+            <Icon className="size-4.5" />
           </span>
           <div className="min-w-0 space-y-0.5">
-            <CardTitle className="text-base font-semibold text-slate-900">
+            <CardTitle className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
               {title}
               {optional && (
                 <span className="ml-1 text-xs font-normal text-slate-500">
@@ -1616,12 +1647,12 @@ function BusinessHoursSummary({
   onManageHolidays?: () => void;
 }) {
   return (
-    <Card className="gap-0 border border-slate-200 py-0 shadow-none ring-0">
-      <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+    <Card className="gap-0 rounded-xl border border-border py-0 shadow-none ring-0">
+      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         <Fact icon={CalendarDays} label="Working days" value={workingDays} />
         <Fact icon={Clock} label="Working hours" value={workingHours} />
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-t border-border bg-slate-50/60 px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <TreePalm className="size-4" aria-hidden />
           {holidayCount} holiday{holidayCount !== 1 ? "s" : ""} configured
@@ -1686,12 +1717,12 @@ function HolidaysTable({
   return (
     <div className={cn(INSET_TABLE, HOLIDAY_TABLE_SCROLL)}>
       <Table className="min-w-120">
-        <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--color-slate-200)] [&_tr]:border-b-0">
+        <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0">
           <TableRow className={TABLE_HEAD_ROW}>
             <TableHead className={cn(TH, "px-4")}>Holiday name</TableHead>
             <TableHead className={cn(TH, "px-4")}>Date</TableHead>
             <TableHead className={cn(TH, "px-4")}>Repeat</TableHead>
-            <TableHead className="w-20 px-4">
+            <TableHead className={cn(TH, "w-24 px-4 text-right")}>
               <span className="">Actions</span>
             </TableHead>
           </TableRow>
@@ -1709,14 +1740,17 @@ function HolidaysTable({
             </TableRow>
           ) : (
             sorted.map((h) => (
-              <TableRow key={h.id} className="border-slate-100">
-                <TableCell className="max-w-40 truncate px-4 py-3 font-semibold text-slate-900">
+              <TableRow
+                key={h.id}
+                className="border-border transition-colors hover:bg-slate-50/60"
+              >
+                <TableCell className="max-w-40 truncate px-4 py-2.5 font-semibold text-foreground">
                   {h.name}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-slate-700">
+                <TableCell className="px-4 py-2.5 text-slate-600">
                   {formatHolidayDate(h)}
                 </TableCell>
-                <TableCell className="px-4 py-3">
+                <TableCell className="px-4 py-2.5">
                   <Badge
                     className={cn(
                       BADGE,
@@ -1726,14 +1760,14 @@ function HolidaysTable({
                     {h.repeatsYearly ? "Yearly" : "Once"}
                   </Badge>
                 </TableCell>
-                <TableCell className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
+                <TableCell className="px-4 py-2">
+                  <div className="flex items-center justify-end gap-1.5">
                     <button
                       type="button"
                       onClick={() => onEdit?.(h)}
                       disabled={locked}
                       aria-label={`Edit ${h.name}`}
-                      className="rounded-md p-1.5 text-brand-accent transition-colors hover:bg-brand-accent/10 disabled:pointer-events-none disabled:opacity-40"
+                      className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-slate-500 transition-colors hover:bg-slate-50 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                     >
                       <Pencil className="size-4" />
                     </button>
@@ -1742,7 +1776,7 @@ function HolidaysTable({
                       onClick={() => onRemove?.(h)}
                       disabled={locked || removingId === h.id}
                       aria-label={`Remove ${h.name}`}
-                      className="rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-40"
+                      className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-40"
                     >
                       <Trash2 className="size-4" />
                     </button>

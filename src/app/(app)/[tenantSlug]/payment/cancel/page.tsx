@@ -98,34 +98,39 @@ function PaymentCancelContent() {
           : "We couldn't confirm the plan status. Please check your account plans page - your current plan is safe.";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="max-w-md w-full text-center shadow-lg border-border">
-        <CardHeader className="flex flex-col items-center pb-4">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/50">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-background">
+      <Card className="w-full max-w-md gap-0 rounded-xl border border-border bg-card py-0 text-center shadow-[0_24px_48px_-24px_rgba(15,23,42,0.25)] ring-0">
+        <CardHeader className="flex flex-col items-center px-6 pt-8 pb-5">
+          <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-red-50 ring-8 ring-red-50/50 dark:bg-red-950/50 dark:ring-red-950/20">
             {state === "checking" ? (
-              <LoaderCircle className="h-10 w-10 text-red-600 dark:text-red-400 animate-spin" />
+              <LoaderCircle className="size-7 animate-spin text-red-600 dark:text-red-400" />
             ) : (
-              <XCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
+              <XCircle
+                className="size-7 text-red-600 dark:text-red-400"
+                strokeWidth={1.75}
+              />
             )}
           </div>
-          <CardTitle className="text-2xl font-bold">{title}</CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+          <CardTitle className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
+            {title}
+          </CardTitle>
+          <CardDescription className="mt-1 text-sm leading-relaxed text-slate-500">
             {description}
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
+        <CardContent className="space-y-4 px-6 pb-6">
+          <p className="text-xs text-slate-500 tabular-nums">
             Redirecting to your account plan in{" "}
             <span className="font-bold text-foreground">{countdown}</span>{" "}
             seconds...
           </p>
         </CardContent>
 
-        <CardFooter>
+        <CardFooter className="rounded-b-xl border-t border-border bg-slate-50/60 px-6 py-4 dark:bg-muted/30">
           <Button
             onClick={() => router.push(targetRedirectUrl)}
-            className="h-10 w-full bg-brand-accent hover:bg-brand-accent/90"
+            className="h-10 w-full rounded-lg bg-brand-accent font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90"
           >
             Go to Account & Plan
           </Button>

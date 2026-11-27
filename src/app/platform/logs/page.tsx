@@ -1,3 +1,4 @@
+import { TerminalSquare } from "lucide-react";
 import type { Metadata } from "next";
 
 import { PlatformPageHeader } from "@/features/platform-admin/components/platform-ui";
@@ -60,6 +61,8 @@ export default async function PlatformLogsPage(props: {
     // Exactly the height the shell leaves, so the page has nothing to scroll.
     <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Operations"
+        icon={TerminalSquare}
         title="Application Logs"
         description="API, database, auth, Edge Function and storage logs from Supabase. Times are in UTC. Passwords and tokens are hidden."
         action={<RefreshButton />}

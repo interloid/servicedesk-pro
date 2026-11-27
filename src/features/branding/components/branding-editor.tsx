@@ -9,39 +9,44 @@ import {
   ChevronDown,
   CircleAlert,
   Clock3,
+  Contrast,
+  Droplet,
   Eye,
   EyeOff,
   FileText,
+  Image as ImageIcon,
+  Link2,
   Loader2,
   LockKeyhole,
   Mail,
   MessageSquare,
   MonitorSmartphone,
+  Palette,
   Paperclip,
   Plus,
   RotateCw,
   Search,
   SendHorizontal,
   Star,
+  Type,
   Upload,
   UserPlus,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  DASHBOARD_BUTTON,
+  DASHBOARD_CARD,
+  DashboardPageHeader,
+} from "@/components/shared/dashboard-ui";
 import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { createSupabaseClient } from "@/lib/supabase/client";
@@ -89,18 +94,21 @@ import {
 import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_FOOTER,
-  TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
   TEAM_MODAL_BUTTON_DANGER,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_DANGER_TINT,
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 
 const FIELD_CLASS = "h-10 rounded-lg text-sm";
 
 // Page-level actions, the same metrics as the SLA policy editor's header.
-const PAGE_BUTTON =
-  "h-10 gap-1.5 rounded-lg px-4 text-sm font-semibold shadow-none";
+const PAGE_BUTTON = `${DASHBOARD_BUTTON} gap-1.5 text-sm`;
 const PAGE_BUTTON_PRIMARY = `${PAGE_BUTTON} bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90`;
-const PAGE_BUTTON_OUTLINE = `${PAGE_BUTTON} bg-white`;
+const PAGE_BUTTON_OUTLINE = `${PAGE_BUTTON} bg-card hover:bg-slate-50 dark:hover:bg-muted`;
 
 /** Quick picks for the brand colour; anything else goes through "+" or hex. */
 const PRESET_COLORS = [
@@ -286,7 +294,9 @@ export function BrandingEditor({
           setErrors((prev) => ({ ...prev, [field]: message }));
         }
 
-        toast.error(message);
+        toast.error("Couldn't save your branding", {
+          description: result.message,
+        });
         return;
       }
 
@@ -295,7 +305,7 @@ export function BrandingEditor({
         setSaved(result.data);
       }
 
-      toast.success("Branding saved.");
+      toast.success("Branding saved");
 
       // This page lives under the old address; the server has already moved
       // the session to the new one.
@@ -314,12 +324,16 @@ export function BrandingEditor({
 
   const uploadLogo = async (file: File) => {
     if (!(LOGO_MIME_TYPES as readonly string[]).includes(file.type)) {
-      toast.error("Use a PNG, JPG or WebP image.");
+      toast.error("Couldn't use that logo", {
+        description: "Use a PNG, JPG or WebP image.",
+      });
       return;
     }
 
     if (file.size > MAX_LOGO_BYTES) {
-      toast.error("Logos can be up to 2 MB.");
+      toast.error("Couldn't use that logo", {
+        description: "Logos can be up to 2 MB.",
+      });
       return;
     }
 
@@ -332,7 +346,9 @@ export function BrandingEditor({
       });
 
       if (!prepared.ok || !prepared.data) {
-        toast.error(prepared.message ?? "We couldn't upload that logo.");
+        toast.error("Couldn't upload the logo", {
+          description: prepared.message,
+        });
         return;
       }
 
@@ -343,13 +359,15 @@ export function BrandingEditor({
         });
 
       if (error) {
-        toast.error("We couldn't upload that logo. Try again.");
+        toast.error("Couldn't upload the logo", { description: "Try again." });
         return;
       }
 
       set({ logoUrl: prepared.data.publicUrl });
       setErrors((prev) => ({ ...prev, logoUrl: undefined }));
-      toast.success("Logo uploaded. Save changes to publish it.");
+      toast.success("Logo uploaded", {
+        description: "Save changes to publish it.",
+      });
     } finally {
       setUploading(false);
     }
@@ -360,46 +378,55 @@ export function BrandingEditor({
   const initials = initialsOf(draft.name);
 
   return (
-    <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8 xl:overflow-hidden">
+    <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8 xl:overflow-hidden dark:text-foreground">
       <div className="mx-auto flex w-full flex-col gap-6 xl:h-full">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold tracking-tight">Branding</h1>
-            <p className="text-sm text-muted-foreground">
-              Customize how your customers see your support portal.
-            </p>
-          </div>
-
-          {canEdit && (
-            <div className="flex w-full flex-wrap items-center gap-3 *:flex-1 sm:w-auto sm:*:flex-none">
-              <Button
-                variant="outline"
-                disabled={pending || !dirty}
-                onClick={() => setConfirm("discard")}
-                className={PAGE_BUTTON_OUTLINE}
-              >
-                Discard changes
-              </Button>
-              <Button
-                onClick={save}
-                disabled={pending || uploading || !dirty}
-                className={PAGE_BUTTON_PRIMARY}
-              >
-                {pending ? "Saving…" : "Save changes"}
-              </Button>
-            </div>
-          )}
-        </div>
+        <DashboardPageHeader
+          eyebrow="Settings"
+          icon={Droplet}
+          title="Branding"
+          description="Customize how your customers see your support portal."
+          action={
+            canEdit ? (
+              <div className="flex w-full flex-wrap items-center gap-3 *:flex-1 sm:w-auto sm:*:flex-none">
+                <Button
+                  variant="outline"
+                  disabled={pending || !dirty}
+                  onClick={() => setConfirm("discard")}
+                  className={PAGE_BUTTON_OUTLINE}
+                >
+                  Discard changes
+                </Button>
+                <Button
+                  onClick={save}
+                  disabled={pending || uploading || !dirty}
+                  className={PAGE_BUTTON_PRIMARY}
+                >
+                  {pending ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
 
         <div className="grid grid-cols-1 items-start gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.75fr)] xl:grid-rows-[minmax(0,1fr)] xl:items-stretch">
-          <div className="@container flex min-w-0 flex-col rounded-[14px] border border-border bg-card p-4 sm:p-5 xl:overflow-y-auto">
+          <div
+            className={cn(
+              DASHBOARD_CARD,
+              "@container flex min-w-0 flex-col p-4 sm:p-5 xl:overflow-y-auto",
+            )}
+          >
             {!canEdit && (
-              <p className="mb-4 rounded-sm bg-muted px-3 py-2.5 text-sm text-muted-foreground">
+              <p className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-slate-50 px-3.5 py-3 text-sm text-slate-600 dark:bg-muted/40 dark:text-muted-foreground">
+                <LockKeyhole
+                  className="size-4 shrink-0 text-slate-400"
+                  aria-hidden
+                />
                 Only a Tenant Admin can change branding.
               </p>
             )}
 
             <Section
+              icon={ImageIcon}
               title="Logo"
               description="This logo will appear in the portal header and on customer pages."
             >
@@ -408,13 +435,13 @@ export function BrandingEditor({
                     on top, the portal toggle in a strip beneath. Letting the
                     toggle wrap left an empty corner beside the name on some
                     widths and sat it at the top on others. */}
-                <div className="flex flex-col overflow-hidden rounded-[12px] border border-border">
+                <div className="flex flex-col overflow-hidden rounded-xl border border-border">
                   <div className="flex flex-1 items-center gap-4 p-3.5">
                     {/* The logo sits in its own tile; removing it is the small ×
                       on the tile's corner, so the action stays on the thing it
                       removes. */}
                     <div className="relative flex-none">
-                      <div className="flex size-16 items-center justify-center rounded-[12px] border border-border bg-card p-1.5">
+                      <div className="flex size-16 items-center justify-center rounded-xl border border-border bg-card p-1.5">
                         <BrandMark
                           logoUrl={logoUrl}
                           initials={initials}
@@ -435,7 +462,7 @@ export function BrandingEditor({
                       )}
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-xs font-semibold tracking-[0.06em] text-slate-500 uppercase">
                         Current logo
                       </span>
                       <span className="truncate text-base font-semibold">
@@ -444,7 +471,7 @@ export function BrandingEditor({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-3.5 py-2.5">
+                  <div className="flex items-center justify-between gap-3 border-t border-border bg-slate-50/60 px-3.5 py-2.5 dark:bg-muted/30">
                     <Label
                       htmlFor="branding-logo-on-portal"
                       className="text-sm font-medium text-foreground"
@@ -474,6 +501,7 @@ export function BrandingEditor({
             </Section>
 
             <Section
+              icon={Type}
               title="Display name"
               description="This name appears in your portal header and to your customers."
               htmlFor="branding-name"
@@ -498,6 +526,7 @@ export function BrandingEditor({
             </Section>
 
             <Section
+              icon={Link2}
               title="Portal address"
               description="Choose a short, easy-to-remember address for your support portal."
               htmlFor="branding-slug"
@@ -563,6 +592,7 @@ export function BrandingEditor({
             </Section>
 
             <Section
+              icon={Palette}
               title="Brand colour"
               description="This colour will be used for the portal header, buttons, links and other accents."
             >
@@ -678,6 +708,7 @@ export function BrandingEditor({
             </Section>
 
             <Section
+              icon={Contrast}
               title="Text & background colours"
               description="Fine-tune how your portal reads. Leave a field blank to use the default."
             >
@@ -717,16 +748,21 @@ export function BrandingEditor({
             </Section>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-4 rounded-[14px] border border-border bg-card p-4 sm:p-5 xl:overflow-hidden">
+          <div
+            className={cn(
+              DASHBOARD_CARD,
+              "flex min-w-0 flex-col gap-4 p-4 sm:p-5 xl:overflow-hidden",
+            )}
+          >
             <div className="flex items-start gap-3">
-              <span className="flex size-11 flex-none items-center justify-center rounded-[10px] bg-brand-soft text-brand-ink">
-                <Eye className="size-5" />
+              <span className="flex size-9 flex-none items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100">
+                <Eye className="size-4.5" strokeWidth={1.75} aria-hidden />
               </span>
               <div className="flex flex-col gap-0.5">
-                <h2 className="text-lg font-semibold tracking-tight">
+                <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
                   Live portal preview
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   See how your branding looks across the customer portal.
                 </p>
               </div>
@@ -746,6 +782,7 @@ export function BrandingEditor({
       <ConfirmDialog
         open={confirm === "discard"}
         onOpenChange={(open) => !open && setConfirm(null)}
+        icon={RotateCw}
         title="Discard changes"
         description="Your unsaved branding changes will be lost and the page will go back to what's currently live."
         confirmLabel="Discard changes"
@@ -765,6 +802,7 @@ export function BrandingEditor({
       <ConfirmDialog
         open={confirm === "remove-logo"}
         onOpenChange={(open) => !open && setConfirm(null)}
+        icon={ImageIcon}
         title="Remove logo"
         description="Your portal will show your initial in the brand colour instead. The change goes live when you save."
         confirmLabel="Remove logo"
@@ -785,7 +823,9 @@ function ConfirmDialog({
   description,
   confirmLabel,
   onConfirm,
+  icon = CircleAlert,
 }: {
+  icon?: LucideIcon;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -796,12 +836,14 @@ function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={`gap-3 sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+        <DialogIconHeader
+          icon={icon}
+          tint={DIALOG_DANGER_TINT}
+          title={title}
+          description={description}
+        />
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
           <Button
             type="button"
             variant="outline"
@@ -831,11 +873,13 @@ function ConfirmDialog({
 // ---------------------------------------------------------------------------
 
 function Section({
+  icon: Icon,
   title,
   description,
   htmlFor,
   children,
 }: {
+  icon: LucideIcon;
   title: string;
   description: string;
   htmlFor?: string;
@@ -843,15 +887,25 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-3 border-b border-border pb-5 not-first:pt-5 last:border-b-0 last:pb-0 xl:grow xl:justify-center">
-      <div className="flex flex-col gap-0.5">
-        {htmlFor ? (
-          <Label htmlFor={htmlFor} className="text-[15px] font-semibold">
-            {title}
-          </Label>
-        ) : (
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-        )}
-        <p className="text-sm text-muted-foreground">{description}</p>
+      <div className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100">
+          <Icon className="size-4.5" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          {htmlFor ? (
+            <Label
+              htmlFor={htmlFor}
+              className="font-heading text-[15px] font-bold tracking-tight text-foreground"
+            >
+              {title}
+            </Label>
+          ) : (
+            <h2 className="font-heading text-[15px] font-bold tracking-tight text-foreground">
+              {title}
+            </h2>
+          )}
+          <p className="text-sm text-slate-500">{description}</p>
+        </div>
       </div>
       {children}
     </section>
@@ -978,7 +1032,7 @@ function LogoDropzone({
     <button
       type="button"
       className={cn(
-        "flex min-h-22 flex-col items-center justify-center gap-1 rounded-[12px] border border-dashed border-border bg-muted/40 p-3.5 text-center transition-colors",
+        "flex min-h-22 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-slate-50/60 p-3.5 text-center transition-colors dark:bg-muted/40",
         "hover:border-brand-base/50 hover:bg-brand-soft/60 disabled:pointer-events-none disabled:opacity-60",
         over && "border-brand-base bg-brand-soft",
       )}

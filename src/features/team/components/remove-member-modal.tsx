@@ -1,27 +1,24 @@
 "use client";
 
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, MailX, UserMinus } from "lucide-react";
 
 import * as React from "react";
 
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 
 import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_FOOTER,
-  TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
   TEAM_MODAL_BUTTON_DANGER,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_DANGER_TINT,
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 import type { TeamMember } from "@/features/team/types/team";
 
 interface RemoveMemberModalProps {
@@ -52,16 +49,16 @@ export function RemoveMemberModal({
   return (
     <Dialog open={member !== null} onOpenChange={onOpenChange}>
       <DialogContent className={`gap-3 sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            {isInvite ? "Revoke invitation" : "Remove member"}
-          </DialogTitle>
-          <DialogDescription>
-            {isInvite
+        <DialogIconHeader
+          icon={isInvite ? MailX : UserMinus}
+          tint={DIALOG_DANGER_TINT}
+          title={isInvite ? "Revoke invitation" : "Remove member"}
+          description={
+            isInvite
               ? `Revoke the invitation for ${who}?`
-              : `Remove ${who} from this workspace?`}
-          </DialogDescription>
-        </DialogHeader>
+              : `Remove ${who} from this workspace?`
+          }
+        />
 
         <ModalNotice icon={CircleAlert} tone="danger" title="What happens next">
           <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-[1.5]">
@@ -81,7 +78,7 @@ export function RemoveMemberModal({
           </ul>
         </ModalNotice>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
           <Button
             type="button"
             variant="outline"

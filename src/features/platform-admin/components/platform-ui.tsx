@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Search } from "lucide-react";
+import { Inbox, Search, type LucideIcon } from "lucide-react";
 
 import { Pagination } from "@/components/shared/pagination";
+import { KpiTooltip } from "./kpi-tooltip";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -30,7 +31,11 @@ export const PLATFORM_BUTTON = "h-10 rounded-lg px-4 font-semibold shadow-none";
 export const PLATFORM_ICON_BUTTON = "size-9 rounded-lg shadow-none";
 
 export const PLATFORM_CARD =
-  "rounded-[14px] border border-border bg-card shadow-xs ring-0";
+  "rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0";
+
+/** Small emerald icon tile used beside headings and in cards. */
+export const PLATFORM_ICON_TILE =
+  "flex shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 ring-1 ring-brand-100";
 
 /** Search first and full width, then selects; one row from xl. */
 export const PLATFORM_TOOLBAR =
@@ -40,26 +45,206 @@ export const PLATFORM_TOOLBAR =
 export const PLATFORM_SEARCH = "sm:col-span-2 xl:w-72 xl:flex-none";
 
 export const PLATFORM_STAT_GRID =
-  "grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4";
+  "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4";
 
+/**
+ * The page heading every console page shares (the overview is the reference):
+ * a small eyebrow with the page's sidebar section and icon, the title in the
+ * heading face, a line of description, and an optional action on the right.
+ */
 export function PlatformPageHeader({
   title,
   description,
   action,
+  eyebrow,
+  icon: Icon,
 }: {
   title: string;
   description: string;
   action?: ReactNode;
+  /** The page's sidebar section, e.g. "Manage platform". */
+  eyebrow?: string;
+  /** The page's sidebar icon. */
+  icon?: LucideIcon;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        {eyebrow && (
+          <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold tracking-[0.08em] text-brand-700 uppercase">
+            {Icon && <Icon className="size-3.5" strokeWidth={2} aria-hidden />}
+            {eyebrow}
+          </span>
+        )}
+        <h1 className="font-heading text-[1.75rem] leading-tight font-bold tracking-tight text-foreground sm:text-[2rem]">
           {title}
         </h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
+          {description}
+        </p>
       </div>
       {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * A titled card: an icon-led header (title, optional description and action)
+ * over a padded body, as on the overview. Used for charts, lists and grouped
+ * settings.
+ */
+export function PlatformPanel({
+  title,
+  description,
+  action,
+  icon: Icon,
+  className,
+  bodyClassName,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  icon?: LucideIcon;
+  className?: string;
+  bodyClassName?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={cn(PLATFORM_CARD, "flex min-w-0 flex-col", className)}>
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5">
+        <div className="flex min-w-0 items-start gap-3">
+          {Icon && (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+              <Icon className="size-4.5" strokeWidth={1.75} aria-hidden />
+            </span>
+          )}
+          <div className="min-w-0">
+            <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+              {title}
+            </h2>
+            {description && (
+              <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+            )}
+          </div>
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+      <div className={cn("flex-1 p-5", bodyClassName)}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * A small icon-led heading over a group of cards (Overview, Analytics): a
+ * round teal icon, the title in the heading face and one line of context.
+ */
+export function PlatformSectionHeading({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+        <Icon className="size-4" strokeWidth={1.75} aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+          {title}
+        </h2>
+        <p className="text-xs text-slate-500">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A stat card that doubles as a filter (Tenants, Users), like the tabs below it. Styled as the
+ * overview's KPI cards: a round tinted icon, then the figure and its label.
+ */
+export function StatFilterCard({
+  label,
+  value,
+  icon: Icon,
+  iconClass = "bg-slate-100 text-slate-600",
+  active,
+  alert = false,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  /** The icon circle's colours, when it isn't the alert red. */
+  iconClass?: string;
+  active: boolean;
+  alert?: boolean;
+  onClick: () => void;
+}) {
+  const alerting = alert && value > 0;
+
+  return (
+    <KpiTooltip label={label}>
+      <button
+        type="button"
+        aria-pressed={active}
+        onClick={onClick}
+        className={cn(
+          PLATFORM_CARD,
+          "flex min-w-0 items-start gap-3 p-4 text-left transition-all outline-none hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-ring/50",
+          active && "border-brand-700/50! ring-1 ring-brand-700/30",
+          alerting && !active && "border-red-200! dark:border-red-900/60!",
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-full",
+            alerting ? "bg-red-50 text-red-600" : iconClass,
+          )}
+        >
+          <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-2xl leading-tight font-bold tracking-tight text-foreground tabular-nums">
+            {value}
+          </span>
+          <span
+            data-kpi-text
+            className="truncate text-sm leading-snug font-medium text-slate-600"
+          >
+            {label}
+          </span>
+        </span>
+      </button>
+    </KpiTooltip>
+  );
+}
+
+/** Inline empty state for a panel body (charts, short lists). */
+export function PlatformEmpty({
+  icon: Icon = Inbox,
+  children,
+  className,
+}: {
+  icon?: React.ElementType;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-full flex-col items-center justify-center gap-3 py-10 text-center",
+        className,
+      )}
+    >
+      <span className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+        <Icon className="size-5" aria-hidden />
+      </span>
+      <p className="max-w-xs text-sm text-slate-500">{children}</p>
     </div>
   );
 }
@@ -126,17 +311,20 @@ export function FilterSelect({
   value,
   options,
   onChange,
+  className,
 }: {
   label: string;
   value: string;
   options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
+  /** Overrides the trigger's width (it is 11rem from xl by default). */
+  className?: string;
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         aria-label={label}
-        className="h-10! w-full rounded-lg bg-card xl:w-44"
+        className={cn("h-10! w-full rounded-lg bg-card xl:w-44", className)}
       >
         <SelectValue />
       </SelectTrigger>
@@ -173,9 +361,10 @@ export function FilterTabs<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
+    // A segmented control: one track, the active option raised in white.
     <nav
       aria-label={label}
-      className="flex shrink-0 gap-2 overflow-x-auto overflow-y-hidden scrollbar-none"
+      className="flex h-10 w-fit max-w-full shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-slate-100/70 p-1 scrollbar-none"
     >
       {options.map((option) => {
         const active = option.value === value;
@@ -187,20 +376,20 @@ export function FilterTabs<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors",
+              "flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               active
-                ? "border-primary! bg-primary/10 font-semibold text-primary"
-                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-white font-semibold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200"
+                : "text-slate-500 hover:text-foreground",
             )}
           >
             {option.label}
             {option.count !== undefined && (
               <span
                 className={cn(
-                  "rounded-full px-2 py-0.5 text-xs tabular-nums",
+                  "rounded-full px-1.5 py-px text-[11px] tabular-nums",
                   active
-                    ? "bg-primary/15 text-primary"
-                    : "bg-muted text-muted-foreground",
+                    ? "bg-brand-50 text-brand-700"
+                    : "bg-white/70 text-slate-500",
                 )}
               >
                 {option.count.toLocaleString("en-US")}
@@ -241,8 +430,8 @@ export function TablePaginationFooter({
   const pager = { page, pageCount, label: `${noun.one} pages` };
 
   return (
-    <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row">
+      <p className="text-sm text-slate-500 tabular-nums">
         {total === 0
           ? `No ${noun.other}`
           : `Showing ${first} - ${last} of ${total.toLocaleString("en-US")} ${total === 1 ? noun.one : noun.other}`}
@@ -300,7 +489,7 @@ export type DataColumn<T> = {
 };
 
 const TH =
-  "h-11 bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] px-4 text-xs font-semibold whitespace-nowrap text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]";
+  "h-10 bg-slate-50 px-4 text-[11px] font-semibold tracking-wider whitespace-nowrap text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)]";
 
 /**
  * A table at every width: when the card is too narrow, the table scrolls sideways
@@ -344,15 +533,18 @@ export function DataTable<T>({
       )}
     >
       {summary && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3.5 text-sm font-semibold text-foreground">
           {summary}
         </div>
       )}
 
       {rows.length === 0 ? (
-        <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-          {empty}
-        </p>
+        <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
+          <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <Inbox className="size-5" aria-hidden />
+          </span>
+          <p className="max-w-sm text-sm text-slate-500">{empty}</p>
+        </div>
       ) : (
         <div
           {...scrollArea}
@@ -388,13 +580,13 @@ export function DataTable<T>({
               {rows.map((row, index) => (
                 <TableRow
                   key={rowKey(row, index)}
-                  className="hover:bg-muted/40"
+                  className="transition-colors hover:bg-slate-50/80"
                 >
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}
                       className={cn(
-                        "px-4 py-3 text-sm text-foreground",
+                        "px-4 py-3.5 text-sm text-foreground",
                         column.align === "right" && "text-right",
                         (column.wrap || column.primary) &&
                           "min-w-48 break-words whitespace-normal [&_.truncate]:whitespace-normal",

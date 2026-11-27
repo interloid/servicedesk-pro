@@ -101,7 +101,7 @@ export function ProfileModal({
     if (file) {
       const problem = avatarError(file);
       if (problem) {
-        toast.error(problem);
+        toast.error("Couldn't use that photo", { description: problem });
         return;
       }
       setSelectedFile(file);
@@ -129,7 +129,9 @@ export function ProfileModal({
         });
 
         if (!prepared.success) {
-          toast.error(prepared.message);
+          toast.error("Couldn't upload your photo", {
+            description: prepared.message,
+          });
           return;
         }
 
@@ -150,15 +152,18 @@ export function ProfileModal({
           });
         });
       } else {
-        toast.error(result.message);
+        toast.error("Couldn't save your profile", {
+          description: result.message,
+        });
       }
     } catch (err) {
       console.error(err);
-      toast.error(
-        err instanceof Error && err.message
-          ? err.message
-          : "We couldn't save your profile. Try again.",
-      );
+      toast.error("Couldn't save your profile", {
+        description:
+          err instanceof Error && err.message
+            ? err.message
+            : "We couldn't save your profile. Try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }

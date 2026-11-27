@@ -40,7 +40,7 @@ export function TicketLifecycleActions({
         variant="outline"
         onClick={() => onChange("open")}
         disabled={disabled}
-        className="h-9 px-3.5 text-sm font-semibold"
+        className="h-10 gap-2 rounded-lg bg-card px-4 text-sm font-semibold shadow-none"
       >
         <RotateCcw className="size-4" aria-hidden />
         Reopen
@@ -51,7 +51,7 @@ export function TicketLifecycleActions({
           variant="outline"
           onClick={() => onChange("closed")}
           disabled={disabled}
-          className="h-9 px-3.5 text-sm font-semibold"
+          className="h-10 gap-2 rounded-lg bg-card px-4 text-sm font-semibold shadow-none"
         >
           <Lock className="size-4" aria-hidden />
           Close

@@ -1,3 +1,4 @@
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils";
  * so nothing moves when the data lands.
  */
 
-const CARD = "rounded-2xl border bg-card shadow-xs";
+const CARD = DASHBOARD_CARD;
 
 const HEAD =
   "h-11 px-4 text-xs font-semibold text-muted-foreground last:border-r-0";
@@ -34,23 +35,24 @@ const SUBJECT_WIDTHS = ["w-[85%]", "w-[70%]", "w-[78%]", "w-[62%]", "w-[74%]"];
 
 function SectionHeading({ width }: { width: string }) {
   return (
-    <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
-      <Skeleton className="size-9 shrink-0 rounded-lg" />
-      <Skeleton className={cn("h-6", width)} />
+    <div className="flex items-start gap-3 px-5 py-5">
+      <Skeleton className="size-9 shrink-0 rounded-full" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Skeleton className={cn("h-5", width)} />
+        <Skeleton className="h-3.5 w-48 max-w-[80%]" />
+      </div>
     </div>
   );
 }
 
+/** Mirrors the shared StatCard: round icon, figure on top, one-line label. */
 function StatCard({ value }: { value: string }) {
   return (
-    <div className={cn(CARD, "@container min-w-0 p-3.5 @2xl:p-5")}>
-      <div className="flex flex-col gap-3 @[15rem]:flex-row @[15rem]:items-center @[15rem]:gap-4">
-        <Skeleton className="size-10 shrink-0 rounded-xl @[15rem]:size-12" />
-        <div className="min-w-0 flex-1">
-          {/* label, value */}
-          <Skeleton className="h-6 w-24 max-w-full" />
-          <Skeleton className={cn("mt-1 h-7.5 @[15rem]:h-9.5", value)} />
-        </div>
+    <div className={cn(CARD, "flex items-start gap-4 p-5")}>
+      <Skeleton className="size-12 shrink-0 rounded-full" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
+        <Skeleton className={cn("h-7", value)} />
+        <Skeleton className="h-4 w-24 max-w-full" />
       </div>
     </div>
   );
@@ -59,7 +61,7 @@ function StatCard({ value }: { value: string }) {
 /** The primary contact: avatar, name, email, "Primary contact", status. */
 function ContactRow() {
   return (
-    <div className="flex items-start gap-3 rounded-xl border p-3.5">
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-slate-50/40 p-3.5">
       <Skeleton className="size-12 shrink-0 rounded-full @md:size-14" />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-2 self-center @md:flex-row @md:justify-between">
         <div className="w-full min-w-0 @md:w-auto @md:flex-1">
@@ -68,7 +70,7 @@ function ContactRow() {
           <Skeleton className="mt-1 h-5 w-28" />
         </div>
         {/* The portal status badge: under the details, then at the right. */}
-        <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
+        <Skeleton className="h-6 w-16 shrink-0 rounded-md" />
       </div>
     </div>
   );
@@ -98,7 +100,7 @@ function DetailRow({
           </>
         ) : null}
       </div>
-      {copy ? <Skeleton className="size-9 shrink-0 rounded-md" /> : null}
+      {copy ? <Skeleton className="size-9 shrink-0 rounded-lg" /> : null}
     </div>
   );
 }
@@ -108,7 +110,7 @@ function TicketTable({ className }: { className?: string }) {
     <div className={className}>
       <Table className="min-w-190 table-fixed">
         <TableHeader>
-          <TableRow className="hover:bg-transparent">
+          <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
             <TableHead className={cn(HEAD, "w-24")}>
               <Skeleton className="h-4 w-3" />
             </TableHead>
@@ -136,7 +138,7 @@ function TicketTable({ className }: { className?: string }) {
                 <Skeleton className={cn("h-5", width)} />
               </TableCell>
               <TableCell className={CELL}>
-                <Skeleton className="h-5.5 w-14 rounded-full" />
+                <Skeleton className="h-6 w-14 rounded-md" />
               </TableCell>
               <TableCell className={CELL}>
                 <Skeleton className="h-5 w-24" />
@@ -167,10 +169,11 @@ export function CustomerHeaderSkeleton() {
               lands. The ring is toned down here because the Skeleton's own
               fill is already flat: a full-strength emerald ring on a grey
               circle is darker than the ring on a photo it stands in for. */}
-          <Skeleton className="size-14 shrink-0 rounded-full border-2 border-white ring-1 ring-emerald-200/70 sm:size-20 dark:ring-emerald-800/70" />
+          <Skeleton className="size-14 shrink-0 rounded-full ring-1 ring-slate-200 ring-offset-[3px] ring-offset-background sm:size-20 sm:ring-offset-4 dark:ring-slate-700" />
           <div className="min-w-0 flex-1">
-            {/* Name: text-xl, then text-3xl from sm. */}
-            <Skeleton className="h-7 w-48 max-w-full sm:h-9 sm:w-64" />
+            {/* The eyebrow, then the name. */}
+            <Skeleton className="mb-1 h-4 w-24" />
+            <Skeleton className="h-8 w-48 max-w-full sm:h-10 sm:w-64" />
             {/* Email and company: stacked on a phone, one line from sm. */}
             <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2.5">
               <Skeleton className="h-5 w-52 max-w-full sm:h-6" />
@@ -181,17 +184,19 @@ export function CustomerHeaderSkeleton() {
         </div>
       </div>
 
-      <nav aria-hidden className="-mb-2 border-b">
-        <ul className="-mb-px flex gap-6">
-          <li className="border-b-2 border-brand-strong pb-3">
-            <Skeleton className="h-5 w-16" />
-          </li>
-          <li className="flex items-center gap-1.5 border-b-2 border-transparent pb-3">
-            <Skeleton className="h-5 w-12" />
-            <Skeleton className="h-4 w-5 rounded-md" />
-          </li>
-        </ul>
-      </nav>
+      {/* The segmented tab control. */}
+      <div
+        aria-hidden
+        className="flex h-10 w-fit items-center gap-1 rounded-lg border border-border bg-slate-100/70 p-1"
+      >
+        <div className="flex h-8 items-center rounded-md bg-white px-3 ring-1 ring-slate-200 dark:bg-card dark:ring-border">
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <div className="flex h-8 items-center gap-2 px-3">
+          <Skeleton className="h-4 w-12" />
+          <Skeleton className="h-4 w-5 rounded-full" />
+        </div>
+      </div>
     </>
   );
 }
@@ -200,7 +205,7 @@ export function CustomerOverviewSkeleton() {
   return (
     <>
       {/* Open tickets, Total tickets, Company, CSAT. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 @2xl:gap-4 @5xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl:grid-cols-4">
         <StatCard value="w-8" />
         <StatCard value="w-8" />
         <StatCard value="w-24 max-w-full" />
@@ -210,7 +215,7 @@ export function CustomerOverviewSkeleton() {
       <div className="grid grid-cols-1 gap-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1.65fr)]">
         <section className={cn(CARD, "@container flex min-w-0 flex-col")}>
           <SectionHeading width="w-48 max-w-[60%]" />
-          <div className="flex flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
+          <div className="flex flex-1 flex-col px-5 pb-5">
             <ContactRow />
             <div className="mt-2 divide-y">
               <DetailRow value="w-52" />

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { FileText, TriangleAlert } from "lucide-react";
 
+import { DashboardPageHeader } from "@/components/shared/dashboard-ui";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 import { serverNow } from "@/lib/server-now";
 import { AuditLocked } from "@/features/audit/components/audit-locked";
@@ -69,10 +71,20 @@ export default async function AuditPage({
   if (!data) {
     return (
       <div className="h-full overflow-y-auto p-4 font-sans sm:p-6 lg:p-8">
-        <h1 className="text-2xl font-bold tracking-tight">Audit log</h1>
-        <div className="mt-6 rounded-[14px] border border-border bg-card p-8 text-center">
-          <p className="font-medium">We couldn&apos;t load the audit log.</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <DashboardPageHeader
+          eyebrow="Settings"
+          icon={FileText}
+          title="Audit log"
+          description="Track tickets, users, SLAs, billing and platform support activity across your workspace."
+        />
+        <div className="mt-6 flex flex-col items-center rounded-xl border border-border bg-card p-8 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <span className="mb-3 flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+            <TriangleAlert className="size-5" aria-hidden />
+          </span>
+          <p className="font-semibold text-foreground">
+            We couldn&apos;t load the audit log.
+          </p>
+          <p className="mt-1 max-w-md text-sm text-slate-500">
             Refresh the page to try again. If this keeps happening, the database
             may be missing migration 20261021120000_audit_log_page.
           </p>

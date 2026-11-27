@@ -8,7 +8,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <>
       {children}
       <EmailVerificationHandler />
-      <Toaster richColors position="bottom-right" />
+      <Toaster position="bottom-right" />
     </>
   );
 }

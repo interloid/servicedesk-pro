@@ -144,25 +144,31 @@ function PaymentSuccessContent() {
   }, [checking, countdown, rateApprovalUrl, router, targetRedirectUrl]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="max-w-md w-full text-center shadow-lg border-border">
-        <CardHeader className="flex flex-col items-center pb-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-background">
+      <Card className="w-full max-w-md gap-0 rounded-xl border border-border bg-card py-0 text-center shadow-[0_24px_48px_-24px_rgba(15,23,42,0.25)] ring-0">
+        <CardHeader className="flex flex-col items-center px-6 pt-8 pb-5">
           <div
-            className={`mb-4 flex h-16 w-16 items-center justify-center rounded-full ${
+            className={`mb-4 flex size-14 items-center justify-center rounded-full ring-8 ${
               needsRateApproval
-                ? "bg-amber-100 dark:bg-amber-950/50"
-                : "bg-emerald-100 dark:bg-emerald-950/50"
+                ? "bg-amber-50 ring-amber-50/50 dark:bg-amber-950/50 dark:ring-amber-950/20"
+                : "bg-brand-50 ring-brand-50/50 dark:bg-brand-950/50 dark:ring-brand-950/20"
             }`}
           >
             {checking ? (
-              <LoaderCircle className="h-10 w-10 text-emerald-600 animate-spin" />
+              <LoaderCircle className="size-7 animate-spin text-brand-700" />
             ) : needsRateApproval ? (
-              <ShieldCheck className="h-10 w-10 text-amber-600 dark:text-amber-400" />
+              <ShieldCheck
+                className="size-7 text-amber-600 dark:text-amber-400"
+                strokeWidth={1.75}
+              />
             ) : (
-              <CheckCircle2 className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2
+                className="size-7 text-brand-700 dark:text-brand-300"
+                strokeWidth={1.75}
+              />
             )}
           </div>
-          <CardTitle className="text-2xl font-bold">
+          <CardTitle className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
             {checking
               ? "Checking Payment"
               : unverified
@@ -173,7 +179,7 @@ function PaymentSuccessContent() {
                     ? "Plan Change Confirmed"
                     : "Payment Successful!"}
           </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+          <CardDescription className="mt-1 text-sm leading-relaxed text-slate-500">
             {checking
               ? "Confirming with PayPal..."
               : (error ??
@@ -191,10 +197,10 @@ function PaymentSuccessContent() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="rounded-lg border bg-muted/50 p-4 text-left space-y-3">
+        <CardContent className="space-y-4 px-6 pb-6">
+          <div className="space-y-3 rounded-lg border border-border bg-slate-50/80 p-4 text-left dark:bg-muted/40">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-muted-foreground font-medium">
+              <span className="font-medium text-slate-500">
                 Subscription ID
               </span>
               <span className="font-mono font-semibold text-foreground">
@@ -202,25 +208,25 @@ function PaymentSuccessContent() {
               </span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-muted-foreground font-medium">Status</span>
+              <span className="font-medium text-slate-500">Status</span>
               {unverified ? (
                 <Badge
                   variant="outline"
-                  className="bg-amber-50 text-amber-700 border-amber-200"
+                  className="h-6 rounded-md border-none bg-amber-50 px-2 font-semibold text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950/60 dark:text-amber-300"
                 >
                   Unverified
                 </Badge>
               ) : needsRateApproval ? (
                 <Badge
                   variant="outline"
-                  className="bg-amber-50 text-amber-700 border-amber-200"
+                  className="h-6 rounded-md border-none bg-amber-50 px-2 font-semibold text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950/60 dark:text-amber-300"
                 >
                   Awaiting confirmation
                 </Badge>
               ) : (
                 <Badge
                   variant="outline"
-                  className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                  className="h-6 rounded-md border-none bg-emerald-50 px-2 font-semibold text-emerald-700 ring-1 ring-emerald-600/15 ring-inset dark:bg-emerald-950/60 dark:text-emerald-300"
                 >
                   {isScheduled ? "Scheduled" : "Active"}
                 </Badge>
@@ -229,7 +235,7 @@ function PaymentSuccessContent() {
           </div>
 
           {needsRateApproval ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-slate-500 tabular-nums">
               {handOffIn > 0 ? (
                 <>
                   Taking you to PayPal in{" "}
@@ -242,7 +248,7 @@ function PaymentSuccessContent() {
             </p>
           ) : (
             !checking && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500 tabular-nums">
                 Redirecting to your billing page in{" "}
                 <span className="font-bold text-foreground">{countdown}</span>{" "}
                 seconds...
@@ -251,13 +257,13 @@ function PaymentSuccessContent() {
           )}
         </CardContent>
 
-        <CardFooter className="flex-col gap-2">
+        <CardFooter className="flex-col gap-2 rounded-b-xl border-t border-border bg-slate-50/60 px-6 py-4 dark:bg-muted/30">
           {needsRateApproval ? (
             /* One way on. The button is here for anyone whose redirect is
                blocked, not as an alternative to it. */
             <Button
               onClick={() => window.location.assign(rateApprovalUrl)}
-              className="h-10 w-full bg-brand-accent hover:bg-brand-accent/90"
+              className="h-10 w-full rounded-lg bg-brand-accent font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90"
             >
               {handOffIn > 0
                 ? `Continue to PayPal (${handOffIn})`
@@ -267,7 +273,7 @@ function PaymentSuccessContent() {
             <Button
               onClick={() => router.push(targetRedirectUrl)}
               disabled={checking || isSuccess}
-              className="h-10 w-full bg-brand-accent hover:bg-brand-accent/90 disabled:cursor-not-allowed"
+              className="h-10 w-full rounded-lg bg-brand-accent font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90 disabled:cursor-not-allowed"
             >
               {checking
                 ? "Checking payment…"

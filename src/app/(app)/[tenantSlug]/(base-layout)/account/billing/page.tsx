@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 
 import type { Metadata } from "next";
+import { Lock } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Billing",
@@ -38,13 +39,16 @@ export default async function Page({ params }: PageProps) {
 
   if (!canManageBilling) {
     return (
-      <div className="min-h-full w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-center shadow-sm sm:p-6 md:p-8">
-          <p className="text-sm font-semibold text-card-foreground">
+      <div className="min-h-full w-full p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto flex max-w-xl flex-col items-center gap-3 rounded-xl border border-border bg-card px-6 py-10 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <Lock className="size-5" aria-hidden />
+          </span>
+          <p className="font-heading text-base font-bold text-foreground">
             You don&apos;t have permission to view billing.
           </p>
 
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="-mt-2 text-sm text-slate-500">
             Ask a tenant admin or billing admin to manage billing for this
             workspace.
           </p>

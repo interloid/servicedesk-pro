@@ -101,7 +101,10 @@ export function WorkspaceDeleteDialog({
         return;
       }
 
-      toast.success(`${tenant.name} deleted. You can restore it later.`);
+      toast.success(`${tenant.name} deleted`, {
+        description:
+          "Find it under the Deleted filter on Tenants if you need to restore it.",
+      });
       onClose();
     });
   }
@@ -185,9 +188,10 @@ export function WorkspaceRestoreDialog({
         return;
       }
 
-      toast.success(
-        `${tenant.name} restored. It stays blocked until you unblock it.`,
-      );
+      toast.success(`${tenant.name} restored`, {
+        description:
+          "It stays blocked until you unblock it from the Tenants list.",
+      });
       onClose();
     });
   }
@@ -243,9 +247,9 @@ export function ExtendTrialDialog({
         return;
       }
 
-      toast.success(
-        `${tenant.name}'s trial now ends ${formatDate(result.endsAt)}.`,
-      );
+      toast.success(`Trial extended for ${tenant.name}`, {
+        description: `It now ends on ${formatDate(result.endsAt)}.`,
+      });
       onClose();
     });
   }

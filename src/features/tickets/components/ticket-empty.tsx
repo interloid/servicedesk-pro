@@ -16,13 +16,15 @@ export function TicketsEmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-4 text-center w-full">
-      <div className="mb-5 flex size-14 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent">
-        <Inbox className="size-7" aria-hidden />
-      </div>
+    <div className="flex w-full flex-col items-center justify-center px-4 py-16 text-center">
+      <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-muted">
+        <Inbox className="size-6" aria-hidden />
+      </span>
 
-      <h3 className="text-lg font-bold text-slate-900 sm:text-xl">{title}</h3>
-      <p className="mt-2 mb-6 max-w-md text-sm leading-relaxed text-slate-500">
+      <h3 className="font-heading text-lg font-bold tracking-tight text-foreground">
+        {title}
+      </h3>
+      <p className="mt-1.5 mb-6 max-w-md text-sm leading-relaxed text-slate-500">
         {description}
       </p>
 
@@ -80,7 +82,7 @@ export function TicketThreadEmptyState({
     <div className="flex h-full min-h-64 flex-col items-center justify-center px-4 py-10 text-center">
       <ConversationIllustration />
 
-      <h3 className="mt-5 text-base font-bold text-slate-900 sm:text-lg">
+      <h3 className="mt-5 font-heading text-base font-bold tracking-tight text-foreground sm:text-lg">
         No messages on this ticket yet
       </h3>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
@@ -103,7 +105,7 @@ export function TicketThreadEmptyState({
             type="button"
             variant="outline"
             onClick={onNote}
-            className="h-10 gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-slate-800 shadow-none"
+            className="h-10 gap-2 rounded-lg bg-card px-5 text-sm font-semibold text-foreground shadow-none"
           >
             <StickyNote className="size-4" aria-hidden />
             Add internal note

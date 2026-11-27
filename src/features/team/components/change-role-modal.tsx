@@ -1,18 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, Crown, Info, TriangleAlert } from "lucide-react";
+import { ArrowRight, Crown, Info, TriangleAlert, UserCog } from "lucide-react";
 
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -25,11 +18,15 @@ import {
 import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_FOOTER,
-  TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
   TEAM_MODAL_BUTTON_PRIMARY,
   TEAM_MODAL_CONTROL,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+  DialogSectionLabel,
+} from "@/features/team/components/dialog-icon-header";
 import {
   roleOptionDescription,
   type TeamMember,
@@ -148,14 +145,12 @@ function ChangeRoleFields({
   if (primaryOnly || confirmingPrimary) {
     return (
       <>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Mark as primary
-          </DialogTitle>
-          <DialogDescription>
-            {`Make ${who} the primary owner of this workspace?`}
-          </DialogDescription>
-        </DialogHeader>
+        <DialogIconHeader
+          icon={Crown}
+          tint="bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
+          title="Mark as primary"
+          description={`Make ${who} the primary owner of this workspace?`}
+        />
 
         <ModalNotice
           icon={TriangleAlert}
@@ -178,7 +173,7 @@ function ChangeRoleFields({
           </ul>
         </ModalNotice>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
           {!primaryOnly && (
             <Button
               type="button"
@@ -207,26 +202,26 @@ function ChangeRoleFields({
 
   return (
     <>
-      <DialogHeader className="pr-6">
-        <DialogTitle className={TEAM_DIALOG_TITLE}>Change role</DialogTitle>
-        <DialogDescription>
-          {`Choose a new role for ${member.email || member.name}.`}
-        </DialogDescription>
-      </DialogHeader>
+      <DialogIconHeader
+        icon={UserCog}
+        title="Change role"
+        description={`Choose a new role for ${member.email || member.name}.`}
+      />
 
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-        <span className="text-xs font-semibold text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-slate-50/60 px-3.5 py-3 dark:bg-muted/30">
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
           Current
         </span>
-        <span className="text-sm font-semibold">{member.roleName}</span>
-        <ArrowRight
-          className="size-3.5 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-        <span className="text-xs font-semibold text-muted-foreground">New</span>
+        <span className="text-sm font-semibold text-foreground">
+          {member.roleName}
+        </span>
+        <ArrowRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+          New
+        </span>
         <span
           className={`text-sm font-semibold ${
-            changed ? "text-brand-accent" : "text-muted-foreground"
+            changed ? "text-brand-700 dark:text-brand-300" : "text-slate-500"
           }`}
         >
           {role?.name ?? member.roleName}
@@ -234,13 +229,14 @@ function ChangeRoleFields({
       </div>
 
       <div className="space-y-1.5">
+        <DialogSectionLabel>New role</DialogSectionLabel>
         <Label htmlFor="change-role" className="text-sm font-semibold">
           Role
         </Label>
         <Select value={roleId} onValueChange={setRoleId}>
           <SelectTrigger
             id="change-role"
-            className={`w-full min-h-10 ${TEAM_MODAL_CONTROL}`}
+            className={`min-h-10 w-full rounded-lg ${TEAM_MODAL_CONTROL}`}
           >
             <SelectValue />
           </SelectTrigger>
@@ -282,7 +278,7 @@ function ChangeRoleFields({
         </ModalNotice>
       )}
 
-      <DialogFooter className={TEAM_DIALOG_FOOTER}>
+      <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
         <Button
           type="button"
           variant="outline"

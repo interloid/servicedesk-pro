@@ -45,9 +45,11 @@ export function EmailVerificationHandler() {
 
     const finish = (success: boolean, message?: string) => {
       if (success) {
-        toast.success("Email verified successfully");
+        toast.success("Email verified");
       } else {
-        toast.error(message || "Email link is invalid or has expired.");
+        toast.error("Couldn't verify your email", {
+          description: message || "Email link is invalid or has expired.",
+        });
       }
       cleanUrl();
     };
@@ -56,7 +58,10 @@ export function EmailVerificationHandler() {
 
     void (async () => {
       if (providerError) {
-        toast.error("Email link is invalid or has expired. Request a new one.");
+        toast.error("Couldn't verify your email", {
+          description:
+            "Email link is invalid or has expired. Request a new one.",
+        });
         cleanUrl();
         return;
       }

@@ -13,13 +13,14 @@ interface StatusBadgeProps {
  */
 export const BADGE_TONES = {
   emerald:
-    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-  sky: "bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300",
-  slate: "bg-slate-100 text-slate-600 dark:bg-muted dark:text-muted-foreground",
+    "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15 ring-inset dark:bg-emerald-950/60 dark:text-emerald-300",
+  sky: "bg-sky-50 text-sky-700 ring-1 ring-sky-600/15 ring-inset dark:bg-sky-950/60 dark:text-sky-300",
+  slate:
+    "bg-slate-100 text-slate-600 ring-1 ring-slate-500/15 ring-inset dark:bg-muted dark:text-muted-foreground",
 } as const;
 
 /** Shared shape: shadcn Badge at the Team table's size. */
-export const BADGE = "h-6 border-none px-2.5 text-xs font-semibold";
+export const BADGE = "h-6 rounded-md border-none px-2 text-xs font-semibold";
 
 const TONES: Record<PolicyStatus, string> = {
   active: BADGE_TONES.emerald,

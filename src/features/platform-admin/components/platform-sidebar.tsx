@@ -111,8 +111,12 @@ export const PLATFORM_NAV: PlatformNavGroup[] = [
 ];
 
 const NAV_BUTTON_CLASS = cn(
-  "h-10 w-full rounded-md px-2.5 text-sm font-medium text-slate-600",
-  "transition-colors hover:bg-slate-100/80 hover:text-slate-900",
+  "h-10 w-full gap-3 rounded-lg px-3 text-sm font-medium text-slate-600 [&_svg]:text-slate-600",
+  "transition-colors hover:bg-slate-100 hover:text-slate-900 hover:[&_svg]:text-slate-900",
+  // Active: a light wash of the brand teal, a 3px accent on the leading edge (dropped when the
+  // sidebar collapses to icons), brand icon.
+  "data-[active=true]:bg-brand-700/10 data-[active=true]:font-semibold data-[active=true]:text-brand-800 data-[active=true]:hover:bg-brand-700/10 data-[active=true]:hover:text-brand-800 data-[active=true]:shadow-[inset_3px_0_0_var(--brand-700)] data-[active=true]:[&_svg]:text-brand-700 data-[active=true]:hover:[&_svg]:text-brand-700",
+  "group-data-[collapsible=icon]:data-[active=true]:shadow-none",
   "group-data-[collapsible=icon]:h-10",
   "group-data-[collapsible=icon]:w-10",
   "group-data-[collapsible=icon]:justify-center",
@@ -137,14 +141,14 @@ export function PlatformSidebar({ adminName }: { adminName: string }) {
 
   return (
     <Sidebar collapsible="icon" className="select-none border-r">
-      <SidebarHeader className="border-b border-sidebar-border p-3.5 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+      <SidebarHeader className="h-15 shrink-0 justify-center border-b border-sidebar-border px-3.5 py-0 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
         <div className="flex items-center gap-2.5 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-extrabold text-sidebar-primary-foreground">
             {platformName.charAt(0).toUpperCase()}
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
-            <span className="block min-w-0 truncate text-sm font-bold text-foreground">
+            <span className="block min-w-0 truncate font-sans text-sm font-bold tracking-tight text-foreground">
               {platformName}
             </span>
             <span className="truncate text-xs text-muted-foreground">
@@ -159,15 +163,15 @@ export function PlatformSidebar({ adminName }: { adminName: string }) {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-3.5 px-2.5 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+      <SidebarContent className="gap-5 px-3 py-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
         {PLATFORM_NAV.map((group) => (
           <SidebarGroup key={group.label} className="gap-1 p-0">
-            <SidebarGroupLabel className="h-auto px-3 pt-1.5 pb-1 text-xs font-bold tracking-widest text-muted-foreground/80 uppercase group-data-[collapsible=icon]:hidden">
+            <SidebarGroupLabel className="h-auto px-3 pb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase group-data-[collapsible=icon]:hidden">
               {group.label}
             </SidebarGroupLabel>
 
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
+              <SidebarMenu className="gap-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
 
@@ -185,7 +189,10 @@ export function PlatformSidebar({ adminName }: { adminName: string }) {
                             "cursor-default text-muted-foreground/70 hover:bg-transparent hover:text-muted-foreground/70",
                           )}
                         >
-                          <Icon className="size-4 shrink-0" />
+                          <Icon
+                            className="size-[18px] shrink-0"
+                            strokeWidth={1.75}
+                          />
                           <span className="truncate group-data-[collapsible=icon]:hidden">
                             {item.label}
                           </span>
@@ -211,22 +218,21 @@ export function PlatformSidebar({ adminName }: { adminName: string }) {
                         asChild
                         isActive={isActive}
                         tooltip={item.label}
-                        className={cn(
-                          NAV_BUTTON_CLASS,
-                          isActive &&
-                            "bg-slate-100/80 font-semibold text-slate-900",
-                        )}
+                        className={NAV_BUTTON_CLASS}
                       >
                         <Link
                           href={item.href}
-                          className="flex min-w-0 items-center gap-2.5 group-data-[collapsible=icon]:justify-center"
+                          className="flex min-w-0 items-center gap-3 group-data-[collapsible=icon]:justify-center"
                           onClick={() => {
                             if (isMobile) {
                               setOpenMobile(false);
                             }
                           }}
                         >
-                          <Icon className="size-4 shrink-0" />
+                          <Icon
+                            className="size-[18px] shrink-0"
+                            strokeWidth={1.75}
+                          />
                           <span className="truncate group-data-[collapsible=icon]:hidden">
                             {item.label}
                           </span>
@@ -242,9 +248,9 @@ export function PlatformSidebar({ adminName }: { adminName: string }) {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
-        <div className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center gap-2.5 rounded-lg bg-slate-50 p-2 ring-1 ring-slate-200/70 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:ring-0">
           <Avatar className="size-8 shrink-0">
-            <AvatarFallback className="bg-foreground text-xs font-bold text-background">
+            <AvatarFallback className="bg-brand-700 text-xs font-bold text-white">
               {initialsOf(adminName)}
             </AvatarFallback>
           </Avatar>

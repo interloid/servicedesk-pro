@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, Menu, Settings } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  LogOut,
+  Menu,
+  Settings,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -48,7 +54,7 @@ function PlatformProfileMenu({
           className="flex h-11 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Avatar className="size-8">
-            <AvatarFallback className="bg-foreground text-xs font-bold text-background">
+            <AvatarFallback className="bg-brand-700 text-xs font-bold text-white">
               {initialsOf(adminName)}
             </AvatarFallback>
           </Avatar>
@@ -123,18 +129,23 @@ export function PlatformHeader({
   const page = currentPage(pathname);
 
   return (
-    <header className="sticky top-0 z-10 flex h-15 shrink-0 items-center gap-2.5 border-b bg-background/95 px-4 backdrop-blur md:px-6 lg:px-8">
+    <header className="sticky top-0 z-10 flex h-15 shrink-0 items-center gap-2.5 border-b bg-white/90 px-4 backdrop-blur md:px-6 lg:px-8">
       <SidebarTrigger
         icon={<Menu />}
         className="size-9 shrink-0 border border-border bg-card text-muted-foreground hover:bg-muted lg:hidden"
       />
 
       <div className="flex min-w-0 flex-col">
-        <span className="hidden truncate text-xs text-muted-foreground sm:block">
+        <span className="hidden min-w-0 items-center gap-1 truncate text-xs text-slate-400 sm:flex">
           Platform Admin
-          {page && <> · {page.group}</>}
+          {page && (
+            <>
+              <ChevronRight className="size-3 shrink-0" aria-hidden />
+              <span className="truncate">{page.group}</span>
+            </>
+          )}
         </span>
-        <span className="truncate text-sm font-bold text-foreground">
+        <span className="truncate font-heading text-sm font-bold tracking-tight text-foreground">
           {page?.label ?? "Platform Admin"}
         </span>
       </div>

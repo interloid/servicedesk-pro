@@ -12,7 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import {
   Select,
   SelectContent,
@@ -20,7 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Paperclip, Loader2, X, Download } from "lucide-react";
+import {
+  Paperclip,
+  Loader2,
+  X,
+  Download,
+  SlidersHorizontal,
+} from "lucide-react";
 import {
   Ticket,
   TicketMessage,
@@ -243,11 +249,13 @@ function announcePriorityChange(
   const kept = change?.slaKept ?? [];
   if (kept.length > 0) {
     const clocks = kept.map((t) => CLOCK_LABELS[t]).join(" and ");
-    toast.success(
-      `Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}. ${clocks} was due soon, so it keeps its original deadline.`,
-    );
+    toast.success(`Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}`, {
+      description: `${clocks} was due soon, so it keeps its original deadline.`,
+    });
   } else {
-    toast.success(`Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}.`);
+    toast.success(`Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}`, {
+      description: "SLA targets now follow the new priority.",
+    });
   }
 }
 
@@ -550,7 +558,7 @@ export default function TicketDetailView({
     e.preventDefault();
     const tooLarge = attachmentsError([...pendingFiles, ...pasted]);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
     setPendingFiles((prev) => [...prev, ...pasted]);
@@ -585,7 +593,7 @@ export default function TicketDetailView({
     if (!replyText.trim() && pendingFiles.length === 0) return;
     const tooLarge = attachmentsError(pendingFiles);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
 
@@ -608,11 +616,12 @@ export default function TicketDetailView({
           files: pendingFiles,
         });
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Couldn't upload the files. Please try again.",
-        );
+        toast.error("Couldn't upload the attachments", {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Your reply wasn't sent. Please try again.",
+        });
         setIsReplying(false);
         return;
       }
@@ -636,7 +645,10 @@ export default function TicketDetailView({
           }
           // Sent, but its files didn't attach: say so, and don't invite a
           // resend that would post the reply twice.
-          if ("warning" in res && res.warning) toast.warning(res.warning);
+          if ("warning" in res && res.warning)
+            toast.warning("Reply sent without its attachments", {
+              description: res.warning,
+            });
           setReplyText("");
           setPendingFiles([]);
           setMentionQuery(null);
@@ -645,13 +657,15 @@ export default function TicketDetailView({
           mentionStartRef.current = null;
         } else {
           await discardTicketFiles(tenant, ticket.id, uploads);
-          toast.error(res.error || "Failed to send reply.");
+          toast.error("Couldn't send the reply", { description: res.error });
         }
       } catch {
         // The request itself failed (network): keep the typed reply and say
         // so instead of the error page. Files already filed are kept.
         await discardTicketFiles(tenant, ticket.id, uploads);
-        toast.error("Couldn't send the reply. Please try again.");
+        toast.error("Couldn't send the reply", {
+          description: "Your message is still in the box. Please try again.",
+        });
       } finally {
         setIsReplying(false);
       }
@@ -664,7 +678,7 @@ export default function TicketDetailView({
     if (!selected.length) return;
     const tooLarge = attachmentsError([...pendingFiles, ...selected]);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
     setPendingFiles((prev) => [...prev, ...selected]);
@@ -716,15 +730,15 @@ export default function TicketDetailView({
         });
         if (!res.success) {
           setStatus(prev);
-          toast.error(res.error || "Failed to update status.");
+          toast.error("Couldn't update the status", { description: res.error });
         } else {
           if ("slaEvents" in res && res.slaEvents)
             replaceSlaEvents(res.slaEvents);
           if (val === "resolved") toast.success("Ticket resolved.");
-          else if (val === "closed") toast.success("Ticket closed.");
+          else if (val === "closed") toast.success("Ticket closed");
           else if (prev === "resolved" || prev === "closed")
             toast.success("Ticket reopened.");
-          else toast.success(`Status changed to ${TICKET_STATUS_LABELS[val]}.`);
+          else toast.success(`Status changed to ${TICKET_STATUS_LABELS[val]}`);
           // updateTicketDetailsAction's revalidatePath refreshes the page.
         }
       } finally {
@@ -760,7 +774,9 @@ export default function TicketDetailView({
         });
         if (!res.success) {
           setPriority(prev);
-          toast.error(res.error || "Failed to update priority.");
+          toast.error("Couldn't change the priority", {
+            description: res.error,
+          });
           return;
         }
         setLowerTo(null);
@@ -804,9 +820,11 @@ export default function TicketDetailView({
           });
           if (!res.success) {
             setAssigneeId(prev);
-            toast.error(res.error || "Failed to unassign ticket.");
+            toast.error("Couldn't unassign the ticket", {
+              description: res.error,
+            });
           } else {
-            toast.success("Ticket unassigned.");
+            toast.success("Ticket unassigned");
           }
         } finally {
           setUpdatingField(null);
@@ -824,10 +842,12 @@ export default function TicketDetailView({
           });
           if (res.success && res.assigneeId) {
             setAssigneeId(res.assigneeId);
-            toast.success("Ticket assigned to you.");
+            toast.success("Ticket assigned to you");
           } else {
             setAssigneeId(prev);
-            toast.error(res.error || "Failed to assign ticket to you.");
+            toast.error("Couldn't assign the ticket to you", {
+              description: res.error,
+            });
           }
         } finally {
           setUpdatingField(null);
@@ -845,11 +865,11 @@ export default function TicketDetailView({
         });
         if (!res.success) {
           setAssigneeId(prev);
-          toast.error(res.error || "Failed to assign ticket.");
+          toast.error("Couldn't assign the ticket", { description: res.error });
         } else {
           const name = agents.find((a) => a.id === val)?.full_name;
           toast.success(
-            name ? `Ticket assigned to ${name}.` : "Ticket assigned.",
+            name ? `Ticket assigned to ${name}` : "Ticket assigned",
           );
         }
       } finally {
@@ -873,7 +893,7 @@ export default function TicketDetailView({
 
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="text-slate-400 font-medium">
+            <span className="inline-flex h-6 items-center rounded-md bg-slate-100 px-2 font-semibold text-slate-600 tabular-nums ring-1 ring-slate-500/15 ring-inset">
               #{ticket.number ?? "-"}
             </span>
             {!isClosed && status !== "resolved" && (
@@ -882,7 +902,7 @@ export default function TicketDetailView({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <h1 className="min-w-0 text-2xl font-bold tracking-tight text-slate-900 wrap-break-word">
+            <h1 className="min-w-0 font-heading text-[1.75rem] leading-tight font-bold tracking-tight wrap-break-word text-foreground sm:text-[2rem]">
               {ticket.subject}
             </h1>
             <div className="shrink-0">
@@ -894,7 +914,7 @@ export default function TicketDetailView({
             </div>
           </div>
 
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-500">
             Created by{" "}
             <span className="font-semibold text-slate-700">
               {createdBy.name}
@@ -926,7 +946,12 @@ export default function TicketDetailView({
             minmax(0, 1fr): with the default auto row the taller column (the
             sidebar) set the row's height and pushed the page into a scroll. */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:min-h-112 lg:flex-1 lg:grid-cols-3 lg:grid-rows-1">
-          <section className="flex h-[75dvh] min-h-112 flex-col overflow-hidden rounded-xl bg-white shadow-sm lg:col-span-2 lg:h-auto lg:min-h-0">
+          <section
+            className={cn(
+              DASHBOARD_CARD,
+              "flex h-[75dvh] min-h-112 flex-col overflow-hidden lg:col-span-2 lg:h-auto lg:min-h-0",
+            )}
+          >
             {/* The only part of the card that scrolls. */}
             <div
               ref={threadRef}
@@ -1063,8 +1088,8 @@ export default function TicketDetailView({
               <div
                 className={`shrink-0 border-t transition-colors ${
                   replyType === "internal"
-                    ? "bg-amber-50 border-amber-200"
-                    : "bg-slate-50/60 border-slate-200"
+                    ? "border-amber-200! bg-amber-50 dark:border-amber-900/50! dark:bg-amber-950/30"
+                    : "border-border bg-slate-50/60 dark:bg-muted/30"
                 }`}
               >
                 {supportClosed && (
@@ -1079,7 +1104,7 @@ export default function TicketDetailView({
                     disabled={!!supportClosed}
                     className={`h-9 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border transition-all ${
                       replyType === "public"
-                        ? "border-teal-700 text-teal-700 bg-teal-700/10 shadow-sm  hover:bg-teal-700/10 hover:text-teal-700"
+                        ? "border-brand-accent/40! bg-brand-soft text-brand-ink shadow-none hover:bg-brand-soft hover:text-brand-ink"
                         : "border-transparent text-slate-500 hover:text-slate-800"
                     }`}
                   >
@@ -1093,7 +1118,7 @@ export default function TicketDetailView({
                     disabled={!!supportClosed}
                     className={`h-9 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border transition-all ${
                       replyType === "internal"
-                        ? "border-amber-600 text-amber-800 bg-amber-100/50 shadow-sm  hover:bg-amber-100/50 hover:text-amber-800"
+                        ? "border-amber-300! bg-amber-100/60 text-amber-800 shadow-none hover:bg-amber-100/60 hover:text-amber-800"
                         : "border-transparent text-slate-500 hover:text-slate-800"
                     }`}
                   >
@@ -1103,7 +1128,7 @@ export default function TicketDetailView({
 
                 {/* One box, as a chat app's: the files going with the message
                     sit above the text, the paperclip beside it. */}
-                <div className="relative mx-3 mt-2 rounded-lg border border-slate-200 bg-white focus-within:border-slate-300 sm:mx-4">
+                <div className="relative mx-3 mt-2 rounded-lg border border-slate-200! bg-card focus-within:border-slate-300! sm:mx-4 dark:border-border!">
                   {pendingFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 px-2.5 pt-2.5">
                       {pendingFiles.map((file, i) => (
@@ -1254,7 +1279,7 @@ export default function TicketDetailView({
                       !!supportClosed ||
                       (!replyText.trim() && pendingFiles.length === 0)
                     }
-                    className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 h-10 rounded-lg transition-colors shadow-sm"
+                    className="h-10 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-none transition-colors hover:bg-brand-accent/90"
                   >
                     {isReplying && (
                       <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
@@ -1271,19 +1296,36 @@ export default function TicketDetailView({
           {/* From lg up the sidebar is as tall as the chat card: the details
               and SLA cards keep their size and the attachments card takes the
               rest, scrolling its own list. The cards carry their padding once
-              (CardContent's), not Card's py on top, so details and SLA fit
+              (their inner div's), not the card's on top, so details and SLA fit
               and only the attachments scroll. On a screen too short for even
               that the column scrolls -- never the page. */}
           <div className="flex flex-col gap-4 lg:min-h-0 lg:overflow-y-auto">
-            <Card className="relative shrink-0 gap-0 py-0 shadow-sm border-slate-200 bg-white ring-0">
+            <section
+              className={cn(
+                DASHBOARD_CARD,
+                "relative shrink-0 overflow-hidden",
+              )}
+            >
               <div className="absolute top-0 left-0 right-0 z-10">
                 <IndeterminateProgress
                   active={isUpdatingTicket}
                   label="Updating ticket"
                 />
               </div>
-              <CardContent className="p-4 space-y-3 text-xs">
-                <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
+              <div className="space-y-3 p-4 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+                    <SlidersHorizontal
+                      className="size-4"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                  </span>
+                  <span className="font-heading text-sm font-bold tracking-tight text-foreground">
+                    Properties
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg border border-slate-200/70! bg-slate-50/60 p-2.5 dark:border-border! dark:bg-muted/30">
                   <PersonAvatar
                     src={ticket.requester_avatar_url}
                     initials={
@@ -1292,14 +1334,14 @@ export default function TicketDetailView({
                         : "CU"
                     }
                     className="size-9"
-                    fallbackClassName="bg-slate-500 text-xs text-white"
+                    fallbackClassName="bg-slate-100 text-xs font-semibold text-slate-600"
                   />
-                  <div>
-                    <h4 className="font-bold text-slate-900">
+                  <div className="min-w-0">
+                    <h4 className="truncate text-sm font-semibold text-foreground">
                       {ticket.requester_name}
                     </h4>
                     {ticket.requester_company && (
-                      <p className="text-[11px] text-slate-400">
+                      <p className="truncate text-xs text-slate-500">
                         {ticket.requester_company}
                       </p>
                     )}
@@ -1309,7 +1351,7 @@ export default function TicketDetailView({
                 <div className="grid gap-1.5">
                   <Label
                     htmlFor="status"
-                    className="flex items-center justify-between font-semibold text-slate-700"
+                    className="flex items-center justify-between text-xs font-semibold text-slate-600"
                   >
                     Status
                     <SavingHint active={updatingField === "status"} />
@@ -1321,7 +1363,7 @@ export default function TicketDetailView({
                   >
                     <SelectTrigger
                       id="status"
-                      className="h-9 min-h-9 w-full bg-white border-slate-200"
+                      className="h-10! min-h-10 w-full rounded-lg bg-card"
                     >
                       <SelectValue />
                     </SelectTrigger>
@@ -1347,7 +1389,7 @@ export default function TicketDetailView({
                 <div className="grid gap-1.5">
                   <Label
                     htmlFor="priority"
-                    className="flex items-center justify-between font-semibold text-slate-700"
+                    className="flex items-center justify-between text-xs font-semibold text-slate-600"
                   >
                     Priority
                     <SavingHint active={updatingField === "priority"} />
@@ -1359,7 +1401,7 @@ export default function TicketDetailView({
                   >
                     <SelectTrigger
                       id="priority"
-                      className="h-9 min-h-9 w-full bg-white border-slate-200"
+                      className="h-10! min-h-10 w-full rounded-lg bg-card"
                     >
                       <SelectValue />
                     </SelectTrigger>
@@ -1385,7 +1427,7 @@ export default function TicketDetailView({
                 <div className="grid gap-1.5">
                   <Label
                     htmlFor="assignee"
-                    className="flex items-center justify-between font-semibold text-slate-700"
+                    className="flex items-center justify-between text-xs font-semibold text-slate-600"
                   >
                     Assignee
                     <SavingHint active={updatingField === "assignee"} />
@@ -1397,7 +1439,7 @@ export default function TicketDetailView({
                   >
                     <SelectTrigger
                       id="assignee"
-                      className="h-9 min-h-9 w-full bg-white border-slate-200"
+                      className="h-10! min-h-10 w-full rounded-lg bg-card"
                     >
                       <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
@@ -1464,8 +1506,8 @@ export default function TicketDetailView({
                   initialTags={tags}
                   suggestions={tenantTags}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
             <div className="shrink-0">
               <TicketSlaCard
@@ -1476,14 +1518,28 @@ export default function TicketDetailView({
               />
             </div>
 
-            <Card className="shrink-0 gap-0 py-0 shadow-sm border-slate-200 bg-white ring-0 lg:min-h-28 lg:flex-1 lg:shrink lg:basis-0">
-              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-4 text-xs">
-                <h4 className="shrink-0 font-bold uppercase tracking-wider text-[11px] text-slate-400">
-                  Attachments
-                </h4>
+            <section
+              className={cn(
+                DASHBOARD_CARD,
+                "flex shrink-0 flex-col lg:min-h-28 lg:flex-1 lg:shrink lg:basis-0",
+              )}
+            >
+              <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 text-xs">
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+                    <Paperclip
+                      className="size-4"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                  </span>
+                  <h4 className="font-heading text-sm font-bold tracking-tight text-foreground">
+                    Attachments
+                  </h4>
+                </div>
 
                 {attachments.length === 0 ? (
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-500">
                     No attachments on this ticket.
                   </p>
                 ) : (
@@ -1494,19 +1550,19 @@ export default function TicketDetailView({
                         href={att.signed_url || "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-lg border border-slate-200 flex items-center space-x-3 bg-white hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-3 rounded-lg border border-slate-200! bg-card p-2.5 transition-colors hover:bg-slate-50/60 dark:border-border! dark:hover:bg-muted/40"
                       >
-                        <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-500 uppercase">
                           {(
                             att.extension ||
                             fileExtension(att.original_filename)
                           ).slice(0, 3)}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-bold text-slate-800 truncate">
+                          <div className="truncate font-semibold text-foreground">
                             {att.original_filename}
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-[11px] text-slate-500 tabular-nums">
                             {formatSize(att.size)}
                           </div>
                         </div>
@@ -1514,8 +1570,8 @@ export default function TicketDetailView({
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           </div>
         </div>
       </div>

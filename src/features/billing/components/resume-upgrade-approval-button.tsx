@@ -32,7 +32,9 @@ export function ResumeUpgradeApprovalButton({
       const result = await resumeUpgradeApprovalAction(tenantSlug);
 
       if (!result.success) {
-        toast.error(result.error || "Could not reach PayPal.");
+        toast.error("Couldn't resume the upgrade", {
+          description: result.error || "Could not reach PayPal.",
+        });
         return;
       }
 
@@ -44,9 +46,8 @@ export function ResumeUpgradeApprovalButton({
       // No approve link came back: PayPal was already on the new plan and the
       // action applied it, so the upgrade is simply done.
       toast.success(
-        result.planName
-          ? `You're on ${result.planName}.`
-          : "Your new plan is active.",
+        result.planName ? `Upgraded to ${result.planName}` : "Upgrade complete",
+        { description: "Your new plan is active." },
       );
 
       router.refresh();
@@ -58,7 +59,7 @@ export function ResumeUpgradeApprovalButton({
       size="sm"
       onClick={handleResume}
       disabled={isPending}
-      className="h-8"
+      className="h-9 gap-1.5 rounded-lg px-3.5 font-semibold shadow-none"
     >
       {isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

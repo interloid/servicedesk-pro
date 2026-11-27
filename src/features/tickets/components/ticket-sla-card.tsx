@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, PauseCircle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Clock, PauseCircle, Timer } from "lucide-react";
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
 import {
@@ -35,33 +35,37 @@ const BADGE: Record<
   { badge: string; dot: string; bar: string }
 > = {
   running: {
-    badge: "bg-[#0e7adf]/10 text-[#0e7adf]",
-    dot: "bg-[#0e7adf]",
-    bar: "bg-[#0e7adf]",
+    badge:
+      "bg-sky-50 text-sky-700 ring-sky-600/15 dark:bg-sky-950/60 dark:text-sky-300",
+    dot: "bg-sky-500",
+    bar: "bg-sky-500",
   },
   warning: {
-    badge: "bg-amber-100 text-amber-900",
-    dot: "bg-amber-600",
+    badge:
+      "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
+    dot: "bg-amber-500",
     bar: "bg-amber-400",
   },
   waiting: {
-    badge: "bg-slate-100 text-slate-600",
+    badge: "bg-slate-100 text-slate-600 ring-slate-500/15",
     dot: "bg-slate-400",
-    bar: "bg-[#0e7adf]",
+    bar: "bg-sky-500",
   },
   paused: {
-    badge: "bg-slate-100 text-slate-600",
+    badge: "bg-slate-100 text-slate-600 ring-slate-500/15",
     dot: "bg-slate-400",
     bar: "bg-slate-300",
   },
   breached: {
-    badge: "bg-rose-100 text-rose-800",
-    dot: "bg-rose-500",
+    badge:
+      "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
+    dot: "bg-red-500",
     bar: "bg-red-400",
   },
   met: {
-    badge: "bg-emerald-100 text-emerald-800",
-    dot: "bg-emerald-600",
+    badge:
+      "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-950/60 dark:text-emerald-300",
+    dot: "bg-emerald-500",
     bar: "bg-emerald-400",
   },
 };
@@ -148,7 +152,7 @@ function ClockBadge({
     <span
       suppressHydrationWarning
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums",
+        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums ring-1 ring-inset",
         style.badge,
         className,
       )}
@@ -225,11 +229,16 @@ export function TicketSlaCard({
   const paused = events.some((e) => e.status === "pending" && e.paused_at);
 
   return (
-    <Card className="gap-0 py-0 shadow-sm border-slate-200 bg-white ring-0">
-      <CardContent className="p-4 space-y-3 text-xs">
-        <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-400">
-          SLA
-        </h4>
+    <section className={DASHBOARD_CARD}>
+      <div className="space-y-3 p-4 text-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+            <Timer className="size-4" strokeWidth={1.75} aria-hidden />
+          </span>
+          <h4 className="font-heading text-sm font-bold tracking-tight text-foreground">
+            SLA
+          </h4>
+        </div>
 
         <div className="grid gap-1">
           <p className="flex min-w-0 items-baseline gap-1.5 text-xs">
@@ -237,7 +246,7 @@ export function TicketSlaCard({
               Policy:
             </span>
             <span
-              className="min-w-0 truncate font-medium text-slate-900"
+              className="min-w-0 truncate font-medium text-foreground"
               title={policy?.name}
             >
               {policy?.name ?? "No SLA"}
@@ -292,7 +301,7 @@ export function TicketSlaCard({
               <div
                 key={ev.id}
                 className={cn(
-                  "space-y-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5 transition-opacity",
+                  "space-y-2 rounded-lg border border-slate-200/70! bg-slate-50/60 px-3 py-2.5 transition-opacity dark:border-border! dark:bg-muted/30",
                   updating && "opacity-50",
                 )}
               >
@@ -339,7 +348,7 @@ export function TicketSlaCard({
             );
           })
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

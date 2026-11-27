@@ -22,6 +22,15 @@ import { APP_ROUTES } from "@/lib/routes";
 import Link from "next/link";
 import { PasswordInput } from "@/components/ui/password-input";
 import { checkEmailTenantAction } from "../actions/register-actions";
+import {
+  AUTH_CHECKBOX_CLASS,
+  AUTH_FIELD_CLASS,
+  AUTH_FIELD_ITEM_CLASS,
+  AUTH_FIELD_STACK_CLASS,
+  AUTH_LABEL_CLASS,
+  AUTH_PRIMARY_BUTTON_CLASS,
+} from "@/features/auth/components/auth-styles";
+import { PasswordStrength } from "./password-strength";
 
 const accountFormSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
@@ -40,7 +49,7 @@ interface AccountStepProps {
   onNext: () => void;
 }
 
-const FIELD_CLASS = "h-11 text-slate-800 placeholder:text-slate-400";
+const FIELD_CLASS = AUTH_FIELD_CLASS;
 
 export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
   const [isCheckingTenant, setIsCheckingTenant] = useState<boolean>(false);
@@ -98,16 +107,14 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
         <form
           method="post"
           onSubmit={form.handleSubmit(handleAccountSubmit)}
-          className="space-y-5 text-left"
+          className={`${AUTH_FIELD_STACK_CLASS} text-left`}
         >
           <FormField
             control={form.control}
             name="fullName"
             render={({ field }) => (
-              <FormItem className="space-y-1.5">
-                <FormLabel className="text-sm font-semibold text-slate-800">
-                  Full name
-                </FormLabel>
+              <FormItem className={AUTH_FIELD_ITEM_CLASS}>
+                <FormLabel className={AUTH_LABEL_CLASS}>Full name</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Sam Okafor"
@@ -124,10 +131,8 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
             control={form.control}
             name="workEmail"
             render={({ field }) => (
-              <FormItem className="space-y-1.5">
-                <FormLabel className="text-sm font-semibold text-slate-800">
-                  Email
-                </FormLabel>
+              <FormItem className={AUTH_FIELD_ITEM_CLASS}>
+                <FormLabel className={AUTH_LABEL_CLASS}>Email</FormLabel>
                 <FormControl>
                   <Input
                     type="email"
@@ -148,10 +153,8 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
             control={form.control}
             name="password"
             render={({ field }) => (
-              <FormItem className="space-y-1.5">
-                <FormLabel className="text-sm font-semibold text-slate-800">
-                  Password
-                </FormLabel>
+              <FormItem className={AUTH_FIELD_ITEM_CLASS}>
+                <FormLabel className={AUTH_LABEL_CLASS}>Password</FormLabel>
                 <FormControl>
                   <PasswordInput
                     placeholder="••••••••••••"
@@ -159,6 +162,7 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
                     {...field}
                   />
                 </FormControl>
+                <PasswordStrength password={field.value} />
                 <FormMessage />
               </FormItem>
             )}
@@ -168,13 +172,13 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
             control={form.control}
             name="agreeToTerms"
             render={({ field }) => (
-              <FormItem className="space-y-1 pt-1">
+              <FormItem className={AUTH_FIELD_ITEM_CLASS}>
                 <div className="flex items-center space-x-2.5">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
-                      className="h-5 w-5 rounded border-slate-300 data-[state=checked]:bg-brand-accent data-[state=checked]:text-primary-foreground "
+                      className={AUTH_CHECKBOX_CLASS}
                     />
                   </FormControl>
                   <FormLabel className="text-sm font-normal text-slate-700 cursor-pointer select-none">
@@ -189,7 +193,7 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
           <Button
             type="submit"
             disabled={isCheckingTenant}
-            className="h-11 w-full font-semibold"
+            className={AUTH_PRIMARY_BUTTON_CLASS}
           >
             {isCheckingTenant ? "Checking..." : "Continue"}
           </Button>
@@ -200,7 +204,7 @@ export function StepAccount({ data, onChange, onNext }: AccountStepProps) {
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-slate-200" />
         </div>
-        <div className="relative bg-white px-3 text-xs text-slate-400">or</div>
+        <div className="relative bg-card px-3 text-xs text-slate-400">or</div>
       </div>
 
       <div className="text-center text-sm text-slate-500">

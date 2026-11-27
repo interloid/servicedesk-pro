@@ -97,7 +97,7 @@ export function TicketTagsField({
         // Changes queued on top of the failed one are dropped with it.
         queuedRef.current = null;
         setTags(confirmedRef.current);
-        toast.error(message);
+        toast.error("Couldn't update the tags", { description: message });
       };
       try {
         while (queuedRef.current) {
@@ -109,7 +109,7 @@ export function TicketTagsField({
             names: sending,
           });
           if (!res.success) {
-            fail(res.error || "Couldn't update tags.");
+            fail(res.error || "Your changes were undone. Try again.");
             break;
           }
           confirmedRef.current = res.tags;
@@ -118,7 +118,7 @@ export function TicketTagsField({
           if (!queuedRef.current) setTags(res.tags);
         }
       } catch {
-        fail("Couldn't update tags.");
+        fail("Your changes were undone. Try again.");
       } finally {
         runningRef.current = false;
       }
@@ -150,7 +150,7 @@ export function TicketTagsField({
     <div className="grid gap-2">
       <Label
         htmlFor="ticket-tags"
-        className="flex items-center gap-1.5 font-semibold text-slate-700"
+        className="flex items-center gap-1.5 text-xs font-semibold text-slate-600"
       >
         Tags
         {isSaving && (
@@ -160,7 +160,7 @@ export function TicketTagsField({
 
       {/* Input-styled box holding the button and the chips; past ~3 rows
           of tags it scrolls instead of growing. */}
-      <div className="flex max-h-28 min-h-10 flex-wrap content-start items-center gap-1.5 overflow-y-auto rounded-md border border-slate-200 bg-white p-1.5">
+      <div className="flex max-h-28 min-h-10 flex-wrap content-start items-center gap-1.5 overflow-y-auto rounded-lg border border-slate-200! bg-card p-1.5 dark:border-border!">
         <Popover
           open={open}
           onOpenChange={(next) => {
@@ -243,7 +243,7 @@ export function TicketTagsField({
           <Badge
             key={tag.name}
             variant="secondary"
-            className="max-w-40 gap-1 rounded-full bg-slate-100 py-0.5 pr-1 pl-2 text-[11px] font-medium text-slate-700"
+            className="max-w-40 gap-1 rounded-md bg-slate-100 py-0.5 pr-1 pl-2 text-[11px] font-medium text-slate-700 ring-1 ring-slate-500/10 ring-inset"
           >
             <span className="truncate">{tag.name}</span>
             <Button

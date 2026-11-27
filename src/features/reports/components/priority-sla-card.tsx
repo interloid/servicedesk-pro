@@ -5,6 +5,7 @@ import {
   CircleCheck,
   FileX2,
   Flame,
+  Gauge,
   Info,
   TriangleAlert,
   Zap,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PrioritySlaMetric } from "../types/types";
+import { ReportPanelHeading } from "./panel-heading";
 import { REPORT_CARD } from "./styles";
 
 interface PriorityStyle {
@@ -30,23 +32,23 @@ interface PriorityStyle {
 const PRIORITY_STYLE: Record<string, PriorityStyle> = {
   Urgent: {
     icon: TriangleAlert,
-    chip: "bg-destructive-soft text-destructive-strong ring-destructive/15",
-    bar: "bg-destructive",
+    chip: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300",
+    bar: "bg-red-500",
   },
   High: {
     icon: Flame,
-    chip: "bg-warning-soft text-warning-strong ring-warning/20",
-    bar: "bg-warning",
+    chip: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+    bar: "bg-amber-500",
   },
   Normal: {
     icon: Zap,
-    chip: "bg-sky-50 text-sky-700 ring-sky-500/15 dark:bg-sky-950 dark:text-sky-300",
+    chip: "bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300",
     bar: "bg-sky-500",
   },
   Low: {
     icon: CircleCheck,
-    chip: "bg-success-soft text-success-strong ring-success/15",
-    bar: "bg-success",
+    chip: "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
+    bar: "bg-brand-700",
   },
 };
 
@@ -63,15 +65,15 @@ function EmptyPriorityTile({ item }: { item: PrioritySlaMetric }) {
   // Stacked rather than side by side: four tiles share one row, which leaves
   // no room for the icon beside the text.
   return (
-    <div className="flex min-w-0 flex-col rounded-xl border bg-card p-3 sm:p-4">
+    <div className="flex min-w-0 flex-col rounded-xl border border-border bg-slate-50/50 p-3 sm:p-4 dark:bg-muted/30">
       <div className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden
-          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-muted"
         >
-          <FileX2 className="size-3.5" />
+          <FileX2 className="size-4" strokeWidth={1.75} />
         </span>
-        <p className="truncate text-sm font-medium text-foreground">
+        <p className="truncate text-sm font-semibold text-foreground">
           {item.level}
         </p>
       </div>
@@ -79,7 +81,7 @@ function EmptyPriorityTile({ item }: { item: PrioritySlaMetric }) {
       <p className="mt-3 text-sm font-semibold text-foreground">
         {noTickets ? "No tickets yet" : "Awaiting reply"}
       </p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
+      <p className="mt-0.5 text-xs text-slate-500">
         {noTickets
           ? `No ${item.level.toLowerCase()} priority tickets in this period`
           : `${plural(item.ticketsCount, "ticket")} still within target`}
@@ -92,7 +94,7 @@ function EmptyPriorityTile({ item }: { item: PrioritySlaMetric }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={0}
-          className="h-2.5 w-full rounded-full bg-muted"
+          className="h-2 w-full rounded-full bg-slate-100 dark:bg-muted"
         />
       </div>
     </div>
@@ -107,29 +109,27 @@ function PriorityTile({ item }: { item: PrioritySlaMetric }) {
   if (item.eligible === 0) return <EmptyPriorityTile item={item} />;
 
   return (
-    <div className="flex min-w-0 flex-col rounded-xl border bg-card p-3 transition-colors hover:border-foreground/15 sm:p-4">
+    <div className="flex min-w-0 flex-col rounded-xl border border-border bg-card p-3 transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)] sm:p-4">
       <div className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden
           className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+            "flex size-8 shrink-0 items-center justify-center rounded-full",
             style.chip,
           )}
         >
-          <Icon className="size-3.5" />
+          <Icon className="size-4" strokeWidth={1.75} />
         </span>
-        <p className="truncate text-sm font-medium text-foreground">
+        <p className="truncate text-sm font-semibold text-foreground">
           {item.level}
         </p>
       </div>
 
-      <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+      <p className="mt-3 text-2xl leading-tight font-bold tracking-tight text-foreground tabular-nums">
         {pct}
-        <span className="ml-0.5 text-sm font-medium text-muted-foreground">
-          %
-        </span>
+        <span className="ml-0.5 text-sm font-semibold text-slate-400">%</span>
       </p>
-      <p className="truncate text-xs text-muted-foreground">
+      <p className="truncate text-xs text-slate-500">
         {`${item.met} of ${plural(item.eligible, "ticket")}`}
       </p>
 
@@ -140,7 +140,7 @@ function PriorityTile({ item }: { item: PrioritySlaMetric }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={pct ?? 0}
-          className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+          className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-muted"
         >
           <div
             className={cn("h-full rounded-full", style.bar)}
@@ -160,34 +160,33 @@ export function PrioritySlaCard({ items }: { items: PrioritySlaMetric[] }) {
 
   return (
     <Card className={REPORT_CARD}>
-      <div className="flex items-center gap-1.5">
-        <h2 className="text-base font-semibold text-foreground">
-          SLA Attainment by Priority
-        </h2>
-        <Tooltip open={infoOpen} onOpenChange={setInfoOpen}>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="About SLA attainment by priority"
-              onClick={(event) => {
-                // Skips Radix's own close-on-click.
-                event.preventDefault();
-                setInfoOpen((open) => !open);
-              }}
-              className="-m-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Info className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-64">
-            Share of tickets raised in this period whose first public reply
-            landed within their SLA target.
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        First responses within each ticket&apos;s SLA target
-      </p>
+      <ReportPanelHeading
+        icon={Gauge}
+        title="SLA Attainment by Priority"
+        description={<>First responses within each ticket&apos;s SLA target</>}
+        after={
+          <Tooltip open={infoOpen} onOpenChange={setInfoOpen}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="About SLA attainment by priority"
+                onClick={(event) => {
+                  // Skips Radix's own close-on-click.
+                  event.preventDefault();
+                  setInfoOpen((open) => !open);
+                }}
+                className="-m-1 rounded-md p-1 text-slate-400 transition-colors hover:text-brand-700"
+              >
+                <Info className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64">
+              Share of tickets raised in this period whose first public reply
+              landed within their SLA target.
+            </TooltipContent>
+          </Tooltip>
+        }
+      />
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map((item) => (

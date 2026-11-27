@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 
 const NEW_POLICY_BUTTON =
-  "inline-flex h-10 items-center gap-2 self-start rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground transition-colors hover:bg-brand-accent/90";
+  "inline-flex h-10 items-center gap-2 self-start rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-none transition-colors hover:bg-brand-accent/90 hover:text-brand-accent-foreground";
 
 /**
  * "New policy" on the SLA list. With `disabledReason` set (the plan is full)

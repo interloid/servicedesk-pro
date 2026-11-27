@@ -36,6 +36,7 @@ import {
   X,
   FileIcon,
   ChevronDown,
+  TicketPlus,
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -58,7 +59,7 @@ import { cn } from "@/lib/utils";
  * select needs its height on the data-size variant, which otherwise wins
  * over a plain h-* and pins it at 32px.
  */
-const FIELD = "h-10 px-3 text-sm border-slate-200";
+const FIELD = "h-10 rounded-lg bg-card px-3 text-sm";
 const SELECT_TRIGGER = `${FIELD} w-full data-[size=default]:h-10 text-slate-800`;
 const SELECT_ITEM = "p-2 text-sm";
 /**
@@ -122,7 +123,7 @@ export default function CreateTicketSheet({
     const next = [...files, ...picked];
     const tooLarge = attachmentsError(next);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
     setFiles(next);
@@ -154,11 +155,12 @@ export default function CreateTicketSheet({
       try {
         uploads = await uploadTicketFiles({ tenantSlug: tenant, files });
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Couldn't upload the files. Please try again.",
-        );
+        toast.error("Couldn't upload the attachments", {
+          description:
+            error instanceof Error
+              ? error.message
+              : "The ticket wasn't created. Please try again.",
+        });
         return;
       }
       try {
@@ -168,11 +170,15 @@ export default function CreateTicketSheet({
           onOpenChange(false);
         } else {
           await discardTicketFiles(tenant, undefined, uploads);
-          toast.error(result?.error || "Failed to create ticket.");
+          toast.error("Couldn't create the ticket", {
+            description: result?.error,
+          });
         }
       } catch {
         await discardTicketFiles(tenant, undefined, uploads);
-        toast.error("Couldn't create the ticket. Please try again.");
+        toast.error("Couldn't create the ticket", {
+          description: "Please try again.",
+        });
       }
     });
   };
@@ -192,20 +198,25 @@ export default function CreateTicketSheet({
           onSubmit={handleSubmit}
           className="flex flex-col h-full overflow-hidden"
         >
-          <SheetHeader className="px-4 py-5 pr-12 sm:px-6 sm:pr-12 border-b border-slate-100 bg-slate-50/50">
-            <SheetTitle className="text-lg font-bold text-slate-900">
-              New ticket
-            </SheetTitle>
-            <SheetDescription className="text-xs text-slate-500">
-              Create a support request on behalf of a customer.
-            </SheetDescription>
+          <SheetHeader className="flex-row items-start gap-3.5 border-b border-border px-4 py-5 pr-12 text-left sm:px-6 sm:pr-12">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+              <TicketPlus className="size-5" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <SheetTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                New ticket
+              </SheetTitle>
+              <SheetDescription className="text-sm leading-relaxed text-slate-500">
+                Create a support request on behalf of a customer.
+              </SheetDescription>
+            </div>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 space-y-4 text-xs text-slate-700">
             <div className="space-y-1.5">
               <Label
                 htmlFor="subject"
-                className="font-semibold text-slate-800 text-xs"
+                className="text-xs font-semibold text-slate-700"
               >
                 Subject <span className="text-red-500">*</span>
               </Label>
@@ -223,7 +234,7 @@ export default function CreateTicketSheet({
             <div className="space-y-1.5">
               <Label
                 htmlFor="requester"
-                className="font-semibold text-slate-800 text-xs"
+                className="text-xs font-semibold text-slate-700"
               >
                 Requester <span className="text-red-500">*</span>
               </Label>
@@ -237,7 +248,7 @@ export default function CreateTicketSheet({
             <div className="space-y-1.5">
               <Label
                 htmlFor="priority"
-                className="font-semibold text-slate-800 text-xs"
+                className="text-xs font-semibold text-slate-700"
               >
                 Priority
               </Label>
@@ -270,7 +281,7 @@ export default function CreateTicketSheet({
             <div className="space-y-1.5">
               <Label
                 htmlFor="description"
-                className="font-semibold text-slate-800 text-xs"
+                className="text-xs font-semibold text-slate-700"
               >
                 Description
               </Label>
@@ -280,12 +291,12 @@ export default function CreateTicketSheet({
                 placeholder={descriptionPlaceholder}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="bg-white text-slate-900 placeholder:text-slate-400 text-sm border-slate-200 resize-none p-3 shadow-sm"
+                className="resize-none rounded-lg bg-card p-3 text-sm text-foreground shadow-none placeholder:text-slate-400"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="font-semibold text-slate-800 text-xs">
+              <Label className="text-xs font-semibold text-slate-700">
                 Attachments
               </Label>
               <input
@@ -314,12 +325,16 @@ export default function CreateTicketSheet({
                   e.preventDefault();
                   addFiles(Array.from(e.dataTransfer.files));
                 }}
-                className="border border-dashed border-slate-300 hover:border-teal-600 focus-visible:border-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/20 bg-slate-50/50 hover:bg-slate-50 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
+                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300! bg-slate-50/60 p-4 text-center transition-colors hover:border-brand-accent/60! hover:bg-brand-soft/40 focus-visible:border-brand-accent! focus-visible:ring-2 focus-visible:ring-brand-accent/20 focus-visible:outline-none dark:border-border! dark:bg-muted/30"
               >
-                <Paperclip className="w-4 h-4 text-slate-400 mb-1.5 rotate-45" />
+                <span className="mb-2 flex size-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-muted">
+                  <Paperclip className="size-4 rotate-45" />
+                </span>
                 <p className="text-xs font-medium text-slate-700">
                   Drop files or{" "}
-                  <span className="text-teal-700 underline">browse</span>
+                  <span className="font-semibold text-brand-accent underline">
+                    browse
+                  </span>
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {TICKET_ATTACHMENT_HINT}
@@ -331,7 +346,7 @@ export default function CreateTicketSheet({
                   {files.map((file, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between bg-slate-100/80 rounded px-2.5 py-1.5 text-xs text-slate-700"
+                      className="flex items-center justify-between rounded-lg border border-slate-200! bg-card px-2.5 py-1.5 text-xs text-slate-700 dark:border-border!"
                     >
                       <div className="flex items-center truncate space-x-2">
                         <FileIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -354,7 +369,7 @@ export default function CreateTicketSheet({
 
           {/* One column on phones with the primary action on top; a right-aligned
               row from sm up. */}
-          <SheetFooter className="mt-auto flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <SheetFooter className="mt-auto flex-col-reverse gap-3 border-t border-border bg-slate-50/60 px-4 py-4 sm:flex-row sm:justify-end sm:px-6 dark:bg-muted/30">
             <SheetClose asChild>
               <Button
                 type="button"

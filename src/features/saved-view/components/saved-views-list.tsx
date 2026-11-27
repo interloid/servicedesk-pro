@@ -9,6 +9,7 @@ import {
   Bookmark,
   Edit2,
   GripVertical,
+  Inbox,
   Info,
   MoreVertical,
   Plus,
@@ -32,7 +33,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { IconTile } from "@/features/billing/components/reuse";
+import {
+  DASHBOARD_BUTTON,
+  DASHBOARD_CARD,
+} from "@/components/shared/dashboard-ui";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -178,7 +182,9 @@ export default function SavedViewsList({
         return;
       }
 
-      toast.error(res.error || "Couldn't save the new order.");
+      toast.error("Couldn't save the view order", {
+        description: res.error || "The previous order was restored.",
+      });
       const rank = new Map(savedOrder.current.map((id, i) => [id, i]));
       setViews((current) =>
         [...current].sort(
@@ -345,16 +351,18 @@ export default function SavedViewsList({
 
   return (
     <TooltipProvider>
-      <div className="h-full bg-slate-50/50 px-4 py-5 font-sans text-slate-700 sm:p-6 lg:p-8">
-        <div className="mx-auto flex flex-col gap-5 sm:gap-6">
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                  Saved views
-                </h1>
-              </div>
-              <p className="mt-1 text-sm text-slate-500">
+      <div className="h-full p-4 font-sans text-slate-700 sm:p-6 lg:p-8">
+        <div className="mx-auto flex flex-col gap-6">
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold tracking-[0.08em] text-brand-700 uppercase">
+                <Bookmark className="size-3.5" strokeWidth={2} aria-hidden />
+                Workspace
+              </span>
+              <h1 className="font-heading text-[1.75rem] leading-tight font-bold tracking-tight text-foreground sm:text-[2rem]">
+                Saved views
+              </h1>
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
                 Your saved filters for the ticket queue.
                 {isPro ? (
                   <>
@@ -380,7 +388,10 @@ export default function SavedViewsList({
                     <Button
                       disabled
                       aria-label={`New view — limit of ${CUSTOM_VIEWS_PER_USER_MAX} reached`}
-                      className="h-10 w-full gap-1.5 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-sm sm:w-auto"
+                      className={cn(
+                        DASHBOARD_BUTTON,
+                        "w-full gap-1.5 bg-brand-accent text-brand-accent-foreground sm:w-auto",
+                      )}
                     >
                       <Plus className="size-4" />
                       New view
@@ -395,7 +406,10 @@ export default function SavedViewsList({
             ) : isPro ? (
               <Button
                 onClick={handleOpenCreate}
-                className="h-10 w-full shrink-0 gap-1.5 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-sm hover:bg-brand-accent/90 sm:w-auto"
+                className={cn(
+                  DASHBOARD_BUTTON,
+                  "w-full shrink-0 gap-1.5 bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90 sm:w-auto",
+                )}
               >
                 <Plus className="size-4" />
                 New view
@@ -409,7 +423,10 @@ export default function SavedViewsList({
                     <Button
                       disabled
                       aria-label="New view — requires Pro"
-                      className="h-10 w-full gap-1.5 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-sm sm:w-auto"
+                      className={cn(
+                        DASHBOARD_BUTTON,
+                        "w-full gap-1.5 bg-brand-accent text-brand-accent-foreground sm:w-auto",
+                      )}
                     >
                       <Plus className="size-4" />
                       New view
@@ -424,7 +441,12 @@ export default function SavedViewsList({
           </header>
 
           {!isPro ? (
-            <div className="flex flex-col gap-2 rounded-xl border border-brand-accent/20 bg-brand-accent/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div
+              className={cn(
+                DASHBOARD_CARD,
+                "flex flex-col gap-2 border-brand-accent/20! bg-brand-soft/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+              )}
+            >
               <p className="flex items-start gap-2.5 text-sm text-slate-700">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-accent" />
                 <span>
@@ -474,7 +496,7 @@ export default function SavedViewsList({
               renderRows(customViews, systemViews.length + 1)
             ) : isPro ? (
               <EmptyRow>
-                <p className="font-semibold text-slate-700">
+                <p className="font-heading font-bold text-foreground">
                   No custom views yet
                 </p>
                 <p className="mt-1">
@@ -485,7 +507,7 @@ export default function SavedViewsList({
                   onClick={handleOpenCreate}
                   variant="outline"
                   size="sm"
-                  className="mt-3 h-10 gap-1.5 rounded-lg"
+                  className={cn(DASHBOARD_BUTTON, "mt-4 gap-1.5 bg-card")}
                 >
                   <Plus className="size-4" />
                   New view
@@ -493,7 +515,7 @@ export default function SavedViewsList({
               </EmptyRow>
             ) : (
               <EmptyRow>
-                <p className="font-semibold text-slate-700">
+                <p className="font-heading font-bold text-foreground">
                   Custom views are a Pro feature
                 </p>
                 <p className="mt-1">
@@ -537,9 +559,15 @@ export default function SavedViewsList({
   );
 }
 
-/** Same look as the billing history table. */
+/** The round icon's tint per section, from the platform palette. */
+const SECTION_TONE = {
+  teal: "bg-brand-soft text-brand-ink",
+  blue: "bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300",
+} as const;
+
+/** A titled card over a table, as on the platform screens. */
 function ViewSection({
-  icon,
+  icon: Icon,
   tone,
   title,
   description,
@@ -581,12 +609,21 @@ function ViewSection({
   }, [rowCount]);
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-      <header className="flex items-center gap-3 px-4 py-4 sm:px-6">
-        <IconTile icon={icon} tone={tone} />
+    <section className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+      <header className="flex items-center gap-3 px-4 py-4 sm:px-5">
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-full",
+            SECTION_TONE[tone],
+          )}
+        >
+          <Icon className="size-4.5" strokeWidth={1.75} aria-hidden />
+        </span>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <p className="text-xs text-slate-500">{description}</p>
+          <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+            {title}
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-500">{description}</p>
         </div>
       </header>
 
@@ -594,7 +631,7 @@ function ViewSection({
         aria-hidden
         className={cn(
           ROW_GRID,
-          "hidden h-10 border-y border-slate-100 bg-slate-50 px-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:px-6 md:grid",
+          "hidden h-10 border-y border-border bg-slate-50/80 px-4 text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase sm:px-5 md:grid dark:bg-muted/40",
         )}
       >
         <span />
@@ -608,7 +645,7 @@ function ViewSection({
       <ul
         ref={listRef}
         style={{ maxHeight }}
-        className="relative divide-y divide-slate-100 overflow-y-auto border-t border-slate-100 text-sm md:border-t-0"
+        className="relative divide-y divide-border overflow-y-auto border-t border-border text-sm md:border-t-0"
       >
         {children}
       </ul>
@@ -618,8 +655,11 @@ function ViewSection({
 
 function EmptyRow({ children }: { children: React.ReactNode }) {
   return (
-    <li className="p-5 text-center text-sm text-slate-500 sm:p-6">
-      {children}
+    <li className="flex flex-col items-center px-5 py-10 text-center text-sm text-slate-500">
+      <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-muted">
+        <Inbox className="size-5" aria-hidden />
+      </span>
+      <div className="max-w-md">{children}</div>
     </li>
   );
 }
@@ -677,10 +717,10 @@ function ViewRow({
       data-view-id={view.id}
       className={cn(
         ROW_GRID,
-        "px-3 py-3.5 sm:px-6 sm:py-4 transition-colors",
+        "px-3 py-3.5 transition-colors sm:px-5 sm:py-4",
         isDragging
-          ? "relative z-10 bg-brand-accent/5 shadow-md ring-1 ring-brand-accent/30"
-          : "hover:bg-slate-50/60",
+          ? "relative z-10 bg-brand-soft/60 shadow-md ring-1 ring-brand-accent/30"
+          : "hover:bg-slate-50/60 dark:hover:bg-muted/40",
       )}
     >
       <button
@@ -700,7 +740,7 @@ function ViewRow({
       {/* The tab position on the ticket page. */}
       <span
         aria-hidden
-        className="flex h-8 w-full items-center justify-center rounded-md border border-slate-200/80 bg-slate-100 text-sm font-semibold tabular-nums text-slate-700"
+        className="flex h-8 w-full items-center justify-center rounded-md bg-slate-100 text-sm font-semibold text-slate-600 tabular-nums ring-1 ring-slate-500/15 ring-inset"
       >
         {order}
       </span>
@@ -710,12 +750,12 @@ function ViewRow({
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex-nowrap">
           <Link
             href={href}
-            className="min-w-0 wrap-break-word font-medium md:truncate text-slate-900 transition-colors hover:text-brand-accent"
+            className="min-w-0 font-semibold wrap-break-word text-foreground transition-colors hover:text-brand-accent md:truncate"
           >
             {view.name}
           </Link>
           {!view.isSystem && view.is_shared && !view.isOwn ? (
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+            <span className="shrink-0 rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-violet-700 uppercase ring-1 ring-violet-600/15 ring-inset dark:bg-violet-950/60 dark:text-violet-300">
               Team
             </span>
           ) : null}
@@ -733,12 +773,12 @@ function ViewRow({
       </div>
 
       <div className="hidden md:block">
-        <span className="inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold leading-5 text-slate-600">
+        <span className="inline-flex h-6 items-center rounded-md bg-slate-100 px-2 text-xs font-semibold whitespace-nowrap text-slate-600 tabular-nums ring-1 ring-slate-500/15 ring-inset">
           {countLabel}
         </span>
       </div>
 
-      <div className="hidden whitespace-nowrap text-slate-600 md:block">
+      <div className="hidden whitespace-nowrap text-slate-500 md:block">
         {updated}
       </div>
 
@@ -747,7 +787,7 @@ function ViewRow({
           asChild
           size="sm"
           variant="ghost"
-          className="h-8 rounded-lg bg-brand-accent/10 px-3 text-xs font-semibold text-brand-accent hover:bg-brand-accent/15 hover:text-brand-accent"
+          className="h-9 rounded-lg bg-brand-soft px-3 text-xs font-semibold text-brand-ink hover:bg-brand-accent/15 hover:text-brand-ink"
         >
           <Link href={href} aria-label={`Open ${view.name}`}>
             Open
@@ -763,7 +803,7 @@ function ViewRow({
               size="icon"
               aria-label={`Actions for ${view.name}`}
               className={cn(
-                "size-8 rounded-lg border-slate-200 text-slate-600 shadow-none",
+                "size-9 rounded-lg bg-card text-slate-600 shadow-none",
                 !canManage && "md:hidden",
               )}
             >
@@ -823,7 +863,7 @@ function ViewRow({
         </DropdownMenu>
         {!canManage && reserveMenuSpace ? (
           // Keeps "Open" aligned with the rows that do have a menu.
-          <span aria-hidden className="hidden size-8 md:block" />
+          <span aria-hidden className="hidden size-9 md:block" />
         ) : null}
       </div>
     </li>

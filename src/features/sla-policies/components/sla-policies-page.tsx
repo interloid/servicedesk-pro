@@ -1,7 +1,20 @@
 "use client";
 import React from "react";
-import { CalendarDays, Clock, Lock } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import {
+  CalendarDays,
+  CircleCheck,
+  CirclePause,
+  Clock,
+  FileText,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  DASHBOARD_CARD,
+  DASHBOARD_STAT_GRID,
+  DashboardPageHeader,
+  StatCard,
+} from "@/components/shared/dashboard-ui";
 import {
   Table,
   TableBody,
@@ -81,8 +94,8 @@ export function ClickablePolicyRow({
         }
       }}
       className={cn(
-        "cursor-pointer border-slate-100 align-middle",
-        "hover:bg-slate-50/70",
+        "cursor-pointer border-border align-middle transition-colors",
+        "hover:bg-slate-50/60",
         "focus-visible:outline-none focus-visible:ring-2",
         "focus-visible:ring-brand-accent focus-visible:ring-inset",
       )}
@@ -103,37 +116,70 @@ export const SlaPoliciesPage: React.FC<SlaPoliciesPageProps> = ({
 }) => {
   // createSlaPolicy enforces the same cap on the server.
   const canCreate = hasPolicyRoom(policyQuota, policies.length);
+  const countOf = (status: SlaPolicy["status"]) =>
+    policies.filter((policy) => policy.status === status).length;
 
   return (
     <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8">
-      <div className="mx-auto flex w-full flex-col gap-6 sm:gap-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold tracking-tight">SLA policies</h1>
+      <div className="mx-auto flex w-full flex-col gap-6">
+        <DashboardPageHeader
+          eyebrow="Workspace"
+          icon={Clock}
+          title="SLA policies"
+          description="Manage response and resolution targets for your support team."
+          action={
+            canManage ? (
+              <NewPolicyButton
+                href={`/${tenant}/sla/new`}
+                disabledReason={
+                  canCreate ? null : describePolicyLimit(policyQuota)
+                }
+              />
+            ) : null
+          }
+        />
 
-            <p className="text-sm text-muted-foreground">
-              Manage response and resolution targets for your support team.
-            </p>
-          </div>
-
-          {canManage && (
-            <NewPolicyButton
-              href={`/${tenant}/sla/new`}
-              disabledReason={
-                canCreate ? null : describePolicyLimit(policyQuota)
-              }
-            />
-          )}
+        <div className={DASHBOARD_STAT_GRID}>
+          <StatCard
+            icon={ShieldCheck}
+            iconClassName="bg-brand-50 text-brand-700"
+            label="Total policies"
+            value={policies.length.toLocaleString("en-US")}
+          />
+          <StatCard
+            icon={CircleCheck}
+            iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300"
+            label="Active"
+            value={countOf("active").toLocaleString("en-US")}
+          />
+          <StatCard
+            icon={FileText}
+            iconClassName="bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300"
+            label="Drafts"
+            value={countOf("draft").toLocaleString("en-US")}
+          />
+          <StatCard
+            icon={CirclePause}
+            iconClassName="bg-slate-100 text-slate-600 dark:bg-muted dark:text-muted-foreground"
+            label="Paused"
+            value={countOf("paused").toLocaleString("en-US")}
+          />
         </div>
 
-        <Card className="gap-0 border border-slate-200/80 bg-white py-0 shadow-xs ring-0">
+        <div className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3.5 text-sm font-semibold text-foreground tabular-nums">
+            {policies.length} {policies.length === 1 ? "policy" : "policies"}
+            <span className="text-xs font-normal text-slate-500">
+              Open a policy to view or edit its targets
+            </span>
+          </div>
           <Table className="rounded-none border-0">
-            <TableHeader>
-              <TableRow className="h-14 border-slate-100 bg-slate-50 hover:bg-slate-50">
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className="hover:bg-transparent">
                 {COLUMNS.map((c) => (
                   <TableHead
                     key={c}
-                    className="h-10 px-4 text-[11px] font-bold tracking-wider text-slate-500 uppercase"
+                    className="h-10 bg-slate-50/80 px-4 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)]"
                   >
                     {c}
                   </TableHead>
@@ -144,11 +190,16 @@ export const SlaPoliciesPage: React.FC<SlaPoliciesPageProps> = ({
             <TableBody>
               {policies.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={COLUMNS.length}
-                    className="p-8 text-center text-sm text-slate-400"
-                  >
-                    No SLA policies yet. Create one to start tracking targets.
+                  <TableCell colSpan={COLUMNS.length} className="px-4 py-14">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                        <Clock className="size-5" aria-hidden />
+                      </span>
+                      <p className="max-w-sm text-sm whitespace-normal text-slate-500">
+                        No SLA policies yet. Create one to start tracking
+                        targets.
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -158,7 +209,7 @@ export const SlaPoliciesPage: React.FC<SlaPoliciesPageProps> = ({
               )}
             </TableBody>
           </Table>
-        </Card>
+        </div>
       </div>
     </div>
   );
@@ -176,9 +227,9 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
 
   return (
     <ClickablePolicyRow href={href}>
-      <TableCell className="max-w-60 px-4 py-4 align-middle whitespace-normal">
+      <TableCell className="max-w-60 px-4 py-3.5 align-middle whitespace-normal">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold capitalize text-slate-900 transition-colors group-hover:text-brand-accent">
+          <span className="font-semibold text-foreground capitalize">
             {policy.name}
           </span>
 
@@ -186,7 +237,7 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
             <Badge
               className={cn(
                 BADGE_TONES.slate,
-                "inline-flex h-5 shrink-0 items-center border-none px-2 text-[10px] font-semibold leading-none tracking-wide uppercase",
+                "inline-flex h-5 shrink-0 items-center rounded-md border-none px-1.5 text-[10px] leading-none font-semibold tracking-wide uppercase ring-1 ring-slate-500/15 ring-inset",
               )}
             >
               Default
@@ -197,7 +248,7 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Badge className="inline-flex h-5 shrink-0 items-center gap-1 border-none bg-amber-50 px-2 text-[10px] font-semibold leading-none tracking-wide text-amber-700 uppercase">
+                  <Badge className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md border-none bg-amber-50 px-1.5 text-[10px] leading-none font-semibold tracking-wide text-amber-700 uppercase ring-1 ring-amber-600/20 ring-inset">
                     <Lock className="size-3" aria-hidden />
                     In use
                   </Badge>
@@ -215,19 +266,18 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
         </p>
       </TableCell>
 
-      <TableCell className="px-4 py-4 align-middle whitespace-normal">
+      <TableCell className="px-4 py-3.5 align-middle whitespace-normal">
         <div className="flex items-center gap-2.5">
-          {calendar ? (
-            <CalendarDays
-              className="size-5 shrink-0 text-slate-500"
-              aria-hidden
-            />
-          ) : (
-            <Clock className="size-5 shrink-0 text-slate-500" aria-hidden />
-          )}
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            {calendar ? (
+              <CalendarDays className="size-4" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <Clock className="size-4" strokeWidth={1.75} aria-hidden />
+            )}
+          </span>
 
           <div>
-            <p className="font-medium text-slate-900">
+            <p className="font-semibold text-foreground">
               {calendar ? "Business Hours" : "24/7"}
             </p>
 
@@ -240,19 +290,19 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
         </div>
       </TableCell>
 
-      <TableCell className="px-4 py-4 align-middle">
+      <TableCell className="px-4 py-3.5 align-middle">
         <div className="flex flex-col gap-1.5">
           {[
             {
               target: urgent,
               label: "Urgent",
-              className: "bg-red-50 text-red-600 border-0 ring-0",
+              className: "bg-red-50 text-red-700 ring-red-600/15",
               dot: "bg-red-500",
             },
             {
               target: low,
               label: "Low",
-              className: "bg-emerald-50 text-emerald-600 border-0 ring-0",
+              className: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
               dot: "bg-emerald-500",
             },
           ].map(
@@ -278,7 +328,7 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
 
                   <Badge
                     className={cn(
-                      "h-5 gap-1.5 rounded-full border-0 px-2 text-[10px] font-semibold",
+                      "h-5 gap-1.5 rounded-md border-none px-1.5 text-[10px] font-semibold",
                       "ring-1 ring-inset",
                       className,
                     )}
@@ -292,7 +342,7 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
         </div>
       </TableCell>
 
-      <TableCell className="px-4 py-4 align-middle whitespace-normal">
+      <TableCell className="px-4 py-3.5 align-middle whitespace-normal">
         <p className="text-slate-900">
           {policy.applies_to === "Selected customers"
             ? `${policy.selected_customer_count} selected customer${
@@ -307,7 +357,7 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
         </p>
       </TableCell>
 
-      <TableCell className="px-4 py-4 align-middle">
+      <TableCell className="px-4 py-3.5 align-middle">
         <p className="whitespace-nowrap text-slate-900">
           {formatUpdatedDate(policy.updated_at)}
         </p>
@@ -318,7 +368,7 @@ function PolicyRow({ tenant, policy }: { tenant: string; policy: SlaPolicy }) {
           </p>
         )}
       </TableCell>
-      <TableCell className="px-4 py-4 align-middle">
+      <TableCell className="px-4 py-3.5 align-middle">
         <StatusBadge status={policy.status} />
       </TableCell>
     </ClickablePolicyRow>

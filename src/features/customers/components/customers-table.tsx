@@ -3,8 +3,18 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, ChevronUp, Search, UsersRound } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  UsersRound,
+} from "lucide-react";
 
+import {
+  DASHBOARD_CARD,
+  DashboardPageHeader,
+} from "@/components/shared/dashboard-ui";
 import { Pagination } from "@/components/shared/pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -41,7 +51,9 @@ import {
 import { InviteCustomerModal } from "@/features/customers/components/invite-customer-modal";
 
 const HEAD =
-  "h-10 text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground";
+  "h-10 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap text-slate-500 shadow-[inset_0_-1px_0_var(--border)]";
+
+const CELL = "py-3.5";
 
 /**
  * The list is searched, sorted and paged on the server; this component only
@@ -166,7 +178,7 @@ export default function CustomersTable({
           />
         ) : null}
 
-        <AvatarFallback className="bg-brand-accent/10 text-xs font-semibold text-brand-accent">
+        <AvatarFallback className="bg-slate-100 text-xs font-bold text-slate-600">
           {getInitials(customer.fullName, customer.email)}
         </AvatarFallback>
       </Avatar>
@@ -193,7 +205,10 @@ export default function CustomersTable({
           scroll={false}
           // text-muted-foreground explicitly: globals.css colours every <a>
           // with the brand, and the header text must stay grey like before.
-          className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+          className={cn(
+            "inline-flex items-center gap-1.5 text-slate-500 hover:text-foreground",
+            active && "text-foreground",
+          )}
         >
           {label}
           {active &&
@@ -210,24 +225,40 @@ export default function CustomersTable({
   return (
     <div className="h-full overflow-y-auto p-4 font-sans sm:p-6 lg:p-8">
       <div className="mx-auto flex w-full flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Customers
-            </h1>
+        <DashboardPageHeader
+          eyebrow="Workspace"
+          icon={Building2}
+          title="Customers"
+          description="Companies and the people who raise tickets from them."
+          action={
+            canInvite ? <InviteCustomerModal portalUrl={portalUrl} /> : null
+          }
+        />
 
-            <p className="text-sm text-muted-foreground">
-              Companies and the people who raise tickets from them.
-            </p>
-          </div>
-
-          {/* In the heading row, top-aligned with the title. type="search",
+        <div
+          className={cn(
+            DASHBOARD_CARD,
+            "overflow-hidden transition-opacity",
+            isPending && "opacity-60",
+          )}
+          aria-busy={isPending || undefined}
+        >
+          {/* The toolbar row, as on the platform tables: how many rows the
+              search found on the left, the search on the right. type="search",
               so the browser draws its own clear button inside the field. */}
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 border-b border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex flex-wrap items-baseline gap-2 px-1 text-sm font-semibold text-foreground tabular-nums">
+              {total.toLocaleString("en-US")}{" "}
+              {total === 1 ? "customer" : "customers"}
+              <span className="text-xs font-normal text-slate-500">
+                of {tenantTotal.toLocaleString("en-US")} in this workspace
+              </span>
+            </p>
+
             <div className="relative w-full sm:w-80 lg:w-96">
               <Search
                 aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               />
 
               <Input
@@ -237,21 +268,11 @@ export default function CustomersTable({
                 placeholder="Search customers or company..."
                 aria-label="Search customers"
                 maxLength={200}
-                className="h-10 bg-card pl-9 text-sm"
+                className="h-10 rounded-lg bg-card pl-9 text-sm"
               />
             </div>
-
-            {canInvite && <InviteCustomerModal portalUrl={portalUrl} />}
           </div>
-        </div>
 
-        <div
-          className={cn(
-            "overflow-hidden rounded-lg border bg-card transition-opacity",
-            isPending && "opacity-60",
-          )}
-          aria-busy={isPending || undefined}
-        >
           {tenantTotal === 0 ? (
             <EmptyState />
           ) : (
@@ -270,7 +291,7 @@ export default function CustomersTable({
                   </colgroup>
 
                   <TableHeader>
-                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableRow className="border-b-0 hover:bg-transparent">
                       {sortHeader("fullName", "Customer", "px-4")}
                       {sortHeader("company", "Company", "px-4")}
                       <TableHead className={cn(HEAD, "px-4")}>Status</TableHead>
@@ -291,7 +312,7 @@ export default function CustomersTable({
                       <TableRow className="hover:bg-transparent">
                         <TableCell
                           colSpan={canInvite ? 8 : 7}
-                          className="h-24 text-center text-sm text-muted-foreground"
+                          className="py-14 text-center text-sm text-slate-500"
                         >
                           No customers match your search.
                         </TableCell>
@@ -300,7 +321,7 @@ export default function CustomersTable({
                       customers.map((customer) => (
                         <TableRow
                           key={customer.id}
-                          className="cursor-pointer"
+                          className="cursor-pointer transition-colors hover:bg-slate-50/60"
                           onClick={(event) => {
                             const target = event.target as HTMLElement;
 
@@ -311,26 +332,28 @@ export default function CustomersTable({
                             router.push(customerPath(tenant, customer.id));
                           }}
                         >
-                          <TableCell className="px-4 py-3">
+                          <TableCell className={cn(CELL, "px-4")}>
                             <div className="flex min-w-0 items-center gap-3">
                               {avatar(customer)}
 
                               <div className="min-w-0">
                                 <Link
                                   href={customerPath(tenant, customer.id)}
-                                  className="block truncate text-sm font-medium text-foreground hover:text-brand-ink"
+                                  className="block truncate text-sm font-semibold text-foreground hover:text-brand-ink"
                                 >
                                   {customer.fullName}
                                 </Link>
 
-                                <p className="truncate text-xs text-muted-foreground">
+                                <p className="truncate text-xs text-slate-500">
                                   {customer.email}
                                 </p>
                               </div>
                             </div>
                           </TableCell>
 
-                          <TableCell className="px-4 py-3 text-sm">
+                          <TableCell
+                            className={cn(CELL, "px-4 text-sm text-slate-700")}
+                          >
                             <span className="block truncate">
                               {customer.company || (
                                 <span className="text-muted-foreground">—</span>
@@ -338,17 +361,27 @@ export default function CustomersTable({
                             </span>
                           </TableCell>
 
-                          <TableCell className="px-4 py-3">
+                          <TableCell className={cn(CELL, "px-4")}>
                             <CustomerStatusBadge
                               status={customer.portalStatus}
                             />
                           </TableCell>
 
-                          <TableCell className="px-5 py-3 text-sm font-medium tabular-nums">
+                          <TableCell
+                            className={cn(
+                              CELL,
+                              "px-5 text-sm font-semibold text-foreground tabular-nums",
+                            )}
+                          >
                             {customer.ticketCount}
                           </TableCell>
 
-                          <TableCell className="px-5 py-3 text-sm whitespace-nowrap text-muted-foreground">
+                          <TableCell
+                            className={cn(
+                              CELL,
+                              "px-5 text-sm whitespace-nowrap text-slate-500",
+                            )}
+                          >
                             {customer.lastActivityAt ? (
                               <span
                                 title={formatCustomerDate(
@@ -365,17 +398,24 @@ export default function CustomersTable({
                             )}
                           </TableCell>
 
-                          <TableCell className="px-4 py-3 text-sm whitespace-nowrap text-muted-foreground">
+                          <TableCell
+                            className={cn(
+                              CELL,
+                              "px-4 text-sm whitespace-nowrap text-slate-500",
+                            )}
+                          >
                             {formatCustomerDate(customer.createdAt)}
                           </TableCell>
 
-                          <TableCell className="px-4 py-3 text-sm">
+                          <TableCell
+                            className={cn(CELL, "px-4 text-sm tabular-nums")}
+                          >
                             {customer.csatScore === null ? (
                               <span className="text-muted-foreground">—</span>
                             ) : (
                               <span
                                 className={cn(
-                                  "font-medium",
+                                  "font-semibold",
                                   csatTone(customer.csatScore),
                                 )}
                               >
@@ -392,7 +432,7 @@ export default function CustomersTable({
                           </TableCell>
 
                           {canInvite && (
-                            <TableCell className="px-4 py-3 text-right">
+                            <TableCell className={cn(CELL, "px-4 text-right")}>
                               <CustomerAccessMenu customer={customer} />
                             </TableCell>
                           )}
@@ -405,7 +445,7 @@ export default function CustomersTable({
 
               {/* Stacked and centred below sm, opposite ends of one line from
                   sm -- the same shape as the team table's pager. */}
-              <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground sm:flex-row">
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 text-sm text-slate-500 tabular-nums sm:flex-row">
                 <span className="text-center sm:text-left">
                   Showing{" "}
                   {total === 0
@@ -438,19 +478,19 @@ export default function CustomersTable({
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center px-5 py-16 text-center">
+    <div className="flex flex-col items-center px-5 py-14 text-center">
       <span
         aria-hidden
-        className="flex size-14 items-center justify-center rounded-full bg-brand-accent/10 text-brand-accent ring-8 ring-brand-accent/5"
+        className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400"
       >
-        <UsersRound className="size-6" />
+        <UsersRound className="size-5" />
       </span>
 
-      <p className="mt-5 text-base font-bold text-foreground">
+      <p className="mt-4 font-heading text-base font-bold text-foreground">
         No customers yet
       </p>
 
-      <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
+      <p className="mt-1 max-w-sm text-sm text-slate-500">
         Customers appear here the first time they raise a request through your
         support portal.
       </p>

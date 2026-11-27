@@ -68,7 +68,9 @@ export function useLogin({ next }: Pick<UseLoginOptions, "next"> = {}) {
         setIsPending(false);
         console.error("[auth] login request failed", error);
 
-        toast.error("Network error. Check your connection and retry.");
+        toast.error("Couldn't sign you in", {
+          description: "Network error. Check your connection and retry.",
+        });
 
         return {
           success: false,
@@ -79,12 +81,12 @@ export function useLogin({ next }: Pick<UseLoginOptions, "next"> = {}) {
 
       if (!result.success) {
         setIsPending(false);
-        toast.error(result.message);
+        toast.error("Couldn't sign you in", { description: result.message });
 
         return result;
       }
 
-      toast.success("Logged in successfully");
+      toast.success("Signed in");
 
       const rawTarget = result.data.redirectTo;
 
@@ -135,7 +137,9 @@ export function useGoogleLogin({
     } catch (error) {
       setIsPending(false);
       console.error("[auth] google login request failed", error);
-      toast.error("Network error. Check your connection and retry.");
+      toast.error("Couldn't sign in with Google", {
+        description: "Network error. Check your connection and retry.",
+      });
 
       return {
         success: false,
@@ -151,7 +155,9 @@ export function useGoogleLogin({
     }
 
     setIsPending(false);
-    toast.error(result.message);
+    toast.error("Couldn't sign in with Google", {
+      description: result.message,
+    });
 
     return result;
   }, [next, redirectTo, tenantSlug]);
@@ -179,7 +185,9 @@ export function useLogout({ redirectTo }: UseLogoutOptions = {}) {
 
   useEffect(() => {
     const unsubscribe = subscribeToLogout(() => {
-      toast.info("You were logged out in another tab");
+      toast.info("Signed out in another tab", {
+        description: "This tab has been signed out too.",
+      });
       handleRedirect();
     });
 
@@ -196,7 +204,9 @@ export function useLogout({ redirectTo }: UseLogoutOptions = {}) {
     } catch (error) {
       setIsPending(false);
       console.error("[auth] logout request failed", error);
-      toast.error("Network error. Check your connection and retry.");
+      toast.error("Couldn't sign you out", {
+        description: "Network error. Check your connection and retry.",
+      });
 
       return {
         success: false,
@@ -208,7 +218,7 @@ export function useLogout({ redirectTo }: UseLogoutOptions = {}) {
     if (result.success) {
       broadcastLogout();
 
-      toast.success("Logged out successfully");
+      toast.success("Signed out");
       handleRedirect();
 
       return result;

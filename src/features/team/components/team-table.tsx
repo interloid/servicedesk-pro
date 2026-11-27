@@ -13,8 +13,8 @@ import {
   MoreHorizontalIcon,
   Pause,
   Play,
-  Search,
   Trash2,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,7 +27,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -49,6 +48,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DASHBOARD_CARD,
+  DASHBOARD_ICON_BUTTON,
+  FilterSelect,
+  SearchField,
+} from "@/components/shared/dashboard-ui";
+import { cn } from "@/lib/utils";
 
 import {
   TEAM_STATUS_VALUES,
@@ -77,15 +83,18 @@ import { RemoveMemberModal } from "@/features/team/components/remove-member-moda
 
 const PAGE_SIZE = 10;
 
+// The platform tables' header cell: a pale band, small uppercase label.
 const TH =
-  "h-9 px-4 text-xs font-bold tracking-[0.06em] whitespace-nowrap text-muted-foreground uppercase";
+  "h-10 bg-slate-50/80 px-4 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)] dark:bg-muted/40";
 
+// Soft fill plus a hairline ring in the same hue, as on the platform tables.
 const TEAM_STATUS_BADGE: Record<TeamStatus, string> = {
   Active:
-    "border-none bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
+    "border-none bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15 ring-inset dark:bg-emerald-950/60 dark:text-emerald-300",
   Invited:
-    "border-none bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
-  Disabled: "border-none bg-muted text-muted-foreground",
+    "border-none bg-amber-50 text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950/60 dark:text-amber-300",
+  Disabled:
+    "border-none bg-slate-100 text-slate-600 ring-1 ring-slate-500/15 ring-inset dark:bg-muted dark:text-muted-foreground",
 };
 
 /** The timestamp line under a status badge, or null when there is nothing to say. */
@@ -173,7 +182,11 @@ export function TeamTable({
   const run = (
     memberId: string,
     action: () => Promise<unknown>,
-    { success, failure }: { success: string; failure: string },
+    {
+      success,
+      description,
+      failure,
+    }: { success: string; description?: string; failure: string },
     onDone?: () => void,
   ) => {
     setPendingId(memberId);
@@ -187,17 +200,19 @@ export function TeamTable({
           !result.ok
         ) {
           const message =
-            (result as { message?: string }).message ?? `${failure} Try again.`;
-          toast.error(message);
+            (result as { message?: string }).message ?? "Try again.";
+          toast.error(failure, { description: message });
         } else {
-          toast.success(success);
+          toast.success(success, { description });
           onDone?.();
         }
       } catch (error) {
         // A dropped connection or a deploy mid-request rejects the call
         // itself. Without this the row just went quiet: no toast either way.
         console.error("[team] action failed", error);
-        toast.error(`${failure} Check your connection and try again.`);
+        toast.error(failure, {
+          description: "Check your connection and try again.",
+        });
       } finally {
         setPendingId(null);
       }
@@ -277,8 +292,8 @@ export function TeamTable({
           roleId: role.id,
         }),
       {
-        success: `${displayName(member)} is now ${roleWithArticle(role.name)}.`,
-        failure: `We couldn't change ${displayName(member)}'s role.`,
+        success: `${displayName(member)} is now ${roleWithArticle(role.name)}`,
+        failure: `Couldn't change ${displayName(member)}'s role`,
       },
       () => setRoleTarget(null),
     );
@@ -289,12 +304,14 @@ export function TeamTable({
       () => removeMemberAction({ memberId: member.id }),
       member.status === "Invited"
         ? {
-            success: `Invitation to ${member.email} revoked. Their invite link no longer works.`,
-            failure: `We couldn't revoke the invitation to ${member.email}.`,
+            success: `Invitation to ${member.email} revoked`,
+            description: "Their invite link no longer works.",
+            failure: `Couldn't revoke the invitation to ${member.email}`,
           }
         : {
-            success: `${displayName(member)} was removed from the team and no longer has access.`,
-            failure: `We couldn't remove ${displayName(member)}.`,
+            success: `${displayName(member)} removed from the team`,
+            description: "They no longer have access.",
+            failure: `Couldn't remove ${displayName(member)}`,
           },
       () => setRemoveTarget(null),
     );
@@ -304,8 +321,8 @@ export function TeamTable({
       member.id,
       () => transferOwnershipAction({ memberId: member.id }),
       {
-        success: `${displayName(member)} now owns this workspace.`,
-        failure: `We couldn't transfer ownership to ${displayName(member)}.`,
+        success: `${displayName(member)} now owns this workspace`,
+        failure: `Couldn't transfer ownership to ${displayName(member)}`,
       },
       () => setRoleTarget(null),
     );
@@ -320,8 +337,8 @@ export function TeamTable({
           icon: MailPlus,
           run: () =>
             run(member.id, () => resendInviteAction({ memberId: member.id }), {
-              success: `Invite resent to ${member.email}.`,
-              failure: `We couldn't resend the invite to ${member.email}.`,
+              success: `Invite resent to ${member.email}`,
+              failure: `Couldn't resend the invite to ${member.email}`,
             }),
         });
       }
@@ -371,12 +388,14 @@ export function TeamTable({
               }),
             disabled
               ? {
-                  success: `${displayName(member)} is active again.`,
-                  failure: `We couldn't activate ${displayName(member)}.`,
+                  success: `${displayName(member)} is active again`,
+                  failure: `Couldn't activate ${displayName(member)}`,
                 }
               : {
-                  success: `${displayName(member)} was deactivated and has no access until you activate them again.`,
-                  failure: `We couldn't deactivate ${displayName(member)}.`,
+                  success: `${displayName(member)} deactivated`,
+                  description:
+                    "They have no access until you activate them again.",
+                  failure: `Couldn't deactivate ${displayName(member)}`,
                 },
           ),
       });
@@ -400,7 +419,7 @@ export function TeamTable({
     <div className="flex min-w-0 items-center gap-3">
       <Avatar className="size-9 shrink-0">
         <AvatarImage src={member.avatarUrl ?? undefined} alt="" />
-        <AvatarFallback className="bg-brand-accent/10 text-xs font-semibold text-brand-accent">
+        <AvatarFallback className="bg-slate-100 text-xs font-bold text-slate-700 dark:bg-muted dark:text-slate-300">
           {getInitials(member.name, member.email)}
         </AvatarFallback>
       </Avatar>
@@ -408,7 +427,7 @@ export function TeamTable({
         <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground">
           <span className="truncate">{member.name}</span>
           {member.isPrimary && (
-            <Badge className="h-5 shrink-0 gap-1 border-none bg-brand-accent/10 px-1.5 text-[11px] font-semibold text-brand-accent">
+            <Badge className="h-5 shrink-0 gap-1 rounded-md border-none bg-brand-50 px-1.5 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-700/15 ring-inset dark:bg-brand-700/20 dark:text-brand-100">
               <Crown className="size-3" aria-hidden />
               Owner
             </Badge>
@@ -427,7 +446,10 @@ export function TeamTable({
     return (
       <div className="flex flex-col items-start gap-1">
         <Badge
-          className={`h-6 px-2.5 text-xs font-semibold ${TEAM_STATUS_BADGE[member.status]}`}
+          className={cn(
+            "h-6 rounded-md px-2 text-xs font-semibold",
+            TEAM_STATUS_BADGE[member.status],
+          )}
         >
           {member.status}
         </Badge>
@@ -464,7 +486,7 @@ export function TeamTable({
       >
         <SelectTrigger
           aria-label={`Role for ${member.name}`}
-          className="min-h-10 w-full max-w-52.5 min-w-0"
+          className="min-h-10 w-full max-w-52.5 min-w-0 rounded-lg bg-card"
           disabled={busy}
         >
           <SelectValue />
@@ -538,11 +560,11 @@ export function TeamTable({
         <TooltipTrigger asChild>
           <span tabIndex={0} className="inline-flex rounded-lg">
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
               disabled
               aria-label={`Actions for ${member.name} (${reason})`}
-              className="size-9 cursor-pointer rounded-lg border border-none text-muted-foreground"
+              className={cn(DASHBOARD_ICON_BUTTON, "text-slate-400")}
             >
               <MoreHorizontalIcon />
             </Button>
@@ -592,11 +614,14 @@ export function TeamTable({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
             disabled={busy}
             aria-label={`Actions for ${member.name}`}
-            className="size-9 rounded-lg border border-none text-muted-foreground hover:bg-muted hover:text-foreground"
+            className={cn(
+              DASHBOARD_ICON_BUTTON,
+              "text-slate-500 hover:bg-slate-50 hover:text-foreground dark:hover:bg-muted",
+            )}
           >
             <MoreHorizontalIcon />
           </Button>
@@ -663,118 +688,89 @@ export function TeamTable({
     : "No team members yet.";
 
   return (
-    <div className="flex flex-col gap-3.5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-start xl:justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-bold">Team members</h2>
-          <p className="text-sm text-muted-foreground">
-            {members.length} {members.length === 1 ? "person" : "people"} on
-            your workspace.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="relative w-full sm:w-65 xl:w-70">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+    <div className="flex flex-col gap-4">
+      {/* One toolbar card, as on the platform tables: search first, then the
+          selects and Clear. */}
+      <div className={cn(DASHBOARD_CARD, "p-3")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:items-center">
+          <div className="sm:col-span-2 lg:max-w-80 lg:flex-1">
+            <SearchField
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
+              onChange={(value) => {
+                setQuery(value);
                 setPage(1);
               }}
               placeholder="Search by name or email..."
-              className="h-10 bg-card pl-9 text-sm sm:h-10"
-              aria-label="Search members"
+              label="Search members"
             />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => {
-                setStatusFilter(value as TeamStatus | "All");
-                setPage(1);
-              }}
-            >
-              <SelectTrigger
-                className="min-h-10 w-full min-w-0 bg-card sm:h-10 sm:w-37.5"
-                aria-label="Filter by status"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent
-                side="bottom"
-                align="start"
-                position="popper"
-                className="p-1"
-              >
-                <SelectItem value="All" className="p-2">
-                  All statuses
-                </SelectItem>
-                {TEAM_STATUS_VALUES.map((status) => (
-                  <SelectItem
-                    key={status}
-                    value={status}
-                    className="p-2 cursor-pointer"
-                  >
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <FilterSelect
+            label="Filter by status"
+            value={statusFilter}
+            className="lg:w-40 xl:w-40"
+            onChange={(value) => {
+              setStatusFilter(value as TeamStatus | "All");
+              setPage(1);
+            }}
+            options={[
+              { value: "All", label: "All statuses" },
+              ...TEAM_STATUS_VALUES.map((status) => ({
+                value: status,
+                label: status,
+              })),
+            ]}
+          />
 
-            <Select
-              value={roleFilter}
-              onValueChange={(value) => {
-                setRoleFilter(value);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger
-                className="min-h-10 w-full min-w-0 bg-card sm:h-10 sm:w-40"
-                aria-label="Filter by role"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent
-                side="bottom"
-                align="start"
-                position="popper"
-                className="p-1"
-              >
-                <SelectItem value="All" className="p-2">
-                  All roles
-                </SelectItem>
-                {filterRoles.map((role) => (
-                  <SelectItem
-                    key={role.id}
-                    value={role.id}
-                    className="p-2 cursor-pointer"
-                  >
-                    {role.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <FilterSelect
+            label="Filter by role"
+            value={roleFilter}
+            className="lg:w-44 xl:w-44"
+            onChange={(value) => {
+              setRoleFilter(value);
+              setPage(1);
+            }}
+            options={[
+              { value: "All", label: "All roles" },
+              ...filterRoles.map((role) => ({
+                value: role.id,
+                label: role.name,
+              })),
+            ]}
+          />
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-              className="h-10 bg-card"
-            >
-              <FilterX className="size-4" />
-              Clear filters
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className="h-10 gap-1.5 rounded-lg px-3 font-semibold text-slate-600 hover:bg-slate-100 hover:text-foreground disabled:opacity-40 sm:col-span-2 sm:justify-self-start lg:ml-auto dark:hover:bg-muted"
+          >
+            <FilterX className="size-4" aria-hidden />
+            Clear filters
+          </Button>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[14px] border border-border bg-card">
+      <div className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700/20">
+            <Users className="size-4" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+              Team members
+            </h2>
+            <p className="text-xs text-slate-500">
+              {members.length} {members.length === 1 ? "person" : "people"} on
+              your workspace.
+            </p>
+          </div>
+        </div>
+
         <Table className="min-w-262 table-fixed">
-          <TableHeader>
-            <TableRow className="h-14 border-border bg-muted/40 hover:bg-muted/40">
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={TH}>Member</TableHead>
 
               <TableHead className={`${TH} w-62`}>Status</TableHead>
@@ -792,11 +788,15 @@ export function TeamTable({
           <TableBody>
             {pageMembers.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={5}
-                  className="px-4 py-10 text-center text-sm text-muted-foreground"
-                >
-                  {emptyMessage}
+                <TableCell colSpan={5} className="px-4 py-14">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-muted">
+                      <Users className="size-5" aria-hidden />
+                    </span>
+                    <p className="max-w-sm text-sm text-slate-500">
+                      {emptyMessage}
+                    </p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
@@ -807,7 +807,7 @@ export function TeamTable({
                   <TableRow
                     key={member.id}
                     data-busy={busy || undefined}
-                    className="border-muted transition-opacity data-busy:opacity-60"
+                    className="border-border transition-colors hover:bg-slate-50/60 data-busy:opacity-60 dark:hover:bg-muted/30"
                   >
                     <TableCell className="px-4 py-3.5">
                       {renderIdentity(member)}
@@ -836,42 +836,44 @@ export function TeamTable({
             )}
           </TableBody>
         </Table>
-      </div>
 
-      <div className="flex flex-col items-center justify-between gap-3 px-1 text-sm text-muted-foreground sm:flex-row">
-        <span className="text-center sm:text-left">
-          Showing{" "}
-          {filtered.length === 0
-            ? 0
-            : `${start + 1} -${Math.min(start + PAGE_SIZE, filtered.length)}`}{" "}
-          of {filtered.length} {filtered.length === 1 ? "person" : "people"}
-          {hasActiveFilters ? " matching your filters" : ""}.
-        </span>
-        {isPaginated && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={safePage <= 1}
-              onClick={() => goTo(safePage - 1)}
-            >
-              <ChevronLeft />
-              Previous
-            </Button>
-            <span className="min-w-18 text-center text-xs">
-              Page {safePage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={safePage >= totalPages}
-              onClick={() => goTo(safePage + 1)}
-            >
-              Next
-              <ChevronRight />
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 text-sm text-slate-500 tabular-nums sm:flex-row dark:bg-muted/20">
+          <span className="text-center sm:text-left">
+            Showing{" "}
+            {filtered.length === 0
+              ? 0
+              : `${start + 1} -${Math.min(start + PAGE_SIZE, filtered.length)}`}{" "}
+            of {filtered.length} {filtered.length === 1 ? "person" : "people"}
+            {hasActiveFilters ? " matching your filters" : ""}.
+          </span>
+          {isPaginated && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-lg bg-card font-semibold shadow-none"
+                disabled={safePage <= 1}
+                onClick={() => goTo(safePage - 1)}
+              >
+                <ChevronLeft />
+                Previous
+              </Button>
+              <span className="min-w-18 text-center text-xs">
+                Page {safePage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-lg bg-card font-semibold shadow-none"
+                disabled={safePage >= totalPages}
+                onClick={() => goTo(safePage + 1)}
+              >
+                Next
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <ChangeRoleModal

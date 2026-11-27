@@ -53,7 +53,12 @@ export function WorkspaceBlockDialog({
       }
 
       toast.success(
-        blocked ? `${tenant.name} unblocked.` : `${tenant.name} blocked.`,
+        blocked ? `${tenant.name} unblocked` : `${tenant.name} blocked`,
+        {
+          description: blocked
+            ? "Its team and customers get their access back within about 10 seconds."
+            : "Its team and customers lose access within about 10 seconds. No data is deleted.",
+        },
       );
       onClose();
     });

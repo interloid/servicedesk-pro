@@ -67,7 +67,7 @@ export default async function DashboardLayout({
             role={identity.user.role}
           />
           <GlobalShortcuts role={identity.user.role} />
-          <div className="flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
+          <div className="relative flex h-screen w-full overflow-hidden bg-background text-xs text-slate-800 font-sans antialiased">
             <AppSidebar identity={identity} />
 
             <div className="flex flex-1 flex-col min-w-0 h-full w-full">
@@ -79,7 +79,7 @@ export default async function DashboardLayout({
               )}
               <AppHeader identity={identity} />
 
-              <main className="flex-1 overflow-y-auto w-full  p-0 ">
+              <main className="w-full flex-1 overflow-y-auto p-0">
                 {children}
               </main>
 

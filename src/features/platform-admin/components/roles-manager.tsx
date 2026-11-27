@@ -13,8 +13,10 @@ import {
   Pencil,
   Plus,
   ShieldCheck,
+  ShieldPlus,
   Trash2,
   TriangleAlert,
+  UserCog,
   Users,
 } from "lucide-react";
 
@@ -36,13 +38,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   BASE_ROLE_ACCESS,
@@ -75,9 +70,8 @@ import {
   DataTable,
   FilterTabs,
   PLATFORM_BUTTON,
+  PLATFORM_CARD,
   PLATFORM_ICON_BUTTON,
-  PLATFORM_STAT_GRID,
-  PlatformFilterBar,
   PlatformPageHeader,
   SearchField,
   type DataColumn,
@@ -130,12 +124,20 @@ function RoleFormDialog({
 
       if (!result.success) {
         setErrors(result.fieldErrors ?? {});
-        toast.error(result.message);
+        toast.error(
+          role ? `Couldn't save ${role.name}` : "Couldn't create the role",
+          { description: result.message },
+        );
         return;
       }
 
       toast.success(
-        role ? `${name.trim()} saved.` : `${name.trim()} role created.`,
+        role ? `${name.trim()} role updated` : `${name.trim()} role created`,
+        {
+          description: role
+            ? "Workspaces using this role see the change right away."
+            : `Workspaces can now give it to their team, with ${BASE_ROLE_LABELS[baseRole]} access.`,
+        },
       );
       router.refresh();
       onClose();
@@ -144,20 +146,25 @@ function RoleFormDialog({
 
   return (
     <>
-      <DialogHeader className="pr-6">
-        <DialogTitle className={TEAM_DIALOG_TITLE}>
-          {role ? `Edit ${role.name}` : "New role"}
-        </DialogTitle>
-        <DialogDescription>
-          {role?.isSystem
-            ? "Built-in role. You can rename it and change its description."
-            : "Workspaces can give this role to team members. It has the same access as the level you pick."}
-        </DialogDescription>
+      <DialogHeader className="flex-row items-start gap-3.5 pr-6">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+          <ShieldCheck className="size-5" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+            {role ? `Edit ${role.name}` : "New role"}
+          </DialogTitle>
+          <DialogDescription className="leading-relaxed">
+            {role?.isSystem
+              ? "Built-in role. You can rename it and change its description."
+              : "Workspaces can give this role to their team. It gets the access of the level you pick."}
+          </DialogDescription>
+        </div>
       </DialogHeader>
 
       <form
         id="role-form"
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
         onSubmit={(event) => {
           event.preventDefault();
           save();
@@ -179,92 +186,118 @@ function RoleFormDialog({
               setErrors((current) => ({ ...current, name: undefined }));
             }}
           />
-          {errors.name && (
-            <p className="text-xs text-destructive">{errors.name[0]}</p>
-          )}
+          <div className="flex justify-between gap-3 text-xs">
+            <span className="text-destructive">{errors.name?.[0]}</span>
+            <span className="shrink-0 text-slate-400 tabular-nums">
+              {name.length}/{ROLE_NAME_MAX}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="role-description" className="text-sm font-semibold">
+          <Label
+            htmlFor="role-description"
+            className="flex items-baseline justify-between text-sm font-semibold"
+          >
             Description
+            <span className="text-xs font-normal text-slate-400">Optional</span>
           </Label>
           <Textarea
             id="role-description"
             rows={3}
             maxLength={ROLE_DESCRIPTION_MAX}
             placeholder="What people with this role do"
-            className="resize-none"
+            className="min-h-20 resize-none rounded-lg"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
-          {errors.description && (
-            <p className="text-xs text-destructive">{errors.description[0]}</p>
-          )}
+          <div className="flex justify-between gap-3 text-xs">
+            <span className="text-destructive">{errors.description?.[0]}</span>
+            <span className="shrink-0 text-slate-400 tabular-nums">
+              {description.length}/{ROLE_DESCRIPTION_MAX}
+            </span>
+          </div>
         </div>
 
-        {!role?.isSystem && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="role-base" className="text-sm font-semibold">
+        {role?.isSystem ? (
+          <div className="flex items-start gap-3 rounded-lg border border-border bg-slate-50 px-3.5 py-3">
+            <Info
+              className="mt-0.5 size-4 shrink-0 text-slate-500"
+              aria-hidden
+            />
+            <p className="text-xs leading-relaxed text-slate-600">
+              <span className="font-semibold text-foreground">
+                {BASE_ROLE_LABELS[role.baseRole]} access.
+              </span>{" "}
+              {isCustomBase(role.baseRole)
+                ? BASE_ROLE_ACCESS[role.baseRole]
+                : "Not a workspace team role."}
+            </p>
+          </div>
+        ) : (
+          <fieldset className="flex flex-col gap-2" disabled={tierLocked}>
+            <legend className="mb-1.5 text-sm font-semibold">
               Access level
-            </Label>
-            <Select
-              value={baseRole}
-              disabled={tierLocked}
-              onValueChange={(value) => {
-                if (isCustomBase(value)) setBaseRole(value);
-              }}
+            </legend>
+            <div
+              role="radiogroup"
+              aria-label="Access level"
+              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             >
-              <SelectTrigger
-                id="role-base"
-                className={cn("w-full rounded-lg", TEAM_MODAL_CONTROL)}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent
-                side="bottom"
-                align="start"
-                position="popper"
-                className="p-1"
-              >
-                {CUSTOM_ROLE_BASES.map((base) => (
-                  <SelectItem
+              {CUSTOM_ROLE_BASES.map((base) => {
+                const selected = base === baseRole;
+                return (
+                  <button
                     key={base}
-                    value={base}
-                    className="cursor-pointer p-2"
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setBaseRole(base)}
+                    className={cn(
+                      "flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-brand-700/20 disabled:cursor-not-allowed",
+                      selected
+                        ? "border-brand-700! bg-brand-700/5"
+                        : "hover:border-slate-400! hover:bg-slate-50 disabled:hover:border-border! disabled:hover:bg-transparent",
+                      tierLocked && !selected && "opacity-50",
+                    )}
                   >
-                    Same as {BASE_ROLE_LABELS[base]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                        selected ? "border-brand-700!" : "border-slate-300!",
+                      )}
+                    >
+                      {selected && (
+                        <span className="size-1.5 rounded-full bg-brand-700" />
+                      )}
+                    </span>
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-sm font-semibold text-foreground">
+                        {BASE_ROLE_LABELS[base]}
+                      </span>
+                      <span className="text-xs leading-snug text-slate-500">
+                        {BASE_ROLE_ACCESS[base]}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {tierLocked && (
+              <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                {formatNumber(role.members)} member
+                {role.members === 1 ? " holds" : "s hold"} this role, so its
+                access level is fixed.
+              </p>
+            )}
             {errors.baseRole && (
               <p className="text-xs text-destructive">{errors.baseRole[0]}</p>
             )}
-          </div>
+          </fieldset>
         )}
       </form>
-
-      <ModalNotice
-        icon={tierLocked && !role?.isSystem ? Lock : Info}
-        tone="neutral"
-        title={`${BASE_ROLE_LABELS[role?.isSystem ? role.baseRole : baseRole]} access`}
-      >
-        <span className="text-xs leading-[1.55]">
-          {isCustomBase(role?.isSystem ? role.baseRole : baseRole)
-            ? BASE_ROLE_ACCESS[
-                (role?.isSystem ? role.baseRole : baseRole) as CustomRoleBase
-              ]
-            : "Not a workspace team role."}
-          {tierLocked && !role?.isSystem && (
-            <>
-              {" "}
-              {formatNumber(role.members)} member
-              {role.members === 1 ? " holds" : "s hold"} this role, so its
-              access level is fixed.
-            </>
-          )}
-        </span>
-      </ModalNotice>
 
       <DialogFooter className={cn(TEAM_DIALOG_FOOTER, "flex-row")}>
         <Button
@@ -316,12 +349,22 @@ function ConfirmDialog({
           });
 
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(
+          isDelete
+            ? `Couldn't delete ${role.name}`
+            : `Couldn't archive ${role.name}`,
+          { description: result.message },
+        );
         return;
       }
 
       toast.success(
-        isDelete ? `${role.name} deleted.` : `${role.name} archived.`,
+        isDelete ? `${role.name} role deleted` : `${role.name} role archived`,
+        {
+          description: isDelete
+            ? "It's removed for good and no longer appears anywhere."
+            : "Workspaces can't give it to new members. You can restore it any time.",
+        },
       );
       router.refresh();
       onClose();
@@ -432,11 +475,15 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
       });
 
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(`Couldn't restore ${role.name}`, {
+          description: result.message,
+        });
         return;
       }
 
-      toast.success(`${role.name} restored.`);
+      toast.success(`${role.name} role restored`, {
+        description: "Workspaces can give it to their team again.",
+      });
       router.refresh();
     });
   }
@@ -447,13 +494,33 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
       header: "Role",
       primary: true,
       cell: (role) => (
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="font-semibold text-foreground">{role.name}</span>
-          {role.description && (
-            <span className="text-xs text-muted-foreground">
-              {role.description}
-            </span>
-          )}
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-full",
+              role.isSystem
+                ? "bg-slate-100 text-slate-600"
+                : "bg-violet-50 text-violet-600",
+              role.status !== "active" && "opacity-50",
+            )}
+          >
+            {role.isSystem ? (
+              <Lock className="size-4" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <ShieldPlus className="size-4" strokeWidth={1.75} aria-hidden />
+            )}
+          </span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="font-semibold text-foreground">{role.name}</span>
+            {role.description && (
+              <span
+                className="line-clamp-1 text-xs text-slate-500"
+                title={role.description}
+              >
+                {role.description}
+              </span>
+            )}
+          </div>
         </div>
       ),
     },
@@ -471,7 +538,12 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
       key: "access",
       header: "Access level",
       cell: (role) => (
-        <span className="whitespace-nowrap">
+        <span className="flex items-center gap-2 whitespace-nowrap text-slate-700">
+          <ShieldCheck
+            className="size-4 shrink-0 text-slate-400"
+            strokeWidth={1.75}
+            aria-hidden
+          />
           {BASE_ROLE_LABELS[role.baseRole]}
         </span>
       ),
@@ -491,7 +563,14 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
       header: "Members",
       align: "right",
       cell: (role) => (
-        <span className="tabular-nums">{formatNumber(role.members)}</span>
+        <span className="inline-flex items-center justify-end gap-1.5 font-semibold tabular-nums">
+          <Users
+            className="size-3.5 text-slate-400"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          {formatNumber(role.members)}
+        </span>
       ),
     },
     {
@@ -556,6 +635,8 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
   return (
     <div className="flex flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Manage platform"
+        icon={ShieldCheck}
         title="Roles"
         description="The roles workspaces can give their team. Each role has the access of one built-in level."
         action={
@@ -572,36 +653,43 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
         }
       />
 
-      <div className={PLATFORM_STAT_GRID}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Active roles"
           value={formatNumber(counts.all)}
           icon={ShieldCheck}
+          iconClassName="bg-brand-50 text-brand-700"
         />
         <StatCard
           label="Custom roles"
           value={formatNumber(counts.custom)}
-          icon={Plus}
-          iconClassName="bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300"
+          icon={ShieldPlus}
+          iconClassName="bg-violet-50 text-violet-600"
         />
         <StatCard
           label="Members on custom roles"
           value={formatNumber(customMembers)}
-          icon={Users}
-          iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+          icon={UserCog}
+          iconClassName="bg-sky-50 text-sky-600"
         />
         <StatCard
           label="Memberships"
           value={formatNumber(totalMembers)}
           hint="Across every workspace"
           icon={Users}
-          iconClassName="bg-muted text-muted-foreground"
+          iconClassName="bg-amber-50 text-amber-600"
         />
       </div>
 
       <div className="flex flex-col gap-4">
-        <PlatformFilterBar
-          tabs={
+        {/* One toolbar: type tabs on the left, search on the right. */}
+        <div
+          className={cn(
+            PLATFORM_CARD,
+            "flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between",
+          )}
+        >
+          <div className="min-w-0">
             <FilterTabs
               label="Filter roles"
               value={filter}
@@ -617,16 +705,16 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
                 },
               ]}
             />
-          }
-          search={
+          </div>
+          <div className="w-full sm:max-w-72">
             <SearchField
               value={query}
               onChange={setQuery}
               placeholder="Search roles"
               label="Search roles"
             />
-          }
-        />
+          </div>
+        </div>
 
         <DataTable
           columns={columns}
@@ -646,7 +734,10 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
       >
         <DialogContent
           onOpenAutoFocus={(event) => event.preventDefault()}
-          className={cn("sm:max-w-115", TEAM_DIALOG_CONTENT)}
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-130",
+            TEAM_DIALOG_CONTENT,
+          )}
         >
           {editing && (
             <RoleFormDialog
@@ -662,7 +753,12 @@ export function RolesManager({ roles }: { roles: PlatformRole[] }) {
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
       >
-        <DialogContent className={cn("sm:max-w-115", TEAM_DIALOG_CONTENT)}>
+        <DialogContent
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-115",
+            TEAM_DIALOG_CONTENT,
+          )}
+        >
           {confirming && (
             <ConfirmDialog
               key={`${confirming.kind}:${confirming.role.id}`}

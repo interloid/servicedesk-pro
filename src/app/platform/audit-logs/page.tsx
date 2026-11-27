@@ -1,3 +1,4 @@
+import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 
 import { PlatformPageHeader } from "@/features/platform-admin/components/platform-ui";
@@ -27,6 +28,8 @@ export default async function PlatformAuditLogsPage(props: {
     // Exactly the height the shell leaves, so only the table's rows scroll.
     <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Operations"
+        icon={ScrollText}
         title="Audit Logs"
         description="What happened in every workspace, whatever its plan."
       />

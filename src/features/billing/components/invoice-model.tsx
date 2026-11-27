@@ -46,7 +46,7 @@ interface InvoiceModalProps {
   account: { name: string; tenantId: string };
 }
 
-const OUTLINE_BUTTON = cn(MODAL_BUTTON, "border-slate-200 w-full sm:w-auto");
+const OUTLINE_BUTTON = cn(MODAL_BUTTON, "w-full bg-card sm:w-auto");
 
 interface StatusMeta {
   pill: string;
@@ -65,13 +65,14 @@ function statusMeta(invoice: Invoice): StatusMeta & { message: ReactNode } {
   switch (invoice.status) {
     case "Paid":
       return {
-        pill: "bg-teal-100/70 text-teal-800",
+        pill: "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-950/60 dark:text-emerald-300",
         dot: "bg-brand-accent",
-        box: "bg-teal-50",
+        box: "bg-brand-50 ring-1 ring-brand-100 ring-inset dark:bg-brand-950/40 dark:ring-brand-900",
         badge: "bg-emerald-100 text-emerald-800",
         badgeLabel: "PAID",
         icon: Check,
-        iconWrap: "bg-brand-accent text-white",
+        iconWrap:
+          "bg-white text-brand-700 ring-1 ring-brand-100 dark:bg-brand-950",
         divider: "bg-teal-200",
         textColor: "text-slate-600",
         strongColor: "[&_strong]:text-teal-900",
@@ -84,13 +85,13 @@ function statusMeta(invoice: Invoice): StatusMeta & { message: ReactNode } {
       };
     case "Failed":
       return {
-        pill: "bg-red-50 text-red-700",
+        pill: "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
         dot: "bg-red-500",
-        box: "bg-red-50",
+        box: "bg-red-50 ring-1 ring-red-200 ring-inset dark:bg-red-950/40 dark:ring-red-900/60",
         badge: "bg-red-100 text-red-800",
         badgeLabel: "PAYMENT FAILED",
         icon: CircleAlert,
-        iconWrap: "bg-red-600 text-white",
+        iconWrap: "bg-white text-red-600 ring-1 ring-red-200 dark:bg-red-950",
         divider: "bg-red-200",
         textColor: "text-red-800",
         strongColor: "[&_strong]:text-red-900",
@@ -103,13 +104,13 @@ function statusMeta(invoice: Invoice): StatusMeta & { message: ReactNode } {
       };
     case "Refunded":
       return {
-        pill: "bg-slate-100 text-slate-600",
+        pill: "bg-slate-100 text-slate-600 ring-slate-500/15",
         dot: "bg-slate-400",
-        box: "bg-slate-100",
+        box: "bg-slate-50 ring-1 ring-slate-200 ring-inset dark:bg-muted/40 dark:ring-border",
         badge: "bg-slate-200 text-slate-700",
         badgeLabel: "REFUNDED",
         icon: Undo2,
-        iconWrap: "bg-slate-600 text-white",
+        iconWrap: "bg-white text-slate-600 ring-1 ring-slate-200 dark:bg-muted",
         divider: "bg-slate-300",
         textColor: "text-slate-700",
         strongColor: "[&_strong]:text-slate-900",
@@ -121,13 +122,14 @@ function statusMeta(invoice: Invoice): StatusMeta & { message: ReactNode } {
       };
     default:
       return {
-        pill: "bg-amber-50 text-amber-800",
+        pill: "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
         dot: "bg-amber-500",
-        box: "bg-amber-50",
+        box: "bg-amber-50 ring-1 ring-amber-200 ring-inset dark:bg-amber-950/40 dark:ring-amber-900/60",
         badge: "bg-amber-100 text-amber-800",
         badgeLabel: "PENDING",
         icon: Clock,
-        iconWrap: "bg-amber-500 text-white",
+        iconWrap:
+          "bg-white text-amber-600 ring-1 ring-amber-200 dark:bg-amber-950",
         divider: "bg-amber-200",
         textColor: "text-amber-800",
         strongColor: "[&_strong]:text-amber-900",
@@ -277,7 +279,9 @@ export default function InvoiceModal({
 
   const handleDownload = async () => {
     if (!pdfUrl) {
-      toast.error("This invoice has no PDF yet.");
+      toast.error("Couldn't download the invoice", {
+        description: "This invoice has no PDF yet.",
+      });
       return;
     }
 
@@ -356,17 +360,25 @@ export default function InvoiceModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 text-slate-900 sm:max-w-3xl lg:max-w-4xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 text-foreground sm:max-w-3xl lg:max-w-4xl"
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-6">
-          <div>
-            <DialogTitle className="text-lg font-bold leading-tight text-slate-900 sm:text-xl">
-              Quick invoice
-            </DialogTitle>
-            <DialogDescription className="mt-1 text-xs text-slate-500 sm:text-sm">
-              A quick preview of your invoice. Download the PDF for full
-              details.
-            </DialogDescription>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <span
+              aria-hidden
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+            >
+              <Receipt className="size-5" strokeWidth={1.75} />
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <DialogTitle className="font-heading text-lg leading-tight font-bold tracking-tight text-foreground">
+                Quick invoice
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-slate-500">
+                A quick preview of your invoice. Download the PDF for full
+                details.
+              </DialogDescription>
+            </div>
           </div>
           <DialogClose asChild>
             <Button
@@ -394,27 +406,27 @@ export default function InvoiceModal({
           </DialogClose>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6">
-            <div className="flex flex-col justify-between rounded-2xl border border-slate-200 p-4 sm:p-5">
+            <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
               <div>
-                <div className="flex items-center justify-between gap-3 rounded-xl bg-teal-50 p-3.5 sm:p-4">
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-border ring-inset sm:p-4 dark:bg-muted/40">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-accent text-white sm:size-10 sm:rounded-xl">
-                      <FileText className="size-4.5" />
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                      <FileText className="size-5" strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-base font-bold leading-tight text-slate-900 sm:text-xl">
+                      <p className="truncate font-heading text-base leading-tight font-bold text-foreground sm:text-lg">
                         {planName}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-slate-600 sm:mt-1 sm:text-sm">
+                      <p className="mt-0.5 truncate text-xs text-slate-500 sm:text-sm">
                         {planSummary}
                       </p>
                     </div>
                   </div>
                   <span
                     className={cn(
-                      "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 sm:text-sm",
+                      "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-semibold ring-1 ring-inset",
                       meta.pill,
                     )}
                   >
@@ -425,13 +437,13 @@ export default function InvoiceModal({
                 <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3.5 px-1 text-xs sm:mt-5 sm:gap-x-6 sm:text-sm">
                   {details.map(({ icon: Icon, label, value, emphasis }) => (
                     <div key={label} className="contents">
-                      <dt className="flex items-center gap-2 text-slate-600">
-                        <Icon className="size-4 shrink-0 text-slate-500" />
+                      <dt className="flex items-center gap-2 text-slate-500">
+                        <Icon className="size-4 shrink-0 text-slate-400" />
                         <span className="whitespace-nowrap">{label}</span>
                       </dt>
                       <dd
                         className={cn(
-                          "wrap-break-word text-right sm:text-left text-slate-900",
+                          "text-right wrap-break-word text-foreground tabular-nums sm:text-left",
                           emphasis ? "font-semibold" : "text-slate-700",
                         )}
                       >
@@ -472,9 +484,9 @@ export default function InvoiceModal({
               </div>
             </div>
 
-            <aside className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+            <aside className="flex flex-col rounded-xl border border-border bg-slate-50/80 p-4 sm:p-5 dark:bg-muted/30">
               <div className="mb-3 flex items-center justify-between gap-2 px-1">
-                <p className="text-xs font-medium text-slate-600 sm:text-sm">
+                <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
                   Invoice PDF preview
                 </p>
                 {pdfUrl ? (
@@ -482,7 +494,7 @@ export default function InvoiceModal({
                     variant="ghost"
                     size="icon-sm"
                     onClick={openPdf}
-                    className="size-7 text-slate-500 hover:text-slate-900"
+                    className="size-8 rounded-lg text-slate-500 hover:bg-white hover:text-brand-700"
                   >
                     <ExternalLink className="size-4" />
                     <span className="sr-only">Open the PDF in a new tab</span>
@@ -501,9 +513,8 @@ export default function InvoiceModal({
         <div
           className="
     flex shrink-0 flex-col gap-2.5
-    border-t border-slate-200
-    px-4 py-3
-    sm:px-6 sm:py-4
+    border-t border-border bg-slate-50/60
+    px-5 py-4 dark:bg-muted/30
     lg:flex-row lg:items-center
   "
         >

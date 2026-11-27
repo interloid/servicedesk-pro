@@ -35,13 +35,15 @@ function useCopy(value: string, label: string) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied to your clipboard.`);
+      toast.success(`${label} copied`);
       setCopied(true);
       setUsed(true);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), COPIED_MS);
     } catch {
-      toast.error("We couldn't copy that. Select the text and copy it.");
+      toast.error(`Couldn't copy the ${label.toLowerCase()}`, {
+        description: "Select the text and copy it instead.",
+      });
     }
   }
 
@@ -118,9 +120,9 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       variant="outline"
       size="icon"
       className={cn(
-        "size-9 shrink-0 transition-colors active:scale-95",
+        "size-9 shrink-0 rounded-lg text-slate-500 shadow-none transition-colors hover:bg-slate-50 hover:text-foreground active:scale-95",
         copied &&
-          "border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+          "border-emerald-300! bg-emerald-50 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-600 dark:border-emerald-800!dark:bg-emerald-950/40 dark:text-emerald-300",
       )}
       aria-label={action}
       title={action}

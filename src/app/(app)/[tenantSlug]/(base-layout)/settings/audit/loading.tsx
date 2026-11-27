@@ -22,41 +22,36 @@ export default function Loading() {
   return (
     <div className="h-full overflow-y-auto p-4 font-sans sm:p-6 lg:p-8">
       <div className="mx-auto flex w-full flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-8 w-32" />
-              <Skeleton className="h-5 w-24 rounded-md" />
-            </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-40 sm:h-10" />
             <Skeleton className="h-5 w-96 max-w-full" />
           </div>
-          <div className="flex w-full flex-wrap gap-3 sm:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <Skeleton className="h-6 w-28 rounded-md" />
             <Skeleton className="h-10 w-full rounded-lg sm:w-60" />
             <Skeleton className="h-10 flex-1 rounded-lg sm:w-24 sm:flex-none" />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="flex items-center gap-4 rounded-[14px] border border-border bg-card p-4 sm:p-5"
+              className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
             >
-              <Skeleton className="size-12 rounded-xl" />
-              <div className="flex flex-1 flex-col">
-                <div className="flex h-8 items-center">
-                  <Skeleton className="h-7 w-14" />
-                </div>
-                <div className="flex h-5 items-center">
-                  <Skeleton className="h-4 w-24" />
-                </div>
+              <Skeleton className="size-12 shrink-0 rounded-full" />
+              <div className="flex flex-1 flex-col gap-2">
+                <Skeleton className="h-7 w-16" />
+                <Skeleton className="h-4 w-24" />
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex flex-col rounded-[14px] border border-border bg-card">
-          <div className="flex flex-wrap gap-3 p-4">
+        <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="flex flex-wrap gap-3 border-b border-border p-3">
             <Skeleton className="h-10 w-full rounded-lg xl:w-72" />
             {Array.from({ length: 4 }).map((_, index) => (
               <Skeleton
@@ -65,16 +60,18 @@ export default function Loading() {
               />
             ))}
           </div>
-          <div className="flex gap-2 overflow-hidden border-b border-border p-3 sm:px-4">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton
-                key={index}
-                className="h-10 w-36 shrink-0 rounded-full"
-              />
-            ))}
+          <div className="overflow-hidden border-b border-border p-3">
+            <div className="flex h-10 w-fit items-center gap-1 rounded-lg border border-border bg-slate-100/70 p-1">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton
+                  key={index}
+                  className={`h-8 w-28 shrink-0 rounded-md ${index === 0 ? "bg-white" : ""}`}
+                />
+              ))}
+            </div>
           </div>
           <div className="overflow-hidden">
-            <div className="h-11 min-w-[1080px] bg-muted/50" />
+            <div className="h-10 min-w-[1080px] border-b border-border bg-slate-50" />
             {Array.from({ length: ROW_COUNT }).map((_, index) => (
               <div
                 key={index}
@@ -96,11 +93,11 @@ export default function Loading() {
                 <Skeleton className={`h-4 ${DETAIL_WIDTHS[index]}`} />
                 <Skeleton className="ml-auto h-5 w-16 rounded-md" />
                 <Skeleton className="h-4 w-24" />
-                <Skeleton className="size-8 rounded-lg" />
+                <Skeleton className="size-9 rounded-lg" />
               </div>
             ))}
           </div>
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row">
             <Skeleton className="h-4 w-44" />
             <Skeleton className="h-10 w-32 rounded-lg" />
           </div>

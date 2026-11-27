@@ -7,10 +7,7 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -25,9 +22,13 @@ import {
 import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_FOOTER,
-  TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
+import { DASHBOARD_BUTTON } from "@/components/shared/dashboard-ui";
 import {
   TEAM_PERMISSION_AREAS,
   TEAM_PERMISSION_AREA_LABELS,
@@ -44,12 +45,22 @@ import {
 function PermissionValue({ value }: { value: string }) {
   const tone =
     value === "None"
-      ? "text-muted-foreground"
+      ? "text-slate-400"
       : value === "Full"
-        ? "font-semibold text-emerald-700 dark:text-emerald-400"
-        : "font-medium text-secondary-foreground";
+        ? "bg-emerald-50 font-semibold text-emerald-700 ring-1 ring-emerald-600/15 ring-inset dark:bg-emerald-950/60 dark:text-emerald-300"
+        : "bg-slate-100 font-medium text-slate-700 ring-1 ring-slate-500/15 ring-inset dark:bg-muted dark:text-slate-300";
 
-  return <span className={tone}>{value}</span>;
+  if (value === "None") {
+    return <span className={tone}>{value}</span>;
+  }
+
+  return (
+    <span
+      className={`inline-flex h-6 items-center rounded-md px-2 text-xs whitespace-nowrap ${tone}`}
+    >
+      {value}
+    </span>
+  );
 }
 
 export function PermissionMatrixModal() {
@@ -59,34 +70,33 @@ export function PermissionMatrixModal() {
         <Button
           variant="outline"
           size="sm"
-          className="h-10 gap-2 bg-white rounded-lg px-4 text-sm font-semibold shadow-none"
+          className={`${DASHBOARD_BUTTON} gap-2 bg-card text-sm hover:bg-slate-50 dark:hover:bg-muted`}
         >
           <UserShield className="size-4" aria-hidden />
           View permissions
         </Button>
       </DialogTrigger>
 
-      <DialogContent className={`sm:max-w-3xl ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Permission matrix
-          </DialogTitle>
-          <DialogDescription>
-            What each role can see and change inside the workspace.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={`max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl ${TEAM_DIALOG_CONTENT}`}
+      >
+        <DialogIconHeader
+          icon={UserShield}
+          title="Permission matrix"
+          description="What each role can see and change inside the workspace."
+        />
 
-        <div className="overflow-hidden rounded-xl border border-border">
+        <div className="overflow-hidden rounded-xl border border-border shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <Table>
-            <TableHeader>
-              <TableRow className="border-border bg-muted/40 hover:bg-muted/40">
-                <TableHead className="h-10 w-[34%] px-4 text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-10 w-[34%] bg-slate-50/80 px-4 text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)] dark:bg-muted/40">
                   Role
                 </TableHead>
                 {TEAM_PERMISSION_AREAS.map((area) => (
                   <TableHead
                     key={area}
-                    className="h-10 w-[16.5%] px-4 text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase"
+                    className="h-10 w-[16.5%] bg-slate-50/80 px-4 text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)] dark:bg-muted/40"
                   >
                     {TEAM_PERMISSION_AREA_LABELS[area]}
                   </TableHead>
@@ -98,13 +108,16 @@ export function PermissionMatrixModal() {
               {TEAM_ROLE_VALUES.map((role) => {
                 const row = TEAM_PERMISSION_MATRIX[role];
                 return (
-                  <TableRow key={role} className="border-muted">
+                  <TableRow
+                    key={role}
+                    className="border-border transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/30"
+                  >
                     <TableCell className="px-4 py-3 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-semibold whitespace-nowrap">
+                        <span className="text-sm font-semibold whitespace-nowrap text-foreground">
                           {role}
                         </span>
-                        <span className="text-xs whitespace-normal text-muted-foreground">
+                        <span className="text-xs whitespace-normal text-slate-500">
                           {TEAM_ROLE_SUMMARIES[role]}
                         </span>
                       </div>
@@ -124,7 +137,7 @@ export function PermissionMatrixModal() {
           </Table>
         </div>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
           <DialogClose asChild>
             <Button variant="outline" size="sm" className={TEAM_MODAL_BUTTON}>
               Done

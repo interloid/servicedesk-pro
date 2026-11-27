@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Eye,
   FileText,
+  Inbox,
   RefreshCw,
   UserRound,
   Users,
@@ -20,6 +21,10 @@ import {
   X,
 } from "lucide-react";
 import { MdCurrencyExchange } from "react-icons/md";
+import {
+  DASHBOARD_CARD,
+  DashboardPageHeader,
+} from "@/components/shared/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -51,7 +56,6 @@ import type { PillTone } from "../types";
 import {
   DashboardCard,
   DetailRow,
-  IconTile,
   NoticeBanner,
   PayPalMark,
   StatusPill,
@@ -73,9 +77,9 @@ const ICON_NUDGE_LEFT = `${MICRO_ICON} motion-safe:group-hover/button:-translate
 const ICON_POP = `${MICRO_ICON} motion-safe:group-hover/button:scale-110`;
 
 const PRIMARY_BUTTON = `h-10 gap-2 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90 ${BUTTON_MICRO}`;
-const OUTLINE_BUTTON = `h-10 gap-2 rounded-lg border-slate-200 px-4 text-sm font-medium ${BUTTON_MICRO}`;
-const SECONDARY_BUTTON = `h-10 gap-2 rounded-lg px-4 text-sm font-semibold ${BUTTON_MICRO}`;
-const PAGINATION_BUTTON = `size-10 shrink-0 rounded-lg border-slate-200 p-0 sm:size-9 ${BUTTON_MICRO}`;
+const OUTLINE_BUTTON = `h-10 gap-2 rounded-lg bg-card px-4 text-sm font-semibold shadow-none ${BUTTON_MICRO}`;
+const SECONDARY_BUTTON = `h-10 gap-2 rounded-lg px-4 text-sm font-semibold shadow-none ${BUTTON_MICRO}`;
+const PAGINATION_BUTTON = `size-10 shrink-0 rounded-lg bg-card p-0 shadow-none sm:size-9 ${BUTTON_MICRO}`;
 
 interface BillingDashboardProps {
   tenantSlug: string;
@@ -116,14 +120,26 @@ export default function BillingDashboard({
 
   if (!initialData) {
     return (
-      <div className="p-8 text-center font-sans text-slate-500">
-        <p className="text-sm font-semibold">
-          We couldn&apos;t load your billing details.
-        </p>
-        <p className="mt-1 text-xs text-slate-400">
-          Billing isn&apos;t set up yet for {tenantSlug}. Try again in a moment,
-          or contact support if this keeps happening.
-        </p>
+      <div className="p-4 font-sans sm:p-6 lg:p-8">
+        <div
+          className={cn(
+            DASHBOARD_CARD,
+            "mx-auto flex max-w-xl flex-col items-center gap-3 px-6 py-12 text-center",
+          )}
+        >
+          <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <CreditCard className="size-5" aria-hidden />
+          </span>
+          <div>
+            <p className="font-heading text-base font-bold text-foreground">
+              We couldn&apos;t load your billing details.
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Billing isn&apos;t set up yet for {tenantSlug}. Try again in a
+              moment, or contact support if this keeps happening.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -268,25 +284,23 @@ export default function BillingDashboard({
   ];
 
   return (
-    <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-8">
-      <div className="mx-auto space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Billing
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Manage your subscription, seats and payment details.
-            </p>
-          </div>
-          <Button
-            className={cn(PRIMARY_BUTTON, "w-full sm:w-fit")}
-            onClick={() => router.push(plansHref)}
-          >
-            <MdCurrencyExchange />
-            Change plan
-          </Button>
-        </div>
+    <div className="h-full overflow-y-auto p-4 font-sans text-foreground sm:p-6 lg:p-8">
+      <div className="mx-auto flex flex-col gap-6">
+        <DashboardPageHeader
+          eyebrow="Account"
+          icon={CreditCard}
+          title="Billing"
+          description="Manage your subscription, seats and payment details."
+          action={
+            <Button
+              className={cn(PRIMARY_BUTTON, "w-full sm:w-fit")}
+              onClick={() => router.push(plansHref)}
+            >
+              <MdCurrencyExchange />
+              Change plan
+            </Button>
+          }
+        />
 
         {isPastDue ? (
           <NoticeBanner
@@ -303,7 +317,7 @@ export default function BillingDashboard({
                 variant="outline"
                 className={cn(
                   OUTLINE_BUTTON,
-                  "h-9 w-full border-red-300 text-xs text-red-900 hover:bg-red-100 sm:w-auto",
+                  "h-9 w-full border-red-300! bg-white text-xs text-red-900 hover:bg-red-100 sm:w-auto",
                 )}
                 onClick={() => setIsUpdatePaymentOpen(true)}
               >
@@ -339,7 +353,7 @@ export default function BillingDashboard({
                   label="Reactivate"
                   className={cn(
                     OUTLINE_BUTTON,
-                    "h-9 w-full border-amber-300 text-xs text-amber-900 hover:bg-amber-100 sm:w-auto",
+                    "h-9 w-full border-amber-300! bg-white text-xs text-amber-900 hover:bg-amber-100 sm:w-auto",
                   )}
                 />
               ) : undefined
@@ -379,7 +393,7 @@ export default function BillingDashboard({
                   showIcon={false}
                   className={cn(
                     OUTLINE_BUTTON,
-                    "h-9 w-full border-amber-300 text-xs text-amber-900 hover:bg-amber-100 sm:w-auto",
+                    "h-9 w-full border-amber-300! bg-white text-xs text-amber-900 hover:bg-amber-100 sm:w-auto",
                   )}
                 />
               }
@@ -404,11 +418,11 @@ export default function BillingDashboard({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-2xl font-bold tracking-tight text-slate-900">
+                <p className="truncate font-heading text-2xl font-bold tracking-tight text-foreground">
                   {data.plan?.name ?? "N/A"}
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  <span className="text-2xl font-bold tracking-tight text-slate-900">
+                  <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                     ${(data.plan?.rateValue ?? 0).toFixed(2)}
                   </span>{" "}
                   / month
@@ -421,7 +435,7 @@ export default function BillingDashboard({
                 {data.plan.description}
               </p>
             )}
-            <dl className="mt-5 space-y-3 border-t border-slate-100 pt-5 text-sm">
+            <dl className="mt-5 space-y-3 border-t border-border pt-5 text-sm">
               <DetailRow
                 icon={UserRound}
                 label="Seat limit"
@@ -454,7 +468,7 @@ export default function BillingDashboard({
           >
             {pendingUpgrade ? (
               <>
-                <p className="text-2xl font-bold tracking-tight text-slate-900">
+                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   ${pendingUpgrade.amountDue.toFixed(2)}
                 </p>
                 <p className="mt-0.5 text-sm text-slate-500 sm:text-base">
@@ -499,7 +513,7 @@ export default function BillingDashboard({
               </>
             ) : (
               <>
-                <p className="text-2xl font-bold tracking-tight text-slate-900">
+                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   {data.amountDue?.next ?? "$0.00"}
                 </p>
                 {hasRenewalDate && (
@@ -521,7 +535,7 @@ export default function BillingDashboard({
                 </div>
               </>
             )}
-            <div className="mt-5 border-t border-slate-100 pt-5 text-sm">
+            <div className="mt-5 border-t border-border pt-5 text-sm">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                 <p className="font-semibold text-slate-900 whitespace-nowrap">
                   Last payment
@@ -538,7 +552,7 @@ export default function BillingDashboard({
 
           <DashboardCard
             icon={CreditCard}
-            iconTone="blue"
+            iconTone="violet"
             label="Payment method"
             footer={
               <Button
@@ -556,7 +570,7 @@ export default function BillingDashboard({
           >
             {hasPayPalWallet ? (
               <>
-                <p className="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900">
+                <p className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
                   <PayPalMark className="size-7" />
                   PayPal
                 </p>
@@ -567,13 +581,13 @@ export default function BillingDashboard({
                   </p>
                 </div>
 
-                <p className="mt-5 border-t border-slate-100 pt-5 text-xs text-slate-500">
+                <p className="mt-5 border-t border-border pt-5 text-xs text-slate-500">
                   Used for subscription billing and automatic payments.
                 </p>
               </>
             ) : isFreeTier ? (
               <>
-                <p className="text-2xl font-bold tracking-tight text-slate-900">
+                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   Free plan
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
@@ -582,7 +596,7 @@ export default function BillingDashboard({
               </>
             ) : (
               <>
-                <p className="text-2xl font-bold tracking-tight text-slate-900">
+                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                   No payment method on file
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
@@ -594,7 +608,7 @@ export default function BillingDashboard({
 
           <DashboardCard
             icon={Users}
-            iconTone="blue"
+            iconTone="amber"
             label="Team members"
             footer={
               <Button
@@ -608,7 +622,7 @@ export default function BillingDashboard({
             }
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="text-2xl font-bold tracking-tight text-slate-900">
+              <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
                 {usedSeats} / {totalSeats} seats used
               </p>
               <span className="text-sm text-slate-500">
@@ -619,9 +633,9 @@ export default function BillingDashboard({
               <Progress
                 value={seatPercentage}
                 aria-label="Seats used"
-                className="h-2 flex-1 rounded-full bg-slate-100 [&>div]:rounded-full [&>div]:bg-teal-700"
+                className="h-2 flex-1 rounded-full bg-slate-100 dark:bg-muted [&>div]:rounded-full [&>div]:bg-brand-700"
               />
-              <span className="w-9 text-right text-xs text-slate-500">
+              <span className="w-9 text-right text-xs text-slate-500 tabular-nums">
                 {seatPercentageLabel}
               </span>
             </div>
@@ -642,21 +656,25 @@ export default function BillingDashboard({
                 value={unusedSeats}
               />
             </dl>
-            <p className="border-t border-slate-100 mt-4 text-xs text-slate-500"></p>
           </DashboardCard>
         </div>
 
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <header className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <section className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+          <header className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <IconTile icon={FileText} tone="teal" />
+              <span
+                aria-hidden
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+              >
+                <FileText className="size-4.5" strokeWidth={1.75} />
+              </span>
 
               <div>
-                <h2 className="text-base font-semibold text-slate-900">
+                <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
                   Billing history
                 </h2>
 
-                <p className="text-xs text-slate-500">
+                <p className="mt-0.5 text-xs text-slate-500 tabular-nums">
                   {invoices.length} invoice{invoices.length === 1 ? "" : "s"}
                 </p>
               </div>
@@ -664,7 +682,7 @@ export default function BillingDashboard({
 
             <Button
               variant="outline"
-              className={SECONDARY_BUTTON}
+              className={cn(SECONDARY_BUTTON, "bg-card")}
               onClick={handleRefresh}
             >
               <RefreshCw
@@ -675,9 +693,14 @@ export default function BillingDashboard({
           </header>
 
           {invoices.length === 0 ? (
-            <div className="border-t border-slate-100 p-5 text-center text-sm text-slate-500 sm:p-6">
-              No invoices yet. They&apos;ll appear here after your first
-              payment.
+            <div className="flex flex-col items-center gap-3 border-t border-border px-4 py-14 text-center">
+              <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <Inbox className="size-5" aria-hidden />
+              </span>
+              <p className="max-w-sm text-sm text-slate-500">
+                No invoices yet. They&apos;ll appear here after your first
+                payment.
+              </p>
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
@@ -691,7 +714,7 @@ export default function BillingDashboard({
                   <col className="w-[17%]" />
                 </colgroup>
                 <TableHeader>
-                  <TableRow className="border-slate-100 bg-slate-50 hover:bg-slate-50">
+                  <TableRow className="border-border bg-slate-50/80 hover:bg-slate-50/80 dark:bg-muted">
                     {[
                       "Invoice ID",
                       "Date",
@@ -701,12 +724,12 @@ export default function BillingDashboard({
                     ].map((heading) => (
                       <TableHead
                         key={heading}
-                        className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:px-6"
+                        className="h-10 px-4 text-left text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase"
                       >
                         {heading}
                       </TableHead>
                     ))}
-                    <TableHead className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:px-6">
+                    <TableHead className="h-10 px-4 text-right text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase">
                       Action
                     </TableHead>
                   </TableRow>
@@ -715,20 +738,20 @@ export default function BillingDashboard({
                   {visibleInvoices.map((inv) => (
                     <TableRow
                       key={inv.id}
-                      className="border-slate-100 hover:bg-slate-50/60"
+                      className="border-border transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/30"
                     >
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-semibold tracking-tight text-slate-900 sm:px-6 sm:py-4">
+                      <TableCell className="px-4 py-3.5 font-mono text-xs font-semibold whitespace-nowrap text-foreground">
                         {inv.id}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 text-slate-600 sm:px-6 sm:py-4">
+                      <TableCell className="px-4 py-3.5 whitespace-nowrap text-slate-600 tabular-nums">
                         {inv.date}
                       </TableCell>
-                      <TableCell className="px-4 py-3.5 sm:px-6 sm:py-4">
+                      <TableCell className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-900">
+                          <span className="font-semibold text-foreground">
                             {inv.planName}
                           </span>
-                          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                          <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-slate-100 px-1.5 text-[10px] font-semibold tracking-wide text-slate-600 uppercase ring-1 ring-slate-500/15 ring-inset">
                             {inv.invoiceType === "one_time"
                               ? "One-time"
                               : "Monthly"}
@@ -746,10 +769,10 @@ export default function BillingDashboard({
                           )}
                         </p>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 sm:px-6 sm:py-4 font-semibold text-slate-900">
+                      <TableCell className="px-4 py-3.5 font-semibold whitespace-nowrap text-foreground tabular-nums">
                         {inv.amount}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 sm:px-6 sm:py-4">
+                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
                         <StatusPill
                           tone={
                             inv.status === "Paid"
@@ -763,11 +786,11 @@ export default function BillingDashboard({
                           label={inv.status}
                         />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 sm:px-6 sm:py-4 text-right">
+                      <TableCell className="px-4 py-3.5 text-right whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setSelectedInvoice(inv)}
-                          className="group/view inline-flex cursor-pointer items-center gap-1.5 rounded-md font-semibold text-teal-700 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 motion-safe:active:scale-[0.98]"
+                          className="group/view inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors duration-200 ease-out outline-none hover:bg-accent hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-ring/50 motion-safe:active:scale-[0.98]"
                         >
                           View details
                         </button>
@@ -783,10 +806,7 @@ export default function BillingDashboard({
                         aria-hidden
                         className="border-transparent hover:bg-transparent"
                       >
-                        <TableCell
-                          colSpan={6}
-                          className="px-4 py-3.5 sm:px-6 sm:py-4"
-                        >
+                        <TableCell colSpan={6} className="px-4 py-3.5">
                           <div className="invisible flex items-center gap-2">
                             <span className="font-medium">&nbsp;</span>
                             <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold">
@@ -804,9 +824,9 @@ export default function BillingDashboard({
           {invoices.length > 0 && (
             <nav
               aria-label="Billing history pages"
-              className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+              className="flex flex-col gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:bg-muted/20"
             >
-              <p className="text-center text-xs text-slate-500 sm:text-left">
+              <p className="text-center text-sm text-slate-500 tabular-nums sm:text-left">
                 Showing{" "}
                 <span className="font-semibold text-slate-700">
                   {pageStart + 1}&ndash;{pageStart + visibleInvoices.length}
@@ -856,10 +876,10 @@ export default function BillingDashboard({
                             }
                             onClick={() => setInvoicePage(page)}
                             className={cn(
-                              "size-9 shrink-0 rounded-lg p-0 text-xs font-semibold",
+                              "size-9 shrink-0 rounded-lg p-0 text-sm font-semibold tabular-nums shadow-none",
                               BUTTON_MICRO,
                               page === currentPage
-                                ? "bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90"
+                                ? "bg-brand-700/10 text-brand-700 hover:bg-brand-700/15 dark:text-brand-300"
                                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                             )}
                           >
@@ -889,43 +909,56 @@ export default function BillingDashboard({
       <Dialog open={isPlanDetailsOpen} onOpenChange={setIsPlanDetailsOpen}>
         <DialogContent
           showCloseButton={false}
-          className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-6 sm:max-w-md"
+          className="w-[calc(100%-2rem)] max-w-md gap-4 rounded-xl p-5 sm:max-w-md"
         >
-          <DialogHeader>
-            <div className="flex w-full items-center justify-between gap-4">
-              <DialogTitle className="flex items-center gap-3 text-xl font-bold text-slate-900">
-                {data.plan?.name ?? "Current plan"}
-                <StatusPill tone={planStatus.tone} label={planStatus.label} />
-              </DialogTitle>
+          <DialogHeader className="flex-row items-start gap-3.5 text-left">
+            <span
+              aria-hidden
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+            >
+              <Crown className="size-5" strokeWidth={1.75} />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex w-full items-start justify-between gap-3">
+                <DialogTitle className="flex flex-wrap items-center gap-2 font-heading text-lg font-bold tracking-tight text-foreground">
+                  {data.plan?.name ?? "Current plan"}
+                  <StatusPill tone={planStatus.tone} label={planStatus.label} />
+                </DialogTitle>
 
-              <button
-                type="button"
-                onClick={() => setIsPlanDetailsOpen(false)}
-                className="-mr-1.5 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground motion-safe:active:scale-[0.98]"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPlanDetailsOpen(false)}
+                  className="-mt-1 -mr-1.5 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground motion-safe:active:scale-[0.98]"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <DialogDescription className="text-sm leading-relaxed text-slate-500">
+                {data.plan?.description}
+              </DialogDescription>
             </div>
-
-            <DialogDescription className="text-sm text-slate-500">
-              {data.plan?.description}
-            </DialogDescription>
           </DialogHeader>
 
-          <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
-            {planDetails.map((row) => (
-              <div
-                key={row.label}
-                className="flex items-center justify-between gap-3 px-4 py-3"
-              >
-                <dt className="text-slate-500">{row.label}</dt>
-                <dd className="text-right font-semibold text-slate-900">
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+              Plan summary
+            </p>
+            <dl className="divide-y divide-border rounded-xl border border-border text-sm">
+              {planDetails.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
+                  <dt className="text-slate-500">{row.label}</dt>
+                  <dd className="text-right font-semibold text-foreground tabular-nums">
+                    {row.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
 
           {scheduledChange && (
             <ModalNotice icon={CalendarClock} tone="amber">
@@ -934,10 +967,10 @@ export default function BillingDashboard({
             </ModalNotice>
           )}
 
-          <DialogFooter className="gap-3 sm:justify-end">
+          <DialogFooter className="-mx-5 -mb-5 mt-1 gap-3 rounded-b-xl border-t border-border bg-slate-50/60 px-5 py-4 sm:justify-end dark:bg-muted/30">
             <Button
               variant="outline"
-              className={cn(MODAL_BUTTON, "border-slate-200")}
+              className={cn(MODAL_BUTTON, "bg-card")}
               onClick={() => setIsPlanDetailsOpen(false)}
             >
               Close

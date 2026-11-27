@@ -12,6 +12,7 @@ import {
   Eye,
   FileText,
   FilterX,
+  Inbox,
   LayoutList,
   Loader2,
   Search,
@@ -45,6 +46,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Pagination } from "@/components/shared/pagination";
+import {
+  DASHBOARD_BUTTON,
+  DASHBOARD_CARD,
+  DASHBOARD_ICON_BUTTON,
+  DASHBOARD_STAT_GRID,
+  DashboardPageHeader,
+  StatCard,
+} from "@/components/shared/dashboard-ui";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +94,7 @@ const ALL = "all";
  * rows don't show through while they scroll underneath.
  */
 const TH =
-  "sticky top-0 z-10 h-11 bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] px-4 text-xs font-semibold whitespace-nowrap text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]";
+  "sticky top-0 z-10 h-10 bg-slate-50 px-4 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)] dark:bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))]";
 
 /** Below lg, page sizes above this scroll inside the table, not the page. */
 const SCROLL_TABLE_ABOVE = 10;
@@ -119,39 +128,6 @@ function missingUserOption(
     "Unknown user";
 
   return [{ value: user, label }];
-}
-
-/* ── Stat cards ─────────────────────────────────────────────────────────── */
-
-function StatCard({
-  icon: Icon,
-  tone,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  tone: string;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-[14px] border border-border bg-card p-4 shadow-xs sm:p-5">
-      <span
-        className={cn(
-          "flex size-12 shrink-0 items-center justify-center rounded-xl",
-          tone,
-        )}
-      >
-        <Icon className="size-5" aria-hidden />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-2xl font-bold tabular-nums">
-          {value.toLocaleString("en-US")}
-        </p>
-        <p className="truncate text-sm text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
 }
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
@@ -225,7 +201,9 @@ export function AuditLogView({
       const result = await exportAuditLogAction(auditFiltersToQuery(filters));
 
       if (!result.ok) {
-        toast.error(result.message);
+        toast.error("Couldn't export the audit log", {
+          description: result.message,
+        });
         return;
       }
 
@@ -240,8 +218,13 @@ export function AuditLogView({
 
       toast.success(
         result.truncated
-          ? `Exported the newest ${result.count.toLocaleString("en-US")} events. Narrow the filters to export the rest.`
-          : `Exported ${result.count.toLocaleString("en-US")} ${result.count === 1 ? "event" : "events"}.`,
+          ? `Exported the newest ${result.count.toLocaleString("en-US")} events`
+          : `Exported ${result.count.toLocaleString("en-US")} ${result.count === 1 ? "event" : "events"}`,
+        {
+          description: result.truncated
+            ? "Narrow the filters to export the rest."
+            : undefined,
+        },
       );
       router.refresh();
     });
@@ -260,79 +243,85 @@ export function AuditLogView({
       <div className="h-full min-w-0 overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:overflow-hidden lg:p-8 dark:text-foreground">
         <div className="mx-auto flex w-full flex-col gap-6 lg:h-full lg:min-h-0">
           {/* Header */}
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight">Audit log</h1>
-                <Badge className="gap-1 border-none bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  <ShieldAlert className="size-3" aria-hidden />
-                  Business plan
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Track tickets, users, SLAs, billing and platform support
-                activity across your workspace.
-              </p>
-            </div>
-
-            <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-              <AuditDateRangePicker
-                from={filters.from}
-                to={filters.to}
-                today={today}
-                earliest={earliest}
-                disabled={navigating}
-                onChange={(from, to) => go({ from, to })}
-                className="w-full sm:w-auto"
-              />
-              <Button
-                variant="outline"
-                className="h-10 flex-1 gap-2 rounded-lg bg-card px-4 text-sm font-semibold shadow-none sm:flex-none"
-                onClick={runExport}
-                disabled={exporting || data.total === 0}
-              >
-                {exporting ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                ) : (
-                  <Download className="size-4" aria-hidden />
-                )}
-                Export
-              </Button>
-            </div>
+          <div className="shrink-0">
+            <DashboardPageHeader
+              eyebrow="Settings"
+              icon={FileText}
+              title="Audit log"
+              description="Track tickets, users, SLAs, billing and platform support activity across your workspace."
+              action={
+                <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+                  <Badge className="h-6 gap-1 rounded-md border-none bg-brand-50 px-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-700/15 ring-inset dark:bg-brand-700/20 dark:text-brand-100">
+                    <ShieldAlert className="size-3" aria-hidden />
+                    Business plan
+                  </Badge>
+                  <AuditDateRangePicker
+                    from={filters.from}
+                    to={filters.to}
+                    today={today}
+                    earliest={earliest}
+                    disabled={navigating}
+                    onChange={(from, to) => go({ from, to })}
+                    className="w-full sm:w-auto"
+                  />
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      DASHBOARD_BUTTON,
+                      "flex-1 gap-2 bg-card text-sm hover:bg-slate-50 sm:flex-none dark:hover:bg-muted",
+                    )}
+                    onClick={runExport}
+                    disabled={exporting || data.total === 0}
+                  >
+                    {exporting ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                    ) : (
+                      <Download className="size-4" aria-hidden />
+                    )}
+                    Export
+                  </Button>
+                </div>
+              }
+            />
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+          <div className={cn(DASHBOARD_STAT_GRID, "shrink-0")}>
             <StatCard
               icon={FileText}
-              tone="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+              iconClassName="bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100"
               label="Total events"
-              value={data.summary.total}
+              value={data.summary.total.toLocaleString("en-US")}
             />
             <StatCard
               icon={Users}
-              tone="bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+              iconClassName="bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-300"
               label="Unique users"
-              value={data.summary.users}
+              value={data.summary.users.toLocaleString("en-US")}
             />
             <StatCard
               icon={Box}
-              tone="bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300"
+              iconClassName="bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300"
               label="Modules tracked"
-              value={data.summary.modules}
+              value={data.summary.modules.toLocaleString("en-US")}
             />
             <StatCard
               icon={ShieldAlert}
-              tone="bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300"
+              iconClassName="bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300"
               label="Platform access"
-              value={data.summary.security}
+              value={data.summary.security.toLocaleString("en-US")}
             />
           </div>
 
           {/* Filters, tabs, table */}
-          <div className="flex flex-col rounded-[14px] border border-border bg-card shadow-xs lg:min-h-0">
+          <div
+            className={cn(
+              DASHBOARD_CARD,
+              "flex flex-col overflow-hidden lg:min-h-0",
+            )}
+          >
             <form
-              className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:flex xl:flex-wrap xl:items-center"
+              className="grid grid-cols-1 gap-3 border-b border-border p-3 sm:grid-cols-2 lg:grid-cols-3 xl:flex xl:flex-wrap xl:items-center"
               onSubmit={(event) => {
                 event.preventDefault();
                 apply();
@@ -351,7 +340,7 @@ export function AuditLogView({
                   placeholder="Search by user, action, details…"
                   aria-label="Search audit events"
                   maxLength={100}
-                  className="h-10 rounded-lg pl-9"
+                  className="h-10 rounded-lg bg-card pl-9"
                 />
               </div>
 
@@ -409,7 +398,10 @@ export function AuditLogView({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 flex-1 rounded-lg px-4 font-semibold shadow-none xl:flex-none"
+                  className={cn(
+                    DASHBOARD_BUTTON,
+                    "flex-1 bg-card hover:bg-slate-50 xl:flex-none dark:hover:bg-muted",
+                  )}
                   onClick={clear}
                   disabled={navigating || (!anyFilter && !dirty)}
                 >
@@ -417,7 +409,10 @@ export function AuditLogView({
                 </Button>
                 <Button
                   type="submit"
-                  className="h-10 flex-1 rounded-lg bg-brand-accent px-5 font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90 xl:flex-none"
+                  className={cn(
+                    DASHBOARD_BUTTON,
+                    "flex-1 bg-brand-accent px-5 text-brand-accent-foreground hover:bg-brand-accent/90 xl:flex-none",
+                  )}
                   disabled={navigating || !dirty}
                 >
                   Apply
@@ -429,25 +424,27 @@ export function AuditLogView({
               aria-label="Modules"
               // overflow-x alone makes overflow-y auto too, so hide y to keep
               // a vertical scrollbar from showing beside the tabs.
-              className="flex shrink-0 gap-2 overflow-x-auto overflow-y-hidden border-b border-border p-3 sm:px-4 scrollbar-none"
+              className="flex shrink-0 overflow-x-auto overflow-y-hidden border-b border-border p-3 scrollbar-none"
             >
-              <TabButton
-                active={filters.module === null}
-                onClick={() => selectTab(null)}
-                icon={LayoutList}
-                label="All events"
-                count={data.tabCounts.all}
-              />
-              {AUDIT_TAB_MODULES.map((module) => (
+              <div className="flex h-10 w-fit shrink-0 items-center gap-1 rounded-lg border border-border bg-slate-100/70 p-1 dark:bg-muted/50">
                 <TabButton
-                  key={module}
-                  active={filters.module === module}
-                  onClick={() => selectTab(module)}
-                  icon={TAB_ICONS[module]}
-                  label={AUDIT_TAB_LABELS[module]}
-                  count={data.tabCounts[module]}
+                  active={filters.module === null}
+                  onClick={() => selectTab(null)}
+                  icon={LayoutList}
+                  label="All events"
+                  count={data.tabCounts.all}
                 />
-              ))}
+                {AUDIT_TAB_MODULES.map((module) => (
+                  <TabButton
+                    key={module}
+                    active={filters.module === module}
+                    onClick={() => selectTab(module)}
+                    icon={TAB_ICONS[module]}
+                    label={AUDIT_TAB_LABELS[module]}
+                    count={data.tabCounts[module]}
+                  />
+                ))}
+              </div>
             </nav>
 
             {/* One scroll box for both directions, so the sticky header has
@@ -492,8 +489,13 @@ export function AuditLogView({
                   {data.events.length === 0 ? (
                     <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={8} className="px-4 py-14 text-center">
-                        <p className="font-medium">No events found</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <span className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-muted">
+                          <Inbox className="size-5" aria-hidden />
+                        </span>
+                        <p className="font-semibold text-foreground">
+                          No events found
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
                           {anyFilter
                             ? "Nothing matches these filters in the selected dates."
                             : "Nothing was recorded in the selected dates."}
@@ -502,7 +504,10 @@ export function AuditLogView({
                           <Button
                             type="button"
                             variant="outline"
-                            className="mt-4 h-10 bg-card px-4 font-semibold"
+                            className={cn(
+                              DASHBOARD_BUTTON,
+                              "mt-4 gap-2 bg-card hover:bg-slate-50 dark:hover:bg-muted",
+                            )}
                             onClick={clear}
                           >
                             <FilterX className="size-4" />
@@ -527,8 +532,8 @@ export function AuditLogView({
               </Table>
             </div>
 
-            <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row dark:bg-muted/20">
+              <p className="text-sm text-slate-500 tabular-nums">
                 {data.total === 0
                   ? "No events"
                   : `Showing ${firstRow} - ${lastRow} of ${data.total.toLocaleString("en-US")} ${data.total === 1 ? "event" : "events"}`}
@@ -549,7 +554,7 @@ export function AuditLogView({
                     onValueChange={(value) => go({ pageSize: Number(value) })}
                   >
                     <SelectTrigger
-                      className="min-h-10 w-20"
+                      className="min-h-10 w-20 rounded-lg bg-card"
                       aria-label="Events per page"
                     >
                       <SelectValue />
@@ -666,20 +671,23 @@ function TabButton({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors",
+        "flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
         active
-          ? "border-primary! bg-primary/10 font-semibold text-primary"
-          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "bg-white font-semibold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 dark:bg-card dark:ring-border"
+          : "text-slate-500 hover:text-foreground",
       )}
     >
-      <Icon className="size-4" aria-hidden />
+      <Icon
+        className={cn("size-4", active ? "text-brand-700" : "text-slate-400")}
+        aria-hidden
+      />
       {label}
       <span
         className={cn(
-          "rounded-full px-2 py-0.5 text-xs tabular-nums",
+          "rounded-full px-1.5 py-px text-[11px] tabular-nums",
           active
-            ? "bg-primary/15 text-primary"
-            : "bg-muted text-muted-foreground",
+            ? "bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100"
+            : "bg-white/70 text-slate-500 dark:bg-muted",
         )}
       >
         {count.toLocaleString("en-US")}
@@ -707,75 +715,95 @@ function EventRow({
     <TableRow
       data-state={selected ? "selected" : undefined}
       className={cn(
-        "cursor-pointer",
+        "cursor-pointer border-border transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/30",
         selected &&
-          "bg-emerald-50/70 hover:bg-emerald-50/70 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/30",
+          "bg-brand-50/70 hover:bg-brand-50/70 dark:bg-brand-700/15 dark:hover:bg-brand-700/15",
       )}
       onClick={onOpen}
     >
-      <TableCell className="px-4 py-3">
-        <p className="font-medium whitespace-nowrap">
+      <TableCell className="px-4 py-3.5">
+        <p className="font-semibold whitespace-nowrap text-foreground tabular-nums">
           {formatAuditTimestamp(event.createdAt, timeZone)}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-slate-500">
           {formatRelativeTime(event.createdAt, now)}
         </p>
       </TableCell>
 
-      <TableCell className="px-4 py-3">
+      <TableCell className="px-4 py-3.5">
         {event.actor ? (
           <div className="flex items-center gap-2.5">
             <Avatar className="size-8">
               {event.actor.avatarUrl && (
                 <AvatarImage src={event.actor.avatarUrl} alt="" />
               )}
-              <AvatarFallback className="text-xs font-semibold">
+              <AvatarFallback className="bg-slate-100 text-xs font-bold text-slate-700 dark:bg-muted dark:text-slate-300">
                 {getInitials(event.actor.name, event.actor.email)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 max-w-44">
-              <p className="truncate font-medium">{event.actor.name}</p>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate font-semibold text-foreground">
+                {event.actor.name}
+              </p>
+              <p className="truncate text-xs text-slate-500">
                 {event.actor.role ?? event.actor.email}
               </p>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <span className="flex size-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-muted">
               <User className="size-4" aria-hidden />
             </span>
-            <p className="font-medium text-muted-foreground">System</p>
+            <p className="font-semibold text-slate-500">System</p>
           </div>
         )}
       </TableCell>
 
       <TableCell className="px-4 py-3">
-        <Badge className={cn("gap-1", AUDIT_ACTION_BADGE[event.action])}>
+        <Badge
+          className={cn(
+            "gap-1 ring-1 ring-current/15 ring-inset",
+            AUDIT_ACTION_BADGE[event.action],
+          )}
+        >
           <ActionIcon className="size-3" aria-hidden />
           {AUDIT_ACTION_LABELS[event.action]}
         </Badge>
       </TableCell>
 
       <TableCell className="px-4 py-3">
-        <Badge className={AUDIT_MODULE_BADGE[event.module]}>
+        <Badge
+          className={cn(
+            "ring-1 ring-current/15 ring-inset",
+            AUDIT_MODULE_BADGE[event.module],
+          )}
+        >
           {AUDIT_MODULE_LABELS[event.module]}
         </Badge>
       </TableCell>
 
       <TableCell className="max-w-80 px-4 py-3">
-        <p className="truncate" title={event.summary}>
+        <p
+          className="truncate text-slate-700 dark:text-slate-300"
+          title={event.summary}
+        >
           {event.summary}
         </p>
       </TableCell>
 
       <TableCell className="px-4 py-3">
-        <Badge className={AUDIT_RESULT_BADGE[event.result]}>
+        <Badge
+          className={cn(
+            "ring-1 ring-current/15 ring-inset",
+            AUDIT_RESULT_BADGE[event.result],
+          )}
+        >
           {AUDIT_RESULT_LABELS[event.result]}
         </Badge>
       </TableCell>
 
-      <TableCell className="px-4 py-3 font-mono text-[13px] whitespace-nowrap">
+      <TableCell className="px-4 py-3 text-[13px] whitespace-nowrap tabular-nums">
         {event.ip ?? <span className="font-sans text-muted-foreground">—</span>}
       </TableCell>
 
@@ -786,7 +814,10 @@ function EventRow({
         <Button
           variant="outline"
           size="icon"
-          className="size-8 rounded-lg text-muted-foreground shadow-none hover:text-foreground"
+          className={cn(
+            DASHBOARD_ICON_BUTTON,
+            "text-slate-500 hover:bg-slate-50 hover:text-foreground dark:hover:bg-muted",
+          )}
           aria-label="View event details"
           title="View details"
           onClick={onOpen}

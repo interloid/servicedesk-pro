@@ -11,10 +11,17 @@ import {
 } from "recharts";
 
 import type { ApiTraffic } from "../types";
+import {
+  CHART_COLORS,
+  CHART_TICK,
+  CHART_TOOLTIP_ITEM,
+  CHART_TOOLTIP_LABEL,
+  CHART_TOOLTIP_STYLE,
+} from "./chart-theme";
 
-// Passed the palette validator against the card surface (light mode).
-const OK_COLOR = "#0d9488";
-const ERROR_COLOR = "#dc2626";
+// The console's shared chart palette (chart-theme.ts).
+const OK_COLOR = CHART_COLORS.primary;
+const ERROR_COLOR = CHART_COLORS.danger;
 
 function hourLabel(iso: string): string {
   return `${iso.slice(11, 13)}:00`;
@@ -25,7 +32,7 @@ export function ApiTrafficChart({ hours }: { hours: ApiTraffic["hours"] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <span
             className="size-2.5 rounded-sm"
@@ -50,28 +57,30 @@ export function ApiTrafficChart({ hours }: { hours: ApiTraffic["hours"] }) {
             data={data}
             margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
           >
-            <CartesianGrid stroke="#e2e8f0" vertical={false} />
+            <CartesianGrid
+              stroke={CHART_COLORS.grid}
+              strokeDasharray="3 3"
+              vertical={false}
+            />
             <XAxis
               dataKey="label"
               axisLine={false}
               tickLine={false}
               minTickGap={24}
-              tick={{ fill: "#64748b", fontSize: 11 }}
+              tick={CHART_TICK}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
               width={44}
-              tick={{ fill: "#64748b", fontSize: 11 }}
+              tick={CHART_TICK}
             />
             <Tooltip
-              cursor={{ fill: "#f1f5f9" }}
-              contentStyle={{
-                borderRadius: 8,
-                border: "1px solid #e2e8f0",
-                fontSize: 12,
-              }}
+              cursor={{ fill: CHART_COLORS.cursor }}
+              labelStyle={CHART_TOOLTIP_LABEL}
+              itemStyle={CHART_TOOLTIP_ITEM}
+              contentStyle={CHART_TOOLTIP_STYLE}
             />
             <Bar
               dataKey="ok"

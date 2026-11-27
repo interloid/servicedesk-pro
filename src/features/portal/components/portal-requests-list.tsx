@@ -536,7 +536,7 @@ function RequestRow({
             is ignored on a flex container, so the old `flex items-center` clipped
             the number hard against the badge instead of ellipsising it. The line
             is the height of the bar either way, so nothing else moves. */}
-        <p className="block h-6 truncate pe-28 text-xs font-medium leading-6 text-muted-foreground">
+        <p className="block h-6 truncate pe-28 text-xs font-medium leading-6 text-muted-foreground tabular-nums">
           #{request.number ?? "-"}
         </p>
 

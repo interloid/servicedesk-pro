@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { format, isValid, parse } from "date-fns";
-import { CalendarDays, Info } from "lucide-react";
+import { CalendarClock, CalendarDays, Info, TreePalm } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -218,7 +218,10 @@ export function HolidayDialog({
         setError(result.error);
         return;
       }
-      toast.success(editing ? "Holiday saved." : "Holiday added.");
+      toast.success(
+        editing ? `${input.name.trim()} saved` : `${input.name.trim()} added`,
+        { description: "The SLA clock won't count this day." },
+      );
       onSaved(result.businessHours);
       change(false);
     });
@@ -227,15 +230,20 @@ export function HolidayDialog({
   return (
     <Dialog open={open} onOpenChange={change}>
       <DialogContent className={`sm:max-w-120 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            {editing ? "Edit holiday" : "Add holiday"}
-          </DialogTitle>
-          <DialogDescription className="">
-            {editing
-              ? "Change a day the SLA clock does not count."
-              : "Add a day the SLA clock does not count."}
-          </DialogDescription>
+        <DialogHeader className="flex-row items-start gap-3.5 pr-6 text-left">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+            <TreePalm className="size-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+              {editing ? "Edit holiday" : "Add holiday"}
+            </DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              {editing
+                ? "Change a day the SLA clock does not count."
+                : "Add a day the SLA clock does not count."}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <form id="add-holiday-form" onSubmit={submit} className="space-y-4">
@@ -322,7 +330,7 @@ export function HolidayDialog({
           {error && <p className="text-xs text-destructive">{error}</p>}
         </form>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={cn(TEAM_DIALOG_FOOTER, "bg-slate-50/60")}>
           <Button
             type="button"
             variant="outline"
@@ -429,7 +437,10 @@ export function EditBusinessHoursDialog({
         setError(result.error);
         return;
       }
-      toast.success("Business hours saved.");
+      toast.success("Business hours saved", {
+        description:
+          "Changes apply to all SLA policies that use these business hours.",
+      });
       onSaved(result.businessHours);
       onOpenChange(false);
     });
@@ -438,14 +449,19 @@ export function EditBusinessHoursDialog({
   return (
     <Dialog open={open} onOpenChange={change}>
       <DialogContent className={`sm:max-w-120 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Edit business hours
-          </DialogTitle>
-          <DialogDescription>
-            Changes will apply to all SLA policies that use these business
-            hours.
-          </DialogDescription>
+        <DialogHeader className="flex-row items-start gap-3.5 pr-6 text-left">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+            <CalendarClock className="size-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+              Edit business hours
+            </DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              Changes will apply to all SLA policies that use these business
+              hours.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <form id="business-hours-form" onSubmit={submit} className="space-y-4">
@@ -463,8 +479,8 @@ export function EditBusinessHoursDialog({
                     className={cn(
                       "h-9 w-12 rounded-lg border text-sm font-medium transition-colors",
                       on
-                        ? "border-brand-accent bg-brand-accent/10 text-brand-accent"
-                        : "border-border text-muted-foreground hover:bg-muted",
+                        ? "border-brand-accent! bg-brand-accent/10 font-semibold text-brand-accent"
+                        : "border-border text-slate-500 hover:bg-slate-50 hover:text-foreground",
                     )}
                   >
                     {day}
@@ -540,7 +556,7 @@ export function EditBusinessHoursDialog({
           {error && <p className="text-xs text-destructive">{error}</p>}
         </form>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={cn(TEAM_DIALOG_FOOTER, "bg-slate-50/60")}>
           <Button
             type="button"
             variant="outline"

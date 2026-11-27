@@ -3,13 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowUpCircle,
+  Building2,
   Check,
   Clock,
   Crown,
+  Gem,
   Info,
   Layers,
   Loader2,
+  Rocket,
   RotateCcw,
+  Sprout,
   Users,
   X,
   Zap,
@@ -25,7 +30,7 @@ import { cn } from "@/lib/utils";
 
 import { CancelSubscriptionDialog } from "./cancel-subscription";
 import { DowngradeDialog } from "./downgrade-dialog";
-import { MODAL_BUTTON } from "./modal-buttons";
+import { MODAL_BUTTON, MODAL_BUTTON_PRIMARY } from "./modal-buttons";
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { UndoScheduledChangeButton } from "./undo-scheduled-change-button";
 
@@ -48,6 +53,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+// The platform plan cards' icon and tint per position, cheapest first.
+const PLAN_TONES = [
+  { icon: Sprout, tint: "bg-slate-100 text-slate-600" },
+  { icon: Rocket, tint: "bg-brand-50 text-brand-700" },
+  { icon: Building2, tint: "bg-violet-50 text-violet-600" },
+  { icon: Gem, tint: "bg-sky-50 text-sky-600" },
+  { icon: Crown, tint: "bg-amber-50 text-amber-600" },
+] as const;
+
+/** A soft pill with a hairline ring, as on the platform tables. */
+const PILL =
+  "inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs font-semibold ring-1 ring-inset";
 
 interface PricingCardsProps {
   tenantSlug: string;
@@ -111,9 +129,9 @@ export function PricingCards({
         })
       : "the end of your billing period";
 
-    toast.success(
-      `Switch to ${planName} scheduled for ${when}. You keep your current plan until then.`,
-    );
+    toast.success(`Switch to ${planName} scheduled`, {
+      description: `You keep your current plan until ${when}.`,
+    });
   };
 
   const executePlanSwitch = (plan: FormattedPlan) => {
@@ -122,7 +140,7 @@ export function PricingCards({
       : "";
 
     if (scheduledToName && plan.name.trim().toLowerCase() === scheduledToName) {
-      toast.info(`You've already scheduled the switch to ${plan.name}.`);
+      toast.info(`Switch to ${plan.name} already scheduled`);
       setSelectedPlanForSwitch(null);
       setDowngradeTarget(null);
       return;
@@ -137,7 +155,9 @@ export function PricingCards({
         const res = await changeTenantPlanAction(tenantSlug, plan.id);
 
         if (!res.success) {
-          toast.error(res.error || "Failed to switch plan.");
+          toast.error(`Couldn't switch to ${plan.name}`, {
+            description: res.error || undefined,
+          });
           return;
         }
 
@@ -159,11 +179,12 @@ export function PricingCards({
         router.refresh();
       } catch (error) {
         console.error("Plan switch error:", error);
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Something went wrong while switching the plan.",
-        );
+        toast.error(`Couldn't switch to ${plan.name}`, {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Something went wrong while switching the plan.",
+        });
       } finally {
         if (!leaving) setLoadingPlanCode(null);
       }
@@ -251,9 +272,10 @@ export function PricingCards({
 
   const openSwitchDialog = (plan: FormattedPlan) => {
     if (isBillingLocked) {
-      toast.error(
-        "This subscription was ended at PayPal and can't be changed from here. Please contact support to set up a new one.",
-      );
+      toast.error("Can't change this subscription", {
+        description:
+          "It was ended at PayPal. Contact support to set up a new one.",
+      });
       return;
     }
 
@@ -378,6 +400,9 @@ export function PricingCards({
             return false;
           });
 
+          const tone = PLAN_TONES[planIdx % PLAN_TONES.length];
+          const PlanIcon = tone.icon;
+
           const ctaLabel = isCurrent
             ? "Manage plan"
             : currentPrice === null
@@ -390,18 +415,23 @@ export function PricingCards({
             <Card
               key={plan.id}
               className={cn(
-                "relative flex min-h-136 w-full flex-col rounded-2xl border! border-border! bg-card p-6 shadow-sm transition-all sm:w-[calc(50%-0.625rem)] xl:w-[calc(33.333%-1rem)]",
+                "relative flex min-h-136 w-full flex-col gap-0 rounded-xl border! border-border! bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0 transition-all sm:w-[calc(50%-0.625rem)] xl:w-[calc(33.333%-1rem)]",
                 isCurrent
-                  ? "border-2! border-brand-accent! bg-brand-accent/5 shadow-sm"
+                  ? "border-brand-700/50! ring-1 ring-brand-700/30"
                   : isScheduledTarget
-                    ? "border-2! border-amber-500! bg-amber-500/5 shadow-sm"
-                    : "bg-white hover:border-slate-300! hover:shadow-md dark:hover:border-neutral-700!",
+                    ? "border-amber-500/60! ring-1 ring-amber-500/30"
+                    : "hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)]",
               )}
             >
               {isCurrent && (
                 <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">
-                  <Badge className="gap-1 rounded-full bg-brand-accent px-3 py-2 text-[11px] font-semibold text-white shadow-none hover:bg-brand-accent/90 sm:px-4 sm:py-3 sm:text-xs">
-                    <Crown className="h-3.5 w-3.5 fill-current" />
+                  <Badge
+                    className={cn(
+                      PILL,
+                      "border-none bg-brand-50 text-brand-700 shadow-none ring-brand-700/20 hover:bg-brand-50 dark:bg-brand-950/60 dark:text-brand-300",
+                    )}
+                  >
+                    <Crown className="h-3.5 w-3.5" />
                     <span>Current plan</span>
                   </Badge>
                 </div>
@@ -409,7 +439,12 @@ export function PricingCards({
 
               {isScheduledTarget && !isCurrent && (
                 <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">
-                  <Badge className="gap-1 rounded-full bg-amber-500 px-3 py-2 text-[11px] font-semibold text-white shadow-none hover:bg-amber-600 sm:px-4 sm:py-3 sm:text-xs">
+                  <Badge
+                    className={cn(
+                      PILL,
+                      "border-none bg-amber-50 text-amber-800 shadow-none ring-amber-600/20 hover:bg-amber-50 dark:bg-amber-950/60 dark:text-amber-300",
+                    )}
+                  >
                     <Clock className="h-3.5 w-3.5" />
                     <span>Upcoming plan</span>
                   </Badge>
@@ -418,29 +453,38 @@ export function PricingCards({
 
               <div className="flex h-full flex-1 flex-col">
                 <div className="min-h-25">
-                  <div className="flex items-start justify-between gap-3 pr-24 sm:pr-28">
-                    <h3 className="text-xl font-bold tracking-tight text-foreground">
+                  <div className="flex items-center gap-3 pr-28">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "flex size-10 shrink-0 items-center justify-center rounded-full",
+                        tone.tint,
+                      )}
+                    >
+                      <PlanIcon className="size-5" strokeWidth={1.75} />
+                    </span>
+                    <h3 className="font-heading text-lg leading-tight font-bold tracking-tight text-foreground">
                       {plan.name}
                     </h3>
                   </div>
 
-                  <p className="mt-2 min-h-10 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-3 min-h-10 text-sm leading-5 text-slate-500">
                     {plan.description}
                   </p>
                 </div>
 
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold tracking-tight text-foreground">
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <span className="text-[2rem] leading-none font-bold tracking-tight text-foreground tabular-nums">
                     {plan.price}
                   </span>
 
-                  <span className="text-sm font-medium text-muted-foreground">
+                  <span className="text-sm font-medium text-slate-500">
                     {plan.priceSuffix}
                   </span>
                 </div>
 
-                <div className="mt-5 flex min-h-11.5 items-center gap-2.5 rounded-xl border border-border/80 bg-white px-3.5 py-2.5 dark:bg-background">
-                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="mt-5 flex min-h-11.5 items-center gap-2.5 rounded-lg bg-slate-50 px-3.5 py-2.5 dark:bg-muted/40">
+                  <Users className="h-4 w-4 shrink-0 text-slate-400" />
 
                   <span className="text-xs font-semibold text-foreground">
                     {plan.seatLimitText} agent seats included
@@ -460,7 +504,7 @@ export function PricingCards({
                   {previousPlan ? (
                     <>
                       <div className="flex items-start gap-2.5 rounded-lg px-1 py-2">
-                        <Layers className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <Layers className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
 
                         <p className="text-xs font-medium text-foreground">
                           Everything in {previousPlan.name}, plus:
@@ -478,9 +522,9 @@ export function PricingCards({
                             ]
                         ).map((feature, index) => (
                           <li key={index} className="flex items-start gap-2.5">
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-accent stroke-[2.5]" />
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 stroke-[2.5] text-brand-700" />
 
-                            <span className="text-xs font-medium text-muted-foreground">
+                            <span className="text-xs font-medium text-slate-600">
                               {feature.label}
 
                               {typeof feature.value === "string" ||
@@ -496,9 +540,9 @@ export function PricingCards({
                     <ul className="space-y-3">
                       {rawFeatures.map((feature, index) => (
                         <li key={index} className="flex items-start gap-2.5">
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 stroke-[2.5]" />
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 stroke-[2.5] text-brand-700" />
 
-                          <span className="text-xs font-medium text-muted-foreground">
+                          <span className="text-xs font-medium text-slate-600">
                             {feature.label}
 
                             {typeof feature.value === "string" ||
@@ -517,7 +561,7 @@ export function PricingCards({
                     <>
                       {isPendingCancellation || hasScheduledDowngrade ? (
                         <>
-                          <div className="flex min-h-11.5 items-center justify-center gap-2 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-3 text-center text-xs font-medium text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+                          <div className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-amber-200! bg-amber-50/80 px-3 py-3 text-center text-xs font-medium text-amber-900 dark:border-amber-900/40! dark:bg-amber-950/40 dark:text-amber-200">
                             <Clock className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
                             <span>
                               {isPendingCancellation
@@ -536,7 +580,7 @@ export function PricingCards({
                             variant="outline"
                             disabled={isPending || isBillingLocked}
                             onClick={() => setIsUndoConfirmOpen(true)}
-                            className="h-11 w-full gap-2 rounded-xl border border-emerald-600 bg-background text-sm font-medium text-emerald-700 shadow-none hover:bg-emerald-50/50 dark:border-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                            className="h-10 w-full gap-2 rounded-lg border border-brand-700/40! bg-card text-sm font-semibold text-brand-700 shadow-none hover:bg-brand-50 hover:text-brand-700 dark:text-brand-300 dark:hover:bg-brand-950/30"
                           >
                             <RotateCcw className="h-4 w-4" />
                             {isPendingCancellation
@@ -550,7 +594,7 @@ export function PricingCards({
                             variant="ghost"
                             disabled={isPending || isBillingLocked}
                             onClick={openCancelDialog}
-                            className="h-11 w-full rounded-xl border border-red-200 bg-background text-sm font-medium text-red-600 shadow-none hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+                            className="h-10 w-full rounded-lg border border-red-200! bg-card text-sm font-semibold text-red-600 shadow-none hover:bg-red-50 hover:text-red-700 dark:border-red-900/50! dark:hover:bg-red-950/30"
                           >
                             Cancel subscription
                           </Button>
@@ -562,7 +606,7 @@ export function PricingCards({
                       type="button"
                       variant="outline"
                       disabled
-                      className="h-11 w-full gap-2 rounded-xl border-amber-500! bg-amber-50/70 text-sm font-semibold text-amber-800 shadow-none dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
+                      className="h-10 w-full gap-2 rounded-lg border-amber-300! bg-amber-50/70 text-sm font-semibold text-amber-800 shadow-none dark:border-amber-900/40! dark:bg-amber-950/40 dark:text-amber-200"
                     >
                       <Clock className="h-4 w-4 shrink-0" />
                       <span>
@@ -588,12 +632,12 @@ export function PricingCards({
                               disabled={isPending || isBillingLocked}
                               onClick={() => openSwitchDialog(plan)}
                               className={cn(
-                                "h-11 w-full gap-2 rounded-xl text-sm font-semibold shadow-none transition-colors",
+                                "h-10 w-full gap-2 rounded-lg text-sm font-semibold shadow-none transition-colors",
                                 isBillingLocked &&
                                   "pointer-events-none opacity-60",
                                 isDowngrade
-                                  ? "border-border text-emerald-700 hover:border-emerald-600 hover:bg-emerald-50/30 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
-                                  : "bg-brand-accent text-white hover:bg-brand-accent/90",
+                                  ? "bg-card text-foreground hover:bg-accent hover:text-brand-700"
+                                  : "bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90",
                               )}
                             >
                               {isLoadingThis && (
@@ -633,23 +677,32 @@ export function PricingCards({
             w-[calc(100%-2rem)]
             data-[size=default]:max-w-110
             data-[size=default]:sm:max-w-125
-            rounded-2xl
+            rounded-xl
             border
             border-border
             bg-background
             p-0
-            shadow-xl
+            shadow-[0_24px_48px_-16px_rgba(15,23,42,0.25)]
+            ring-0
             max-h-[calc(100dvh-2rem)]
             overflow-y-auto
           "
         >
-          <AlertDialogHeader className="block px-6 pt-5 pb-4 text-left">
-            <div className="flex items-center justify-between gap-4">
-              <AlertDialogTitle className="text-xl font-bold text-foreground">
-                {selectedSwitchLabel
-                  ? `${selectedSwitchLabel}?`
-                  : "Switch Plan"}
-              </AlertDialogTitle>
+          <AlertDialogHeader className="block px-5 pt-5 pb-4 text-left">
+            <div className="flex items-center justify-between gap-4 pr-8">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <span
+                  aria-hidden
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+                >
+                  <ArrowUpCircle className="size-5" strokeWidth={1.75} />
+                </span>
+                <AlertDialogTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                  {selectedSwitchLabel
+                    ? `${selectedSwitchLabel}?`
+                    : "Switch Plan"}
+                </AlertDialogTitle>
+              </div>
 
               <AlertDialogCancel
                 disabled={isPending}
@@ -697,7 +750,7 @@ export function PricingCards({
                   <>
                     {upgradeAmount > 0 && target && (
                       <div className="w-full rounded-xl border border-border px-4 py-3.5 text-left">
-                        <p className="text-sm font-semibold text-foreground">
+                        <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
                           Price breakdown
                         </p>
 
@@ -707,18 +760,18 @@ export function PricingCards({
                               {target.name} plan
                             </span>
 
-                            <span className="font-semibold text-foreground">
+                            <span className="font-semibold text-foreground tabular-nums">
                               ${target.priceValue?.toFixed(2)}/mo
                             </span>
                           </div>
 
                           {currentPlan && (
                             <div className="flex items-center justify-between gap-4 text-sm">
-                              <span className="text-emerald-600">
+                              <span className="text-brand-700">
                                 {currentPlan.name} already paid this period
                               </span>
 
-                              <span className="font-semibold text-emerald-600">
+                              <span className="font-semibold text-brand-700 tabular-nums">
                                 -${currentPlanRate.toFixed(2)}
                               </span>
                             </div>
@@ -729,7 +782,7 @@ export function PricingCards({
                               Amount due today
                             </span>
 
-                            <span className="font-bold text-foreground">
+                            <span className="font-bold text-foreground tabular-nums">
                               ${upgradeAmount?.toFixed(2)}
                             </span>
                           </div>
@@ -754,11 +807,11 @@ export function PricingCards({
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <AlertDialogFooter className="mx-0 mb-0 gap-3 px-4 py-4 sm:justify-end">
+          <AlertDialogFooter className="mx-0 mb-0 gap-3 border-t border-border bg-slate-50/60 px-5 py-4 sm:justify-end dark:bg-muted/30">
             <AlertDialogCancel
               disabled={isPending}
               onClick={handleClose}
-              className={cn(MODAL_BUTTON, "mt-0")}
+              className={cn(MODAL_BUTTON, "mt-0 bg-card")}
             >
               Cancel
             </AlertDialogCancel>
@@ -771,10 +824,7 @@ export function PricingCards({
                   executePlanSwitch(selectedPlanForSwitch);
                 }
               }}
-              className={cn(
-                MODAL_BUTTON,
-                "bg-brand-accent hover:bg-brand-accent/90",
-              )}
+              className={cn(MODAL_BUTTON, MODAL_BUTTON_PRIMARY)}
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Confirm switch
@@ -823,32 +873,41 @@ export function PricingCards({
             className="
               w-[calc(100%-2rem)]
               max-w-md
-              rounded-2xl
+              rounded-xl
               border
               border-border
               bg-background
-              p-6
-              shadow-xl
+              p-5
+              shadow-[0_24px_48px_-16px_rgba(15,23,42,0.25)]
+              ring-0
             "
           >
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl font-bold text-foreground">
-                {isPendingCancellation
-                  ? "Reactivate Subscription?"
-                  : "Cancel Scheduled Plan Switch?"}
-              </AlertDialogTitle>
+            <AlertDialogHeader className="flex-row items-start gap-3.5 pr-6 text-left">
+              <span
+                aria-hidden
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+              >
+                <RotateCcw className="size-5" strokeWidth={1.75} />
+              </span>
+              <div className="flex min-w-0 flex-col gap-1">
+                <AlertDialogTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                  {isPendingCancellation
+                    ? "Reactivate Subscription?"
+                    : "Cancel Scheduled Plan Switch?"}
+                </AlertDialogTitle>
 
-              <AlertDialogDescription className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {isPendingCancellation
-                  ? `This will reactivate your subscription so it stays active past ${
-                      renewalDate ?? "your current billing period"
-                    }. You will continue to be billed on your normal renewal schedule.`
-                  : `This will cancel your scheduled change to ${
-                      scheduledChange?.planName ?? "the new plan"
-                    }. You will remain on your current ${
-                      currentPlan?.name ?? ""
-                    } plan.`}
-              </AlertDialogDescription>
+                <AlertDialogDescription className="text-sm leading-relaxed text-slate-500">
+                  {isPendingCancellation
+                    ? `This will reactivate your subscription so it stays active past ${
+                        renewalDate ?? "your current billing period"
+                      }. You will continue to be billed on your normal renewal schedule.`
+                    : `This will cancel your scheduled change to ${
+                        scheduledChange?.planName ?? "the new plan"
+                      }. You will remain on your current ${
+                        currentPlan?.name ?? ""
+                      } plan.`}
+                </AlertDialogDescription>
+              </div>
             </AlertDialogHeader>
             <AlertDialogCancel
               disabled={isPending}
@@ -858,10 +917,10 @@ export function PricingCards({
               <X className="h-4 w-4" />
             </AlertDialogCancel>
 
-            <AlertDialogFooter className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogFooter className="-mx-5 -mb-5 mt-1 flex flex-col-reverse gap-3 border-t border-border bg-slate-50/60 px-5 py-4 sm:flex-row sm:justify-end dark:bg-muted/30">
               <AlertDialogCancel
                 disabled={isPending}
-                className={cn(MODAL_BUTTON, "mt-0 w-full sm:w-auto")}
+                className={cn(MODAL_BUTTON, "mt-0 w-full bg-card sm:w-auto")}
               >
                 Go back
               </AlertDialogCancel>
@@ -877,7 +936,8 @@ export function PricingCards({
                   }
                   className={cn(
                     MODAL_BUTTON,
-                    "w-full sm:w-auto hover:text-white",
+                    MODAL_BUTTON_PRIMARY,
+                    "w-full sm:w-auto",
                   )}
                 />
               </AlertDialogAction>
