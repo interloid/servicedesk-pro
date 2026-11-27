@@ -110,7 +110,7 @@ export function PortalCsatCard({
     // message rather than as the one thing on the page asking for an answer.
     // A hairline and a faint brand wash rather than a 2px brand border, which
     // was the only thing on the screen shouting.
-    <section className="rounded-2xl border bg-linear-to-b from-brand-accent/5 to-card p-4 text-center shadow-xs sm:p-6">
+    <section className="rounded-xl border bg-card p-4 text-center sm:p-6">
       <h2 className="text-base font-bold text-foreground">
         {rated ? "Thanks - that's logged" : "How did we do?"}
       </h2>

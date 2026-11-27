@@ -317,11 +317,11 @@ export function TicketDetailSkeleton() {
           <Skeleton className="h-5 w-72 max-w-full" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:min-h-112 lg:flex-1 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:min-h-136 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem]">
           <section
             className={cn(
               DASHBOARD_CARD,
-              "flex h-[75dvh] min-h-112 flex-col overflow-hidden lg:col-span-2 lg:h-auto lg:min-h-0",
+              "flex h-[75dvh] min-h-112 flex-col overflow-hidden lg:h-auto lg:min-h-0",
             )}
           >
             <div className="min-h-0 flex-1 space-y-4 overflow-hidden px-3 py-4 sm:px-5 sm:py-5">

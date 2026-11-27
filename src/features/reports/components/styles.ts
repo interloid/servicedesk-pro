@@ -8,6 +8,9 @@
 export const REPORT_CARD =
   "gap-0 rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0";
 
-/** The KPI row: two across from sm, three at xl, all five on wide screens. */
+/**
+ * The KPI row: two across (the fifth card spans the row so none is left on its
+ * own), all five in one row from xl.
+ */
 export const REPORT_STAT_GRID =
-  "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5";
+  "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5 [&>*:last-child:nth-child(odd)]:col-span-2 xl:[&>*:last-child:nth-child(odd)]:col-span-1";

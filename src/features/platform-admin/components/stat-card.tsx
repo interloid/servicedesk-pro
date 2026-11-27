@@ -3,13 +3,21 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { KpiTooltip } from "./kpi-tooltip";
-import { PLATFORM_CARD } from "./platform-ui";
+import {
+  KPI_HINT,
+  KPI_ICON,
+  KPI_LABEL,
+  KPI_TILE,
+  KPI_VALUE,
+  PLATFORM_CARD,
+} from "./platform-ui";
 
 /**
- * A KPI card in the overview's style: a round tinted icon on the left, then
- * the figure in the heading face, its label and an optional hint. Content is
- * top-aligned and the label and hint keep to one line each, so figures line
- * up across a row at every width; cut-off text shows in a tooltip. Same props
+ * The KPI tile every dashboard shares: what it measures on the first line with
+ * a small tinted icon on the right, the figure below it, then an optional hint.
+ * Text gets the card's full width (the icon no longer takes a column), and
+ * label, figure and hint sit at the same height in every card of a row at every
+ * width. A label or hint that is cut off shows in full in a tooltip. Same props
  * as before, so every caller keeps its own icon colours.
  */
 export function StatCard({
@@ -27,35 +35,19 @@ export function StatCard({
 }) {
   return (
     <KpiTooltip label={label} hint={hint}>
-      <div
-        className={cn(
-          PLATFORM_CARD,
-          "flex items-start gap-4 p-5 transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)]",
-        )}
-      >
-        <span
-          className={cn(
-            "flex size-12 shrink-0 items-center justify-center rounded-full",
-            iconClassName,
-          )}
-        >
-          <Icon className="size-5.5" strokeWidth={1.75} aria-hidden />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="text-[1.625rem] leading-tight font-bold tracking-tight break-words text-foreground tabular-nums">
-            {value}
-          </p>
-          <p
-            data-kpi-text
-            className="truncate text-sm leading-snug font-medium text-slate-600"
-          >
+      <div className={cn(PLATFORM_CARD, KPI_TILE)}>
+        <div className="flex items-start justify-between gap-3">
+          <p data-kpi-text className={KPI_LABEL}>
             {label}
           </p>
+          <span className={cn(KPI_ICON, iconClassName)}>
+            <Icon className="size-4" strokeWidth={1.9} aria-hidden />
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className={KPI_VALUE}>{value}</p>
           {hint && (
-            <p
-              data-kpi-text
-              className="truncate text-xs leading-snug text-slate-400"
-            >
+            <p data-kpi-text className={KPI_HINT}>
               {hint}
             </p>
           )}

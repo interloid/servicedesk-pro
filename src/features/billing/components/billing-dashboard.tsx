@@ -58,6 +58,7 @@ import {
   DetailRow,
   NoticeBanner,
   PayPalMark,
+  StatTile,
   StatusPill,
   StatusText,
 } from "./reuse";
@@ -406,6 +407,9 @@ export default function BillingDashboard({
             icon={Crown}
             iconTone="teal"
             label="Current plan"
+            aside={
+              <StatusPill tone={planStatus.tone} label={planStatus.label} />
+            }
             footer={
               <Button
                 variant="outline"
@@ -416,26 +420,24 @@ export default function BillingDashboard({
               </Button>
             }
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate font-heading text-2xl font-bold tracking-tight text-foreground">
-                  {data.plan?.name ?? "N/A"}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                    ${(data.plan?.rateValue ?? 0).toFixed(2)}
-                  </span>{" "}
-                  / month
-                </p>
-              </div>
-              <StatusPill tone={planStatus.tone} label={planStatus.label} />
+            <div className="rounded-xl bg-linear-to-br from-brand-soft to-transparent px-4 py-3.5 ring-1 ring-brand-accent/10 ring-inset">
+              <p className="truncate text-[11px] font-semibold tracking-[0.08em] text-brand-ink uppercase">
+                {data.plan?.name ?? "N/A"} plan
+              </p>
+              <p className="mt-1.5 text-sm text-slate-500">
+                <span className="font-heading text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                  ${(data.plan?.rateValue ?? 0).toFixed(2)}
+                </span>{" "}
+                / month
+              </p>
             </div>
             {data.plan?.description && (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-3 text-xs leading-relaxed text-slate-500">
                 {data.plan.description}
               </p>
             )}
-            <dl className="mt-5 space-y-3 border-t border-border pt-5 text-sm">
+            <div className="flex-1" aria-hidden />
+            <dl className="mt-5 space-y-3 border-t border-border pt-4 text-sm">
               <DetailRow
                 icon={UserRound}
                 label="Seat limit"
@@ -468,7 +470,7 @@ export default function BillingDashboard({
           >
             {pendingUpgrade ? (
               <>
-                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                <p className="font-heading text-3xl font-bold tracking-tight text-foreground tabular-nums">
                   ${pendingUpgrade.amountDue.toFixed(2)}
                 </p>
                 <p className="mt-0.5 text-sm text-slate-500 sm:text-base">
@@ -513,19 +515,31 @@ export default function BillingDashboard({
               </>
             ) : (
               <>
-                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+                <p className="font-heading text-3xl font-bold tracking-tight text-foreground tabular-nums">
                   {data.amountDue?.next ?? "$0.00"}
                 </p>
                 {hasRenewalDate && (
-                  <p className="mt-0.5 text-sm text-slate-500 sm:text-base">
+                  <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-slate-500">
+                    <CalendarDays
+                      className="size-4 text-slate-400"
+                      aria-hidden
+                    />
                     Renews {data.renewalDate}
                   </p>
                 )}
-                <div className="mt-4 space-y-1 text-sm">
+                <div
+                  className={cn(
+                    "mt-4 space-y-1 rounded-xl border px-3.5 py-3 text-sm",
+                    data.autoRenew
+                      ? "border-emerald-200/70 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+                      : "border-border bg-slate-50/70 dark:bg-muted/30",
+                  )}
+                >
                   <StatusText tone={data.autoRenew ? "emerald" : "slate"}>
+                    <RefreshCw className="size-3.5" aria-hidden />
                     Auto-renew is {data.autoRenew ? "on" : "off"}
                   </StatusText>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs leading-relaxed text-slate-500">
                     {data.autoRenew
                       ? "Your subscription will automatically renew using your saved payment method."
                       : isFreeTier
@@ -535,13 +549,15 @@ export default function BillingDashboard({
                 </div>
               </>
             )}
-            <div className="mt-5 border-t border-border pt-5 text-sm">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                <p className="font-semibold text-slate-900 whitespace-nowrap">
+            <div className="flex-1" aria-hidden />
+            <div className="mt-5 border-t border-border pt-4 text-sm">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <p className="flex items-center gap-2.5 whitespace-nowrap text-slate-500">
+                  <Clock className="size-4 text-slate-400" aria-hidden />
                   Last payment
                 </p>
 
-                <p className="text-slate-600">
+                <p className="font-semibold text-foreground tabular-nums sm:text-right">
                   {data.lastPayment
                     ? `${data.lastPayment.amount} · Paid ${data.lastPayment.date}`
                     : "No payments yet."}
@@ -570,39 +586,54 @@ export default function BillingDashboard({
           >
             {hasPayPalWallet ? (
               <>
-                <p className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
-                  <PayPalMark className="size-7" />
-                  PayPal
-                </p>
-                <div className="mt-3 space-y-0.5 text-sm text-slate-700">
-                  {paypalPayerName && <p>{paypalPayerName}</p>}
-                  <p className="break-all">
-                    {paypalEmail ?? "Billed through your PayPal account"}
-                  </p>
+                <div className="flex items-center gap-3.5 rounded-xl border border-border bg-linear-to-br from-sky-50/70 to-card px-4 py-3.5 dark:from-sky-950/30">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-card shadow-sm ring-1 ring-slate-200 dark:ring-border">
+                    <PayPalMark className="size-6" />
+                  </span>
+                  <div className="min-w-0 text-sm">
+                    <p className="font-heading text-lg leading-tight font-bold text-foreground">
+                      PayPal
+                    </p>
+                    {paypalPayerName && (
+                      <p className="mt-0.5 truncate text-slate-700">
+                        {paypalPayerName}
+                      </p>
+                    )}
+                    <p className="break-all text-slate-500">
+                      {paypalEmail ?? "Billed through your PayPal account"}
+                    </p>
+                  </div>
                 </div>
 
-                <p className="mt-5 border-t border-border pt-5 text-xs text-slate-500">
+                <div className="flex-1" aria-hidden />
+                <p className="mt-5 border-t border-border pt-4 text-xs text-slate-500">
                   Used for subscription billing and automatic payments.
                 </p>
               </>
             ) : isFreeTier ? (
-              <>
-                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center dark:border-border dark:bg-muted/20">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-card text-slate-400 shadow-sm ring-1 ring-slate-200 dark:ring-border">
+                  <CreditCard className="size-5" aria-hidden />
+                </span>
+                <p className="font-heading text-base font-bold text-foreground">
                   Free plan
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="max-w-xs text-sm text-slate-500">
                   No charges for this plan, so no payment method is needed.
                 </p>
-              </>
+              </div>
             ) : (
-              <>
-                <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-amber-300 bg-amber-50/50 px-4 py-6 text-center dark:border-amber-900/60 dark:bg-amber-950/20">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-card text-amber-600 shadow-sm ring-1 ring-amber-200 dark:ring-amber-900/60">
+                  <CreditCard className="size-5" aria-hidden />
+                </span>
+                <p className="font-heading text-base font-bold text-foreground">
                   No payment method on file
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="max-w-xs text-sm text-slate-500">
                   Add a payment method to avoid service interruptions.
                 </p>
-              </>
+              </div>
             )}
           </DashboardCard>
 
@@ -622,62 +653,53 @@ export default function BillingDashboard({
             }
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                {usedSeats} / {totalSeats} seats used
+              <p className="text-sm text-slate-500">
+                <span className="font-heading text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                  {usedSeats}
+                </span>{" "}
+                / {totalSeats} seats used
               </p>
-              <span className="text-sm text-slate-500">
-                {unusedSeats} available
-              </span>
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <Progress
-                value={seatPercentage}
-                aria-label="Seats used"
-                className="h-2 flex-1 rounded-full bg-slate-100 dark:bg-muted [&>div]:rounded-full [&>div]:bg-brand-700"
-              />
-              <span className="w-9 text-right text-xs text-slate-500 tabular-nums">
+              <span className="inline-flex h-6 items-center rounded-md bg-brand-soft px-2 text-xs font-semibold text-brand-ink tabular-nums">
                 {seatPercentageLabel}
               </span>
             </div>
-            <dl className="mt-5 space-y-3 text-sm">
-              <DetailRow
-                icon={UserRound}
-                label="Admins"
-                value={data.agents?.admins ?? 0}
-              />
-              <DetailRow
-                icon={UserRound}
-                label="Agents"
-                value={data.agents?.regular ?? 0}
-              />
-              <DetailRow
-                icon={UsersRound}
-                label="Available seats"
-                value={unusedSeats}
-              />
+            <Progress
+              value={seatPercentage}
+              aria-label="Seats used"
+              className="mt-3 h-2.5 rounded-full bg-slate-100 dark:bg-muted [&>div]:rounded-full [&>div]:bg-brand-accent"
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              {unusedSeats} available
+            </p>
+            <div className="flex-1" aria-hidden />
+            <dl className="mt-5 grid grid-cols-3 gap-2">
+              <StatTile label="Admins" value={data.agents?.admins ?? 0} />
+              <StatTile label="Agents" value={data.agents?.regular ?? 0} />
+              <StatTile label="Available" value={unusedSeats} />
             </dl>
           </DashboardCard>
         </div>
 
-        <section className={cn(DASHBOARD_CARD, "overflow-hidden")}>
-          <header className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className={cn(DASHBOARD_CARD, "overflow-hidden rounded-2xl")}>
+          <header className="flex flex-col gap-3 border-b border-border px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <span
                 aria-hidden
-                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+                className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink"
               >
-                <FileText className="size-4.5" strokeWidth={1.75} />
+                <FileText className="size-4" strokeWidth={1.75} />
               </span>
 
-              <div>
-                <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
-                  Billing history
-                </h2>
-
-                <p className="mt-0.5 text-xs text-slate-500 tabular-nums">
-                  {invoices.length} invoice{invoices.length === 1 ? "" : "s"}
-                </p>
-              </div>
+              <h2 className="font-heading text-sm leading-snug font-bold tracking-tight text-foreground">
+                Billing history
+              </h2>
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600 tabular-nums dark:bg-muted">
+                {invoices.length}
+                <span className="sr-only">
+                  {" "}
+                  invoice{invoices.length === 1 ? "" : "s"}
+                </span>
+              </span>
             </div>
 
             <Button
@@ -693,8 +715,8 @@ export default function BillingDashboard({
           </header>
 
           {invoices.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 border-t border-border px-4 py-14 text-center">
-              <span className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
+              <span className="flex size-12 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-400 dark:border-border dark:bg-muted/30">
                 <Inbox className="size-5" aria-hidden />
               </span>
               <p className="max-w-sm text-sm text-slate-500">
@@ -703,51 +725,132 @@ export default function BillingDashboard({
               </p>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <Table className="min-w-240 table-fixed">
-                <colgroup>
-                  <col className="w-[14%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[30%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[17%]" />
-                </colgroup>
-                <TableHeader>
-                  <TableRow className="border-border bg-slate-50/80 hover:bg-slate-50/80 dark:bg-muted">
-                    {[
-                      "Invoice ID",
-                      "Date",
-                      "Plan details",
-                      "Amount",
-                      "Status",
-                    ].map((heading) => (
-                      <TableHead
-                        key={heading}
-                        className="h-10 px-4 text-left text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase"
-                      >
-                        {heading}
+            <>
+              <div className="hidden w-full overflow-x-auto md:block">
+                <Table className="min-w-200 table-fixed">
+                  <colgroup>
+                    <col className="w-[14%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[30%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[17%]" />
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow className="border-border bg-slate-50/80 hover:bg-slate-50/80 dark:bg-muted">
+                      {[
+                        "Invoice ID",
+                        "Date",
+                        "Plan details",
+                        "Amount",
+                        "Status",
+                      ].map((heading) => (
+                        <TableHead
+                          key={heading}
+                          className="h-10 px-4 text-left text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase"
+                        >
+                          {heading}
+                        </TableHead>
+                      ))}
+                      <TableHead className="h-10 px-4 text-right text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase">
+                        Action
                       </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="text-sm">
+                    {visibleInvoices.map((inv) => (
+                      <TableRow
+                        key={inv.id}
+                        className="border-border transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/30"
+                      >
+                        <TableCell className="px-4 py-3.5 font-mono text-xs font-semibold whitespace-nowrap text-foreground">
+                          {inv.id}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 whitespace-nowrap text-slate-600 tabular-nums">
+                          {inv.date}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">
+                              {inv.planName}
+                            </span>
+                            <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-slate-100 px-1.5 text-[10px] font-semibold tracking-wide text-slate-600 uppercase ring-1 ring-slate-500/15 ring-inset">
+                              {inv.invoiceType === "one_time"
+                                ? "One-time"
+                                : "Monthly"}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {inv.invoiceType === "one_time"
+                              ? inv.periodStart
+                              : `${inv.periodStart} \u2013 ${inv.periodEnd}`}
+                            {inv.seats > 0 && (
+                              <>
+                                {" · "}
+                                {inv.seats} seat{inv.seats === 1 ? "" : "s"}
+                              </>
+                            )}
+                          </p>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 font-semibold whitespace-nowrap text-foreground tabular-nums">
+                          {inv.amount}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 whitespace-nowrap">
+                          <StatusPill
+                            tone={
+                              inv.status === "Paid"
+                                ? "emerald"
+                                : inv.status === "Failed"
+                                  ? "red"
+                                  : inv.status === "Refunded"
+                                    ? "slate"
+                                    : "amber"
+                            }
+                            label={inv.status}
+                          />
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedInvoice(inv)}
+                            className="group/view inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors duration-200 ease-out outline-none hover:bg-accent hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-ring/50 motion-safe:active:scale-[0.98]"
+                          >
+                            View details
+                          </button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                    <TableHead className="h-10 px-4 text-right text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase">
-                      Action
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="text-sm">
-                  {visibleInvoices.map((inv) => (
-                    <TableRow
-                      key={inv.id}
-                      className="border-border transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/30"
-                    >
-                      <TableCell className="px-4 py-3.5 font-mono text-xs font-semibold whitespace-nowrap text-foreground">
-                        {inv.id}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 whitespace-nowrap text-slate-600 tabular-nums">
-                        {inv.date}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <div className="flex items-center gap-2">
+                    {pageCount > 1 &&
+                      Array.from({
+                        length: INVOICES_PER_PAGE - visibleInvoices.length,
+                      }).map((_, index) => (
+                        <TableRow
+                          key={`filler-${index}`}
+                          aria-hidden
+                          className="border-transparent hover:bg-transparent"
+                        >
+                          <TableCell colSpan={6} className="px-4 py-3.5">
+                            <div className="invisible flex items-center gap-2">
+                              <span className="font-medium">&nbsp;</span>
+                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                                &nbsp;
+                              </span>
+                            </div>
+                            <p className="invisible mt-0.5 text-xs">&nbsp;</p>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Phones get one card per invoice instead of a sideways-scrolling table. */}
+              <ul className="divide-y divide-border md:hidden">
+                {visibleInvoices.map((inv) => (
+                  <li key={inv.id} className="px-4 py-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold text-foreground">
                             {inv.planName}
                           </span>
@@ -756,70 +859,41 @@ export default function BillingDashboard({
                               ? "One-time"
                               : "Monthly"}
                           </span>
-                        </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {inv.invoiceType === "one_time"
-                            ? inv.periodStart
-                            : `${inv.periodStart} \u2013 ${inv.periodEnd}`}
-                          {inv.seats > 0 && (
-                            <>
-                              {" · "}
-                              {inv.seats} seat{inv.seats === 1 ? "" : "s"}
-                            </>
-                          )}
                         </p>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 font-semibold whitespace-nowrap text-foreground tabular-nums">
+                        <p className="mt-0.5 font-mono text-[11px] text-slate-500">
+                          {inv.id} · {inv.date}
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-heading text-base font-bold text-foreground tabular-nums">
                         {inv.amount}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
-                        <StatusPill
-                          tone={
-                            inv.status === "Paid"
-                              ? "emerald"
-                              : inv.status === "Failed"
-                                ? "red"
-                                : inv.status === "Refunded"
-                                  ? "slate"
-                                  : "amber"
-                          }
-                          label={inv.status}
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedInvoice(inv)}
-                          className="group/view inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors duration-200 ease-out outline-none hover:bg-accent hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-ring/50 motion-safe:active:scale-[0.98]"
-                        >
-                          View details
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {pageCount > 1 &&
-                    Array.from({
-                      length: INVOICES_PER_PAGE - visibleInvoices.length,
-                    }).map((_, index) => (
-                      <TableRow
-                        key={`filler-${index}`}
-                        aria-hidden
-                        className="border-transparent hover:bg-transparent"
+                      </p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <StatusPill
+                        tone={
+                          inv.status === "Paid"
+                            ? "emerald"
+                            : inv.status === "Failed"
+                              ? "red"
+                              : inv.status === "Refunded"
+                                ? "slate"
+                                : "amber"
+                        }
+                        label={inv.status}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInvoice(inv)}
+                        className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors duration-200 ease-out outline-none hover:bg-accent hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-ring/50 motion-safe:active:scale-[0.98]"
                       >
-                        <TableCell colSpan={6} className="px-4 py-3.5">
-                          <div className="invisible flex items-center gap-2">
-                            <span className="font-medium">&nbsp;</span>
-                            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold">
-                              &nbsp;
-                            </span>
-                          </div>
-                          <p className="invisible mt-0.5 text-xs">&nbsp;</p>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </div>
+                        <Eye className="size-4" aria-hidden />
+                        View details
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
           {invoices.length > 0 && (
             <nav

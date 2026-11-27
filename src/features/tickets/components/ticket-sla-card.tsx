@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, PauseCircle, Timer } from "lucide-react";
+import { AlertTriangle, Clock, PauseCircle, Timer } from "lucide-react";
 import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
@@ -204,6 +204,61 @@ export function SlaHeadlineBadge({
   );
 }
 
+/**
+ * A red strip under the ticket title while any SLA clock is breached, so a
+ * missed target can't be overlooked. Reads the same clocks as the badges;
+ * renders nothing while every target is on track.
+ */
+export function SlaBreachBanner({
+  events,
+  policy,
+}: {
+  events: SlaEvent[];
+  policy?: TicketSlaPolicy | null;
+}) {
+  const now = useSlaNow(events, policy?.calendar);
+  const mounted = useMounted();
+  const breached = events.filter(
+    (ev) =>
+      computeSlaClock(
+        ev,
+        now,
+        policy?.warn_before_mins,
+        policy?.calendar,
+        policy?.day_mins,
+      ).state === "breached",
+  );
+  if (breached.length === 0) return null;
+  const names = breached.map((ev) => LABELS[ev.type]).join(" and ");
+  const first = breached[0];
+
+  return (
+    <div
+      role="status"
+      suppressHydrationWarning
+      className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+    >
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300">
+        <AlertTriangle className="size-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="font-semibold">
+          {names} SLA {breached.length > 1 ? "targets" : "target"} breached
+        </p>
+        <p
+          className="mt-0.5 text-xs text-red-800/90 dark:text-red-300/90"
+          suppressHydrationWarning
+        >
+          {mounted
+            ? `Was due ${formatClock(first.breached_at ?? first.due_at)}. `
+            : ""}
+          Reply or update the ticket as soon as possible.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface TicketSlaCardProps {
   events: SlaEvent[];
   /**
@@ -229,17 +284,17 @@ export function TicketSlaCard({
   const paused = events.some((e) => e.status === "pending" && e.paused_at);
 
   return (
-    <section className={DASHBOARD_CARD}>
+    <section className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+      {/* Same header strip as the ticket page's other sidebar cards. */}
+      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink">
+          <Timer className="size-3.5" strokeWidth={2} aria-hidden />
+        </span>
+        <h2 className="font-heading text-sm font-bold tracking-tight text-foreground">
+          SLA
+        </h2>
+      </div>
       <div className="space-y-3 p-4 text-xs">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
-            <Timer className="size-4" strokeWidth={1.75} aria-hidden />
-          </span>
-          <h4 className="font-heading text-sm font-bold tracking-tight text-foreground">
-            SLA
-          </h4>
-        </div>
-
         <div className="grid gap-1">
           <p className="flex min-w-0 items-baseline gap-1.5 text-xs">
             <span className="shrink-0 font-semibold text-slate-700">

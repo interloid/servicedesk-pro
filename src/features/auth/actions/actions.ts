@@ -82,7 +82,15 @@ export async function loginAction(
     const sessionUser = await login(parsed.data);
 
     // A platform operator needs no workspace: the console is their landing.
-    if (!sessionUser.tenantId && isPlatformAdminEmail(sessionUser.email)) {
+    // That holds when the address also has a customer account on some
+    // tenant's portal (it signed in there, or was invited as a requester): a
+    // customer membership is not a workspace, and without this the operator
+    // landed in that tenant's support portal instead of the console. An
+    // operator who is staff in a workspace still goes to it.
+    if (
+      isPlatformAdminEmail(sessionUser.email) &&
+      (!sessionUser.tenantId || sessionUser.role === "customer")
+    ) {
       return {
         success: true,
         data: { ...sessionUser, redirectTo: PLATFORM_HOME },

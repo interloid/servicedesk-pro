@@ -29,11 +29,13 @@ const HEAD_ROW = "border-border bg-slate-50/80 hover:bg-slate-50/80";
 /** Mirrors the shared StatCard: round icon, figure on top, one-line label. */
 function StatCardSkeleton() {
   return (
-    <div className={cn(DASHBOARD_CARD, "flex items-start gap-4 p-5")}>
-      <Skeleton className="size-12 shrink-0 rounded-full" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
-        <Skeleton className="h-7 w-10" />
-        <Skeleton className="h-4 w-24 max-w-full" />
+    <div className={cn(DASHBOARD_CARD, "flex flex-col gap-3 p-4 sm:p-5")}>
+      <div className="flex items-start justify-between gap-3">
+        <Skeleton className="mt-1 h-3.5 w-24 max-w-full" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Skeleton className="h-6.5 w-16" />
       </div>
     </div>
   );

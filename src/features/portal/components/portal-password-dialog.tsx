@@ -1,19 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { CircleAlert, Loader2 } from "lucide-react";
+import { CircleAlert, KeyRound, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { TEAM_DIALOG_CONTENT } from "@/features/team/components/modal-buttons";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 import { Form } from "@/components/ui/form";
 import { setPasswordAction } from "@/features/portal/actions/portal.actions";
 import { PortalPasswordFields } from "@/features/portal/components/portal-password-fields";
@@ -49,18 +48,16 @@ export function PortalPasswordDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* As in the profile dialog: no hover wash on the cross. */}
-      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] gap-5 overflow-y-auto rounded-2xl p-5 sm:max-w-md sm:p-6 **:data-[slot=dialog-close]:hover:bg-transparent">
-        <DialogHeader className="gap-1 text-left">
-          <DialogTitle className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
-            Change password
-          </DialogTitle>
-          {/* Worded for both cases: an account that has only ever used email
-              links is setting its first password here, not changing one. */}
-          <DialogDescription className="text-sm text-muted-foreground">
-            Set a new password to sign in with, instead of waiting for an email
-            link.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={`max-h-[90dvh] gap-5 overflow-y-auto sm:max-w-md ${TEAM_DIALOG_CONTENT}`}
+      >
+        {/* Worded for both cases: an account that has only ever used email
+            links is setting its first password here, not changing one. */}
+        <DialogIconHeader
+          icon={KeyRound}
+          title="Change password"
+          description="Set a new password to sign in with, instead of waiting for an email link."
+        />
 
         {/* Its own component so its state lives only while the dialog is open:
             Radix unmounts the content on close, so every opening starts from
@@ -132,7 +129,9 @@ function PasswordForm({
         >
           <PortalPasswordFields control={form.control} />
 
-          <div className="mt-1 grid grid-cols-2 gap-2.5 border-t pt-5 sm:flex sm:justify-end sm:gap-3">
+          <div
+            className={`-mx-5 -mb-5 mt-1 grid grid-cols-2 gap-3 border-t border-border p-5 sm:flex sm:justify-end ${DIALOG_FOOTER_BAND}`}
+          >
             <Button
               type="button"
               variant="outline"

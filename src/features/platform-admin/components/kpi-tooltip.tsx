@@ -33,7 +33,11 @@ export function KpiTooltip({
     }
     const clipped = Array.from(
       ref.current?.querySelectorAll<HTMLElement>("[data-kpi-text]") ?? [],
-    ).some((node) => node.scrollWidth > node.clientWidth + 1);
+    ).some(
+      (node) =>
+        node.scrollWidth > node.clientWidth + 1 ||
+        node.scrollHeight > node.clientHeight + 1,
+    );
     setOpen(clipped);
   }
 

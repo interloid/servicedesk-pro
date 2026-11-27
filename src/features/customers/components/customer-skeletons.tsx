@@ -45,15 +45,15 @@ function SectionHeading({ width }: { width: string }) {
   );
 }
 
-/** Mirrors the shared StatCard: round icon, figure on top, one-line label. */
+/** Mirrors the shared StatCard: label and small icon, then the figure. */
 function StatCard({ value }: { value: string }) {
   return (
-    <div className={cn(CARD, "flex items-start gap-4 p-5")}>
-      <Skeleton className="size-12 shrink-0 rounded-full" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
-        <Skeleton className={cn("h-7", value)} />
-        <Skeleton className="h-4 w-24 max-w-full" />
+    <div className={cn(CARD, "flex flex-col gap-3 p-4 sm:p-5")}>
+      <div className="flex items-start justify-between gap-3">
+        <Skeleton className="mt-1 h-3.5 w-24 max-w-full" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
       </div>
+      <Skeleton className={cn("h-6.5", value)} />
     </div>
   );
 }
@@ -205,7 +205,7 @@ export function CustomerOverviewSkeleton() {
   return (
     <>
       {/* Open tickets, Total tickets, Company, CSAT. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4">
         <StatCard value="w-8" />
         <StatCard value="w-8" />
         <StatCard value="w-24 max-w-full" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { BotMessageSquare, ChevronDown, X } from "lucide-react";
+import { ChevronDown, MessageCircle, X } from "lucide-react";
 import type { Ref } from "react";
 
 import { cn } from "@/lib/utils";
@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 /**
  * The floating button in the corner. It stays put while the panel is open and
  * becomes its close button (except on a phone, where the panel is full screen
- * and has its own).
+ * and has its own). A flat circle in the brand colour with a chat bubble: the
+ * familiar "message us" button, nothing more.
  */
 export function ChatLauncher({
   ref,
@@ -28,27 +29,17 @@ export function ChatLauncher({
       onClick={onToggle}
       aria-controls={panelId}
       aria-expanded={open}
-      aria-label={open ? "Close support assistant" : "Open support assistant"}
+      aria-label={open ? "Close support chat" : "Open support chat"}
       className={cn(
-        "group relative inline-flex size-14 shrink-0 items-center justify-center rounded-full",
+        "relative inline-flex size-14 shrink-0 items-center justify-center rounded-full",
         "bg-brand-accent text-brand-accent-foreground",
-        "shadow-[0_14px_34px_-10px_rgba(15,23,42,0.55)] ring-1 ring-black/5",
-        "transition-all duration-200 outline-none hover:scale-105 hover:shadow-[0_18px_40px_-10px_rgba(15,23,42,0.6)] active:scale-95",
-        "focus-visible:ring-4 focus-visible:ring-brand-accent/35",
+        "shadow-[0_6px_20px_-6px_rgba(15,23,42,0.45)]",
+        "transition-[transform,background-color] duration-200 outline-none hover:bg-brand-accent/90 active:scale-95",
+        "focus-visible:ring-4 focus-visible:ring-brand-accent/30",
         open && "max-sm:hidden",
       )}
     >
-      {/* Sheen and a soft inner edge: depth on any brand colour. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-full bg-linear-to-br from-white/30 via-white/5 to-black/15"
-      />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-px rounded-full ring-1 ring-white/20 ring-inset"
-      />
-
-      <BotMessageSquare
+      <MessageCircle
         aria-hidden
         className={cn(
           "absolute size-6 transition-all duration-200",
@@ -66,13 +57,6 @@ export function ChatLauncher({
             : "scale-50 -rotate-90 opacity-0",
         )}
       />
-
-      {!open ? (
-        <span
-          aria-hidden
-          className="absolute top-0.5 right-0.5 size-3.5 rounded-full border-2 border-background bg-emerald-500"
-        />
-      ) : null}
     </button>
   );
 }
@@ -93,14 +77,13 @@ export function ChatTeaser({
       <button
         type="button"
         onClick={onOpen}
-        className="block w-full rounded-2xl rounded-br-sm border bg-background px-4 py-3 text-left text-sm shadow-[0_12px_32px_-12px_rgba(15,23,42,0.35)] transition-[background-color,border-color,box-shadow] hover:border-brand-accent/40 hover:bg-muted hover:shadow-[0_16px_36px_-12px_rgba(15,23,42,0.45)]"
+        className="block w-full rounded-xl border bg-background px-4 py-3 text-left text-sm shadow-[0_8px_24px_-12px_rgba(15,23,42,0.3)] transition-colors hover:bg-muted"
       >
         <span className="block font-semibold text-foreground">
-          Hi{firstName ? ` ${firstName}` : ""} 👋
+          {firstName ? `Hi ${firstName}, need a hand?` : "Need a hand?"}
         </span>
         <span className="mt-0.5 block text-muted-foreground">
-          Questions about a request? I can look it up or help you raise a new
-          one.
+          Ask about a request, or get help raising a new one.
         </span>
       </button>
       <button

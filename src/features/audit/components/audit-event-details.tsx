@@ -1,21 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Copy, FileText } from "lucide-react";
+import { ArrowRight, Check, Copy, FileText, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { formatRelativeTime, getInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import { TEAM_DIALOG_TITLE } from "@/features/team/components/modal-buttons";
+import { DialogIconHeader } from "@/features/team/components/dialog-icon-header";
 import { AUDIT_ACTION_ICONS } from "@/features/audit/components/audit-icons";
 import {
   AUDIT_ACTION_BADGE,
@@ -133,14 +128,12 @@ export function AuditEventDetails({
 
   return (
     <>
-      <DialogHeader className="min-w-0 pr-6">
-        <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
-          Event details
-        </DialogTitle>
-        <DialogDescription>
-          Everything recorded about this event.
-        </DialogDescription>
-      </DialogHeader>
+      <DialogIconHeader
+        icon={ScrollText}
+        title="Event details"
+        description="Everything recorded about this event."
+        className="min-w-0"
+      />
 
       {/* Only the body scrolls: the title stays in view. */}
       <div className="-mx-5 flex max-h-[60vh] min-h-0 min-w-0 flex-col gap-5 overflow-x-hidden overflow-y-auto px-5 pb-1">

@@ -106,6 +106,10 @@ const ROUTES: Partial<Record<"anonymous" | AccountName, Route[]>> = {
       lands: /\/portal\/requests$/,
     },
     { route: "/[tenantSlug]/portal/help", path: `/${T}/portal/help` },
+    {
+      route: "/[tenantSlug]/portal/help/[topic]",
+      path: `/${T}/portal/help/getting-started`,
+    },
     { route: "/[tenantSlug]/portal/password", path: `/${T}/portal/password` },
     { route: "/[tenantSlug]/portal/requests", path: `/${T}/portal/requests` },
     {

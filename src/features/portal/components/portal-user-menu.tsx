@@ -66,7 +66,12 @@ export function PortalUserMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className={TRIGGER_CLASS}>
+        <DropdownMenuTrigger
+          className={cn(
+            TRIGGER_CLASS,
+            "sm:gap-2 sm:rounded-full sm:bg-current/10 sm:py-1 sm:pr-2.5 sm:pl-1 sm:ring-1 sm:ring-current/15 sm:hover:bg-current/18 data-[state=open]:bg-current/18",
+          )}
+        >
           <CustomerAvatar
             customer={customer}
             className="hidden size-8 sm:flex"
@@ -88,11 +93,7 @@ export function PortalUserMenu({
           <span className="sr-only">Open account menu</span>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent
-          align="start"
-          sideOffset={10}
-          className="w-68 p-1.5"
-        >
+        <DropdownMenuContent align="end" sideOffset={10} className="w-68 p-1.5">
           <DropdownMenuLabel className="flex items-center gap-3 px-2.5 py-2.5">
             <CustomerAvatar customer={customer} className="size-9" onCard />
 

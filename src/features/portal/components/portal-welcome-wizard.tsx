@@ -337,7 +337,7 @@ function ChoiceCard({
       disabled={disabled}
       className={cn(
         "group flex items-start gap-3.5 rounded-xl border bg-card p-4 text-left transition-all sm:p-5",
-        "hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)]",
+        "hover:border-foreground/20 hover:bg-muted/30",
         "focus-visible:ring-2 focus-visible:ring-brand-accent/30 focus-visible:outline-none",
         "disabled:pointer-events-none disabled:opacity-60",
       )}

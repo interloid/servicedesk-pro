@@ -120,34 +120,80 @@ export function DetailRow({
   );
 }
 
+const HEADER_ICON_TONES = {
+  teal: "bg-brand-soft text-brand-ink",
+  blue: "bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300",
+  violet:
+    "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300",
+  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+} as const;
+
 export function DashboardCard({
-  icon,
+  icon: Icon,
   iconTone,
   label,
+  aside,
   children,
   footer,
 }: {
   icon: IconType;
   iconTone: IconTone;
   label: string;
+  /** Shown at the right of the card header (a status pill, say). */
+  aside?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
-    <section className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <header className="flex items-center gap-3">
-        <IconTile icon={icon} tone={iconTone} />
-        <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+    <section className="group/card relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,0.14)]">
+      <header className="flex items-center gap-3 border-b border-border px-5 py-3.5">
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-lg",
+            HEADER_ICON_TONES[iconTone],
+          )}
+        >
+          <Icon className="size-4" />
+        </span>
+        <h2 className="min-w-0 flex-1 truncate font-heading text-sm leading-snug font-bold tracking-tight text-foreground">
           {label}
         </h2>
+        {aside}
       </header>
-      <div className="mt-5 flex flex-1 flex-col">{children}</div>
+      <div className="flex flex-1 flex-col px-5 py-5">{children}</div>
       {footer && (
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap [&>button]:w-full [&>button]:lg:w-auto [&>button]:lg:h-9">
+        <div className="flex flex-col gap-3 border-t border-border bg-slate-50/60 px-5 py-3.5 sm:flex-row sm:flex-wrap dark:bg-muted/20 [&>button]:w-full [&>button]:lg:h-9 [&>button]:lg:w-auto">
           {footer}
         </div>
       )}
     </section>
+  );
+}
+
+/** A small labelled figure, for the stat tiles inside a card. */
+export function StatTile({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-xl border border-border bg-slate-50/70 px-3 py-2.5 dark:bg-muted/30",
+        className,
+      )}
+    >
+      <dt className="truncate text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase">
+        {label}
+      </dt>
+      <dd className="mt-1 font-heading text-lg leading-none font-bold text-foreground tabular-nums">
+        {value}
+      </dd>
+    </div>
   );
 }
 
@@ -365,13 +411,13 @@ export function PayPalMark({ className }: { className?: string }) {
 
 function CardSkeleton() {
   return (
-    <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-10 rounded-full bg-slate-100" />
+    <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
+        <Skeleton className="size-8 rounded-lg bg-slate-100" />
         <Skeleton className="h-4 w-28 bg-slate-100" />
       </div>
 
-      <div className="mt-5 flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <Skeleton className="h-8 w-4/5 max-w-44 bg-slate-100" />
@@ -400,7 +446,7 @@ function CardSkeleton() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="border-t border-border bg-slate-50/60 px-5 py-3.5">
         <Skeleton className="h-10 w-full rounded-lg bg-slate-100 lg:h-9 lg:w-40" />
       </div>
     </div>
@@ -427,7 +473,7 @@ export function LoadingState({ showBanner }: { showBanner: boolean }) {
             <CardSkeleton key={i} />
           ))}
         </div>
-        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <header className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Skeleton className="size-10 rounded-full bg-slate-100" />

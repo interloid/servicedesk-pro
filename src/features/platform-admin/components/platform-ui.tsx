@@ -44,8 +44,27 @@ export const PLATFORM_TOOLBAR =
 /** Sits in PLATFORM_TOOLBAR, or alone above a table. */
 export const PLATFORM_SEARCH = "sm:col-span-2 xl:w-72 xl:flex-none";
 
+/** The KPI tile's shell, shared by StatCard, StatFilterCard and the overview cards. */
+export const KPI_TILE =
+  "flex min-w-0 flex-col justify-between gap-3 p-4 text-left transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)] sm:p-5";
+
+/** What the tile measures: up to two lines on phones, one from sm; cut-off text shows in a tooltip. */
+export const KPI_LABEL =
+  "line-clamp-2 min-w-0 pt-1 text-[13px] leading-snug font-medium break-words text-slate-500 sm:line-clamp-1 dark:text-slate-400";
+
+/** The small round icon at the tile's top right. */
+export const KPI_ICON =
+  "flex size-8 shrink-0 items-center justify-center rounded-full";
+
+/** The figure. */
+export const KPI_VALUE =
+  "text-[1.625rem] leading-none font-bold tracking-tight break-words text-foreground tabular-nums";
+
+/** The context line under the figure. */
+export const KPI_HINT = "truncate text-xs leading-snug text-slate-400";
+
 export const PLATFORM_STAT_GRID =
-  "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4";
+  "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4";
 
 /**
  * The page heading every console page shares (the overview is the reference):
@@ -195,30 +214,26 @@ export function StatFilterCard({
         onClick={onClick}
         className={cn(
           PLATFORM_CARD,
-          "flex min-w-0 items-start gap-3 p-4 text-left transition-all outline-none hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-ring/50",
+          KPI_TILE,
+          "outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           active && "border-brand-700/50! ring-1 ring-brand-700/30",
           alerting && !active && "border-red-200! dark:border-red-900/60!",
         )}
       >
-        <span
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-full",
-            alerting ? "bg-red-50 text-red-600" : iconClass,
-          )}
-        >
-          <Icon className="size-5" strokeWidth={1.75} aria-hidden />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-2xl leading-tight font-bold tracking-tight text-foreground tabular-nums">
-            {value}
-          </span>
-          <span
-            data-kpi-text
-            className="truncate text-sm leading-snug font-medium text-slate-600"
-          >
+        <span className="flex items-start justify-between gap-3">
+          <span data-kpi-text className={KPI_LABEL}>
             {label}
           </span>
+          <span
+            className={cn(
+              KPI_ICON,
+              alerting ? "bg-red-50 text-red-600" : iconClass,
+            )}
+          >
+            <Icon className="size-4" strokeWidth={1.9} aria-hidden />
+          </span>
         </span>
+        <span className={KPI_VALUE}>{value}</span>
       </button>
     </KpiTooltip>
   );

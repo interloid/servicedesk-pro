@@ -416,13 +416,12 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
   ];
 
   return (
-    // From lg the page is exactly the window's height and never scrolls, like
-    // the Audit log: the header, the preferences (shown in full, never
-    // scrolled) and the list's toolbar and pagination keep their size, and
-    // only the list scrolls in what is left. Below lg there is no room for
-    // that, so the page scrolls as usual.
-    <div className="h-full overflow-y-auto p-4 sm:p-6 lg:overflow-hidden lg:p-8">
-      <div className="mx-auto space-y-4 sm:space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:space-y-0 lg:gap-6">
+    // The page scrolls at every width and each card is as tall as its
+    // content. Locking it to the window's height left no room for the list on
+    // a laptop, where the preferences alone nearly fill the screen, and a
+    // fixed minimum left empty space under a short list.
+    <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto space-y-4 sm:space-y-6 lg:flex lg:flex-col lg:space-y-0 lg:gap-6">
         <div className="shrink-0">
           <DashboardPageHeader
             eyebrow="Settings"
@@ -528,10 +527,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
         </section>
 
         <section
-          className={cn(
-            DASHBOARD_CARD,
-            "flex flex-col overflow-hidden lg:min-h-0",
-          )}
+          className={cn(DASHBOARD_CARD, "flex flex-col overflow-hidden")}
         >
           <div className="flex shrink-0 flex-col gap-3 border-b border-border p-3 xl:flex-row xl:items-center xl:justify-between">
             <div
@@ -595,8 +591,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
             </div>
           </div>
 
-          {/* The one part of the page that scrolls, from lg. */}
-          <div className="lg:min-h-0 lg:overflow-y-auto">
+          <div>
             {tab === "history" ? (
               pageHistory.length === 0 ? (
                 <EmptyState icon={Settings2}>

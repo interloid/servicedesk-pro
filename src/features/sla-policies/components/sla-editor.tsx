@@ -146,9 +146,18 @@ interface SlaEditorProps {
 }
 
 const CONTROL = "h-10 border-slate-200 text-sm";
-/** shadcn Card at the page's 20px padding, with a border instead of its ring. */
+/**
+ * shadcn Card with a border instead of its ring, laid out like the billing
+ * cards: a header strip over a divider, then a roomy body.
+ */
 const CARD =
-  "gap-4 rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0 [--card-spacing:--spacing(5)]";
+  "gap-0 rounded-2xl border border-border bg-card py-0 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0 transition-shadow duration-200 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,0.12)] [--card-spacing:--spacing(5)]";
+const CARD_HEADER =
+  "flex items-center gap-3 border-b border-border px-5 py-4 sm:px-6";
+const CARD_BODY = "px-5 py-5 sm:px-6";
+const CARD_TITLE =
+  "font-heading text-[15px] leading-snug font-bold tracking-tight text-foreground";
+const CARD_HINT = "text-xs leading-relaxed text-slate-500";
 /** A table set inside a card: its own rounded border, header tinted. */
 const INSET_TABLE = "overflow-hidden rounded-xl border border-border";
 /**
@@ -513,30 +522,36 @@ export default function SlaEditor({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
+        <div className="min-w-0 space-y-4">
           <Link
             href={`/${tenant}/sla`}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-accent transition-colors hover:text-brand-accent/80"
+            className="group/back inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors hover:text-brand-accent"
           >
-            <ArrowLeft className="size-4" aria-hidden />
+            <ArrowLeft
+              className="size-4 transition-transform group-hover/back:-translate-x-0.5"
+              aria-hidden
+            />
             SLA policies
           </Link>
-          <span className="flex w-fit items-center gap-1.5 pt-1 text-xs font-semibold tracking-[0.08em] text-brand-700 uppercase">
-            <Clock className="size-3.5" strokeWidth={2} aria-hidden />
-            Workspace
-          </span>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="truncate font-heading text-[1.75rem] leading-tight font-bold tracking-tight text-foreground capitalize sm:text-[2rem]">
-              {mode === "new"
-                ? "Create SLA policy"
-                : initial.name || "Edit SLA policy"}
-            </h1>
-            {mode === "edit" && <StatusBadge status={initial.status} />}
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-ink ring-1 ring-brand-accent/10 sm:flex">
+              <Clock className="size-6" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="truncate font-heading text-[1.6rem] leading-tight font-bold tracking-tight text-foreground capitalize sm:text-[1.85rem]">
+                  {mode === "new"
+                    ? "Create SLA policy"
+                    : initial.name || "Edit SLA policy"}
+                </h1>
+                {mode === "edit" && <StatusBadge status={initial.status} />}
+              </div>
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
+                Define how quickly your team should respond to and resolve
+                customer tickets.
+              </p>
+            </div>
           </div>
-          <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
-            Define how quickly your team should respond to and resolve customer
-            tickets.
-          </p>
         </div>
 
         <div
@@ -761,8 +776,8 @@ export default function SlaEditor({
                                 error && "border-b-0",
                               )}
                             >
-                              <TableCell className="px-3 py-1.5 font-medium text-slate-900">
-                                <span className="inline-flex items-center gap-2">
+                              <TableCell className="px-3 py-2 font-medium text-slate-900">
+                                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold">
                                   <span
                                     className={cn(
                                       "size-2 rounded-full",
@@ -975,140 +990,146 @@ export default function SlaEditor({
 
             <fieldset className="min-w-0">
               <IconCard icon={Bell} title="Notifications" optional solid>
-                <div className="grid grid-cols-1 items-center gap-x-6 gap-y-3 sm:grid-cols-[auto_1fr]">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="notify-breach"
-                      checked={draft.notifyBeforeBreach}
-                      onCheckedChange={(v) =>
-                        setDraft((p) => ({ ...p, notifyBeforeBreach: v }))
-                      }
-                      className="data-[state=checked]:bg-brand-accent"
-                    />
-                    <Label
-                      htmlFor="notify-breach"
-                      className="cursor-pointer text-sm font-semibold text-slate-800"
-                    >
-                      Notify assignee before breach
-                    </Label>
+                <div className="flex flex-col gap-3">
+                  <div className="rounded-xl border border-border bg-slate-50/40 p-4 transition-colors has-[[data-state=checked]]:border-brand-accent/30 has-[[data-state=checked]]:bg-brand-soft/30 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="notify-breach"
+                        checked={draft.notifyBeforeBreach}
+                        onCheckedChange={(v) =>
+                          setDraft((p) => ({ ...p, notifyBeforeBreach: v }))
+                        }
+                        className="data-[state=checked]:bg-brand-accent"
+                      />
+                      <Label
+                        htmlFor="notify-breach"
+                        className="cursor-pointer text-sm font-semibold text-slate-800"
+                      >
+                        Notify assignee before breach
+                      </Label>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Input
+                          inputMode="numeric"
+                          className="h-9 w-16 border-slate-200 text-sm"
+                          value={notifyLead.amount}
+                          disabled={!draft.notifyBeforeBreach}
+                          aria-label="How long before the target to warn the assignee"
+                          aria-invalid={
+                            Boolean(errors.notifyBefore) || undefined
+                          }
+                          onChange={(e) =>
+                            setNotifyLead((n) => ({
+                              ...n,
+                              amount: toDigits(e.target.value),
+                            }))
+                          }
+                        />
+                        <Select
+                          value={notifyLead.unit}
+                          disabled={!draft.notifyBeforeBreach}
+                          onValueChange={(v) =>
+                            setNotifyLead((n) => ({ ...n, unit: v as Unit }))
+                          }
+                        >
+                          <SelectTrigger
+                            className="min-h-9 w-28 border-slate-200 text-sm"
+                            aria-label="Lead time unit"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent
+                            side="bottom"
+                            align="start"
+                            position="popper"
+                            className="p-1"
+                          >
+                            {(["minutes", "hours"] as Unit[]).map((u) => (
+                              <SelectItem
+                                key={u}
+                                value={u}
+                                className="p-2 cursor-pointer"
+                              >
+                                {unitLabel(u, notifyLead.amount)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-slate-500">
+                          Before the SLA deadline
+                        </p>
+                      </div>
+                      {errors.notifyBefore && (
+                        <p className="text-xs text-red-600">
+                          {errors.notifyBefore}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Input
-                        inputMode="numeric"
-                        className="h-9 w-16 border-slate-200 text-sm"
-                        value={notifyLead.amount}
-                        disabled={!draft.notifyBeforeBreach}
-                        aria-label="How long before the target to warn the assignee"
-                        aria-invalid={Boolean(errors.notifyBefore) || undefined}
-                        onChange={(e) =>
-                          setNotifyLead((n) => ({
-                            ...n,
-                            amount: toDigits(e.target.value),
+
+                  <div className="rounded-xl border border-border bg-slate-50/40 p-4 transition-colors has-[[data-state=checked]]:border-brand-accent/30 has-[[data-state=checked]]:bg-brand-soft/30 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="escalate-breach"
+                        checked={draft.escalateOnBreach}
+                        onCheckedChange={(v) =>
+                          setDraft((p) => ({
+                            ...p,
+                            escalateOnBreach: v,
                           }))
                         }
+                        className="data-[state=checked]:bg-brand-accent"
                       />
+
+                      <Label
+                        htmlFor="escalate-breach"
+                        className="cursor-pointer text-sm font-semibold text-slate-800"
+                      >
+                        Escalate on breach
+                      </Label>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <Select
-                        value={notifyLead.unit}
-                        disabled={!draft.notifyBeforeBreach}
+                        value={draft.escalateToRole}
                         onValueChange={(v) =>
-                          setNotifyLead((n) => ({ ...n, unit: v as Unit }))
+                          setDraft((p) => ({
+                            ...p,
+                            escalateToRole: v as EscalationRole,
+                          }))
                         }
+                        disabled={!draft.escalateOnBreach}
                       >
                         <SelectTrigger
-                          className="min-h-9 w-28 border-slate-200 text-sm"
-                          aria-label="Lead time unit"
+                          className="min-h-9 w-44 border-slate-200 text-sm"
+                          aria-label="Escalate to"
                         >
                           <SelectValue />
                         </SelectTrigger>
+
                         <SelectContent
                           side="bottom"
                           align="start"
                           position="popper"
                           className="p-1"
                         >
-                          {(["minutes", "hours"] as Unit[]).map((u) => (
+                          {ESCALATION_ROLES.map((role) => (
                             <SelectItem
-                              key={u}
-                              value={u}
-                              className="p-2 cursor-pointer"
+                              key={role.value}
+                              value={role.value}
+                              className="min-h-9 cursor-pointer p-2"
                             >
-                              {unitLabel(u, notifyLead.amount)}
+                              {role.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+
                       <p className="text-xs text-slate-500">
-                        Before the SLA deadline
+                        Automatically escalate the ticket if SLA is breached.
                       </p>
                     </div>
-                    {errors.notifyBefore && (
-                      <p className="text-xs text-red-600">
-                        {errors.notifyBefore}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="escalate-breach"
-                      checked={draft.escalateOnBreach}
-                      onCheckedChange={(v) =>
-                        setDraft((p) => ({
-                          ...p,
-                          escalateOnBreach: v,
-                        }))
-                      }
-                      className="data-[state=checked]:bg-brand-accent"
-                    />
-
-                    <Label
-                      htmlFor="escalate-breach"
-                      className="cursor-pointer text-sm font-semibold text-slate-800"
-                    >
-                      Escalate on breach
-                    </Label>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <Select
-                      value={draft.escalateToRole}
-                      onValueChange={(v) =>
-                        setDraft((p) => ({
-                          ...p,
-                          escalateToRole: v as EscalationRole,
-                        }))
-                      }
-                      disabled={!draft.escalateOnBreach}
-                    >
-                      <SelectTrigger
-                        className="min-h-9 w-44 border-slate-200 text-sm"
-                        aria-label="Escalate to"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent
-                        side="bottom"
-                        align="start"
-                        position="popper"
-                        className="p-1"
-                      >
-                        {ESCALATION_ROLES.map((role) => (
-                          <SelectItem
-                            key={role.value}
-                            value={role.value}
-                            className="min-h-9 cursor-pointer p-2"
-                          >
-                            {role.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <p className="text-xs text-slate-500">
-                      Automatically escalate the ticket if SLA is breached.
-                    </p>
                   </div>
                 </div>
               </IconCard>
@@ -1261,12 +1282,12 @@ function Section({
 }) {
   return (
     <Card className={CARD}>
-      <CardHeader className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-sm font-bold text-brand-700 tabular-nums">
+      <CardHeader className={cn(CARD_HEADER, hint && "items-start")}>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-sm font-bold text-brand-ink tabular-nums">
           {step}
         </span>
         <div className="min-w-0 space-y-0.5">
-          <CardTitle className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+          <CardTitle className={CARD_TITLE}>
             {title}
             {optional && (
               <span className="ml-1 text-xs font-normal text-slate-500">
@@ -1275,13 +1296,11 @@ function Section({
             )}
           </CardTitle>
           {hint && (
-            <CardDescription className="text-xs text-slate-500">
-              {hint}
-            </CardDescription>
+            <CardDescription className={CARD_HINT}>{hint}</CardDescription>
           )}
         </div>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={CARD_BODY}>{children}</CardContent>
     </Card>
   );
 }
@@ -1416,7 +1435,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-sm font-medium text-slate-800">
+      <Label className="gap-0.5 text-sm font-semibold text-slate-800">
         {label}
         {required && <span className="text-red-500">*</span>}
       </Label>
@@ -1458,19 +1477,23 @@ function ChoiceCard({
     >
       <span
         className={cn(
-          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+          "mt-2 flex size-5 shrink-0 items-center justify-center rounded-full border-2",
           selected ? "border-brand-accent!" : "border-slate-300!",
         )}
       >
         {selected && <span className="size-2.5 rounded-full bg-brand-accent" />}
       </span>
-      <Icon
+      <span
         className={cn(
-          "mt-0.5 size-6 shrink-0",
-          selected ? "text-brand-accent" : "text-slate-500",
+          "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+          selected
+            ? "bg-brand-accent text-brand-accent-foreground"
+            : "bg-slate-100 text-slate-500",
         )}
-      />
-      <span className="space-y-1">
+      >
+        <Icon className="size-4.5" />
+      </span>
+      <span className="min-w-0 space-y-1">
         <span className="block text-sm font-semibold text-slate-900">
           {title}
         </span>
@@ -1579,27 +1602,29 @@ function IconCard({
 }) {
   return (
     <Card ref={ref} className={cn(CARD, "scroll-mt-6")}>
-      <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+      <CardHeader
+        className={cn(CARD_HEADER, "flex-wrap justify-between gap-y-3")}
+      >
         <div
           className={cn(
-            "flex min-w-0 items-start gap-3",
+            "flex min-w-0 flex-1 items-center gap-3",
             locked && "opacity-50",
           )}
         >
           <span
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full",
+              "flex size-8 shrink-0 items-center justify-center rounded-lg",
               locked
                 ? "bg-slate-100 text-slate-500"
                 : solid
-                  ? "bg-brand-700 text-white"
-                  : "bg-brand-50 text-brand-700",
+                  ? "bg-brand-accent text-brand-accent-foreground"
+                  : "bg-brand-soft text-brand-ink",
             )}
           >
-            <Icon className="size-4.5" />
+            <Icon className="size-4" />
           </span>
           <div className="min-w-0 space-y-0.5">
-            <CardTitle className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+            <CardTitle className={CARD_TITLE}>
               {title}
               {optional && (
                 <span className="ml-1 text-xs font-normal text-slate-500">
@@ -1608,15 +1633,13 @@ function IconCard({
               )}
             </CardTitle>
             {hint && (
-              <CardDescription className="text-xs text-slate-500">
-                {hint}
-              </CardDescription>
+              <CardDescription className={CARD_HINT}>{hint}</CardDescription>
             )}
           </div>
         </div>
-        {action && <CardAction>{action}</CardAction>}
+        {action && <CardAction className="self-center">{action}</CardAction>}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={CARD_BODY}>{children}</CardContent>
     </Card>
   );
 }

@@ -10,14 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetClose,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogClose,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -36,8 +33,8 @@ import {
   X,
   FileIcon,
   ChevronDown,
-  TicketPlus,
   Search,
+  TicketPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Customer } from "../services/tickets.service";
@@ -49,25 +46,27 @@ import {
 import { discardTicketFiles, uploadTicketFiles } from "../lib/upload";
 import type { TicketUploadedFile } from "../types/tickets.types";
 import {
+  TEAM_DIALOG_CONTENT,
+  TEAM_DIALOG_FOOTER,
   TEAM_MODAL_BUTTON,
   TEAM_MODAL_BUTTON_PRIMARY,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 import { cn } from "@/lib/utils";
 
 /**
- * Same field metrics as the SLA policy editor: 40px tall, 14px text. The
- * select needs its height on the data-size variant, which otherwise wins
- * over a plain h-* and pins it at 32px.
+ * Same field metrics as the team popups: 40px tall, 14px text. The select
+ * needs its height on the data-size variant, which otherwise wins over a
+ * plain h-* and pins it at 32px.
  */
 const FIELD = "h-10 rounded-lg bg-card px-3 text-sm";
 const SELECT_TRIGGER = `${FIELD} w-full data-[size=default]:h-10 text-slate-800`;
 const SELECT_ITEM = "p-2 text-sm";
-/**
- * The close cross as a glyph, not a filled ghost button, lined up with the
- * header's title -- the SLA dialogs' cross (TEAM_DIALOG_CLOSE).
- */
-const SHEET_CLOSE =
-  "[&>[data-slot=sheet-close]]:border-0 [&>[data-slot=sheet-close]]:shadow-none [&>[data-slot=sheet-close]]:top-4 [&>[data-slot=sheet-close]]:right-4 [&>[data-slot=sheet-close]]:text-muted-foreground [&>[data-slot=sheet-close]]:hover:bg-transparent [&>[data-slot=sheet-close]]:hover:text-foreground [&>[data-slot=sheet-close]]:dark:hover:bg-transparent";
+/** The team popups' field label. */
+const LABEL = "text-sm font-semibold";
 
 interface CreateTicketSheetProps {
   open: boolean;
@@ -184,40 +183,21 @@ export default function CreateTicketSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        className={cn(
-          // Full width on phones; the sheet's own data-side defaults (3/4
-          // wide, max-w-sm) out-rank plain w-/max-w- classes, so these
-          // override them on the same variant.
-          "flex flex-col p-0 font-sans data-[side=right]:w-full data-[side=right]:sm:max-w-md",
-          SHEET_CLOSE,
-        )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* The platform console's popup: icon header, roomy body, banded footer. */}
+      <DialogContent
+        className={`max-h-[90vh] overflow-y-auto font-sans sm:max-w-120 ${TEAM_DIALOG_CONTENT}`}
       >
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col h-full overflow-hidden"
-        >
-          <SheetHeader className="flex-row items-start gap-3.5 border-b border-border px-4 py-5 pr-12 text-left sm:px-6 sm:pr-12">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
-              <TicketPlus className="size-5" strokeWidth={1.75} aria-hidden />
-            </span>
-            <div className="flex min-w-0 flex-col gap-1">
-              <SheetTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
-                New ticket
-              </SheetTitle>
-              <SheetDescription className="text-sm leading-relaxed text-slate-500">
-                Create a support request on behalf of a customer.
-              </SheetDescription>
-            </div>
-          </SheetHeader>
+        <DialogIconHeader
+          icon={TicketPlus}
+          title="New ticket"
+          description="Create a support request on behalf of a customer."
+        />
 
-          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 space-y-4 text-xs text-slate-700">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4 text-xs text-slate-700">
             <div className="space-y-1.5">
-              <Label
-                htmlFor="subject"
-                className="text-xs font-semibold text-slate-700"
-              >
+              <Label htmlFor="subject" className={LABEL}>
                 Subject <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -232,10 +212,7 @@ export default function CreateTicketSheet({
             </div>
 
             <div className="space-y-1.5">
-              <Label
-                htmlFor="requester"
-                className="text-xs font-semibold text-slate-700"
-              >
+              <Label htmlFor="requester" className={LABEL}>
                 Requester <span className="text-red-500">*</span>
               </Label>
               <RequesterCombobox
@@ -246,10 +223,7 @@ export default function CreateTicketSheet({
             </div>
 
             <div className="space-y-1.5">
-              <Label
-                htmlFor="priority"
-                className="text-xs font-semibold text-slate-700"
-              >
+              <Label htmlFor="priority" className={LABEL}>
                 Priority
               </Label>
               <Select value={priority} onValueChange={setPriority}>
@@ -279,10 +253,7 @@ export default function CreateTicketSheet({
             </div>
 
             <div className="space-y-1.5">
-              <Label
-                htmlFor="description"
-                className="text-xs font-semibold text-slate-700"
-              >
+              <Label htmlFor="description" className={LABEL}>
                 Description
               </Label>
               <Textarea
@@ -296,9 +267,7 @@ export default function CreateTicketSheet({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-slate-700">
-                Attachments
-              </Label>
+              <Label className={LABEL}>Attachments</Label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -367,36 +336,39 @@ export default function CreateTicketSheet({
             </div>
           </div>
 
-          {/* One column on phones with the primary action on top; a right-aligned
-              row from sm up. */}
-          <SheetFooter className="mt-auto flex-col-reverse gap-3 border-t border-border bg-slate-50/60 px-4 py-4 sm:flex-row sm:justify-end sm:px-6 dark:bg-muted/30">
-            <SheetClose asChild>
+          <DialogFooter
+            className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}
+          >
+            <DialogClose asChild>
               <Button
                 type="button"
                 variant="outline"
-                className={cn(TEAM_MODAL_BUTTON, "bg-white")}
+                disabled={isPending}
+                size="sm"
+                className={TEAM_MODAL_BUTTON}
               >
                 Cancel
               </Button>
-            </SheetClose>
+            </DialogClose>
             <Button
               type="submit"
               disabled={isPending || !requesterCustomerId || !subject}
-              className={cn(TEAM_MODAL_BUTTON, TEAM_MODAL_BUTTON_PRIMARY)}
+              size="sm"
+              className={`${TEAM_MODAL_BUTTON} ${TEAM_MODAL_BUTTON_PRIMARY}`}
             >
               {isPending && <Loader2 className="size-4 animate-spin" />}
               {isPending ? "Creating…" : "Create ticket"}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 /**
  * Searchable requester picker: the server returns up to 50 matches per query,
- * so the sheet opens fast however many customers the tenant has.
+ * so the popup opens fast however many customers the tenant has.
  */
 function RequesterCombobox({
   tenant,

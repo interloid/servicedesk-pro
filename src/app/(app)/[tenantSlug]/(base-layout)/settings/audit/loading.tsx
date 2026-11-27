@@ -35,17 +35,17 @@ export default function Loading() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5"
             >
-              <Skeleton className="size-12 shrink-0 rounded-full" />
-              <div className="flex flex-1 flex-col gap-2">
-                <Skeleton className="h-7 w-16" />
-                <Skeleton className="h-4 w-24" />
+              <div className="flex items-start justify-between gap-3">
+                <Skeleton className="mt-1 h-3.5 w-24 max-w-full" />
+                <Skeleton className="size-8 shrink-0 rounded-full" />
               </div>
+              <Skeleton className="h-6.5 w-16" />
             </div>
           ))}
         </div>

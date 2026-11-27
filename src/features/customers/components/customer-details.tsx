@@ -209,8 +209,8 @@ export function CustomerOverview({
 
   return (
     <>
-      {/* Two up from sm, four only at the widest, as on the platform pages. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl:grid-cols-4">
+      {/* Two up, four once the page is wide enough, as on the other dashboards. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4">
         <StatCard
           icon={Inbox}
           iconClassName="bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300"

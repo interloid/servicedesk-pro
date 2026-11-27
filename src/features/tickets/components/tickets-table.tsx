@@ -112,7 +112,7 @@ const BULK_ACTION_BUTTON =
 
 /** The table's header cells, as on the platform tables. */
 const TH =
-  "h-10 px-4 text-left text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase";
+  "h-10 overflow-hidden px-3 text-left text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase";
 
 /** A soft tinted pill with a hairline ring in the same hue. */
 const PILL =
@@ -177,14 +177,16 @@ function SlaBadge({ ticket }: { ticket: Ticket }) {
       // Read from the clock, which differs between server render and browser.
       suppressHydrationWarning
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap tabular-nums ring-1 ring-inset",
+        "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap tabular-nums ring-1 ring-inset",
         style.pill,
       )}
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", style.dot)} />
-      {live.type === "waiting" && !mounted
-        ? "Outside business hours"
-        : live.text}
+      <span className="truncate">
+        {live.type === "waiting" && !mounted
+          ? "Outside business hours"
+          : live.text}
+      </span>
     </span>
   );
 }
@@ -496,6 +498,12 @@ export default function TicketsTable({
       "sla",
     ] as ColumnKey[]
   ).find((c) => visibleColumns[c]);
+  // In a narrow card (a laptop with the sidebar open) the requester folds
+  // under the subject instead of taking a column of its own.
+  const foldRequester = Boolean(
+    visibleColumns?.subject && visibleColumns?.requester,
+  );
+  const REQUESTER_COL = foldRequester ? "hidden @5xl:table-cell" : "";
 
   // No tickets at all (not just none matching a search or filter): the
   // tabs, columns, search and filters show but are disabled, as there is
@@ -866,11 +874,14 @@ export default function TicketsTable({
                 onAction={() => setIsSheetOpen(true)}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
+              /* Fixed layout with set column widths, so the subject takes what
+                 is left and ends in "…" rather than pushing the table wider
+                 than the card. Below 720px (phones) it scrolls sideways. */
+              <div className="@container overflow-x-auto">
+                <Table className="min-w-180 table-fixed">
                   <TableHeader className="bg-slate-50/80 dark:bg-muted/40 [&_tr]:border-b-0">
                     <TableRow className="shadow-[inset_0_-1px_0_var(--border)] hover:bg-transparent">
-                      <TableHead className="h-10 w-12 px-4 text-center align-middle">
+                      <TableHead className="h-10 w-11 px-3 text-center align-middle">
                         <Checkbox
                           checked={isAllSelected}
                           onCheckedChange={(checked) =>
@@ -882,7 +893,7 @@ export default function TicketsTable({
                       </TableHead>
 
                       {visibleColumns?.id && (
-                        <TableHead className={cn(TH, "w-24")}>TICKET</TableHead>
+                        <TableHead className={cn(TH, "w-18")}>TICKET</TableHead>
                       )}
 
                       {visibleColumns?.subject && (
@@ -903,19 +914,21 @@ export default function TicketsTable({
                       )}
 
                       {visibleColumns?.requester && (
-                        <TableHead className={cn(TH, "w-48")}>
+                        <TableHead
+                          className={cn(TH, "w-44 @6xl:w-52", REQUESTER_COL)}
+                        >
                           REQUESTER
                         </TableHead>
                       )}
 
                       {visibleColumns?.priority && (
-                        <TableHead className={cn(TH, "w-28")}>
+                        <TableHead className={cn(TH, "w-26")}>
                           PRIORITY
                         </TableHead>
                       )}
 
                       {visibleColumns?.assignee && (
-                        <TableHead className={cn(TH, "w-44")}>
+                        <TableHead className={cn(TH, "w-40 @6xl:w-48")}>
                           ASSIGNEE
                         </TableHead>
                       )}
@@ -925,7 +938,9 @@ export default function TicketsTable({
                       )}
 
                       {visibleColumns?.sla && (
-                        <TableHead className={cn(TH, "w-36 text-right")}>
+                        <TableHead
+                          className={cn(TH, "w-36 @6xl:w-40 text-right")}
+                        >
                           SLA
                         </TableHead>
                       )}
@@ -980,7 +995,7 @@ export default function TicketsTable({
                         >
                           <TableCell
                             data-row-select
-                            className="px-4 py-3 text-center align-middle"
+                            className="px-3 py-3 text-center align-middle"
                           >
                             <Checkbox
                               checked={isSelected}
@@ -993,7 +1008,7 @@ export default function TicketsTable({
                           </TableCell>
 
                           {visibleColumns?.id && (
-                            <TableCell className="px-4 py-3 align-middle text-sm font-medium text-slate-500 tabular-nums">
+                            <TableCell className="px-3 py-3 align-middle text-sm font-medium text-slate-500 tabular-nums">
                               {cell(
                                 "id",
                                 "block py-1 hover:text-foreground",
@@ -1003,17 +1018,28 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.subject && (
-                            <TableCell className="px-4 py-3 align-middle">
+                            <TableCell className="px-3 py-3 align-middle">
                               {cell(
                                 "subject",
-                                "block py-1",
+                                "block min-w-0 py-1",
                                 <>
-                                  <span className="block truncate font-semibold text-foreground">
+                                  <span
+                                    title={ticket.subject ?? undefined}
+                                    className="block truncate font-semibold text-foreground"
+                                  >
                                     {ticket.subject
                                       ? ticket.subject.charAt(0).toUpperCase() +
                                         ticket.subject.slice(1)
                                       : ""}
                                   </span>
+                                  {foldRequester && (
+                                    <span className="mt-0.5 block truncate text-xs text-slate-500 @5xl:hidden">
+                                      {ticket.customers?.full_name ||
+                                        "Customer"}
+                                      {ticket.customers?.company &&
+                                        ` · ${ticket.customers.company}`}
+                                    </span>
+                                  )}
                                   {ticket.tags && ticket.tags.length > 0 && (
                                     <span className="mt-1 flex flex-wrap gap-1">
                                       {ticket.tags.slice(0, 3).map((tag) => (
@@ -1037,16 +1063,21 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.requester && (
-                            <TableCell className="px-4 py-3 align-middle">
+                            <TableCell
+                              className={cn(
+                                "px-3 py-3 align-middle",
+                                REQUESTER_COL,
+                              )}
+                            >
                               {cell(
                                 "requester",
                                 "block py-1",
                                 <>
-                                  <div className="text-sm font-semibold text-foreground leading-snug">
+                                  <div className="truncate text-sm font-semibold text-foreground leading-snug">
                                     {ticket.customers?.full_name || "Customer"}
                                   </div>
                                   {ticket.customers?.company && (
-                                    <div className="text-xs leading-snug text-slate-500">
+                                    <div className="truncate text-xs leading-snug text-slate-500">
                                       {ticket.customers.company}
                                     </div>
                                   )}
@@ -1056,7 +1087,7 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.priority && (
-                            <TableCell className="px-4 py-3 text-left align-middle">
+                            <TableCell className="px-3 py-3 text-left align-middle">
                               {cell(
                                 "priority",
                                 "inline-flex py-1",
@@ -1066,21 +1097,26 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.assignee && (
-                            <TableCell className="px-4 py-3 align-middle text-sm text-foreground">
+                            <TableCell className="px-3 py-3 align-middle text-sm text-foreground">
                               {cell(
                                 "assignee",
                                 "block py-1",
                                 ticket.assignee_name ? (
-                                  <span className="inline-flex items-center gap-2 font-medium whitespace-nowrap">
+                                  <span
+                                    title={ticket.assignee_name}
+                                    className="flex min-w-0 items-center gap-2 font-medium whitespace-nowrap"
+                                  >
                                     {ticket.assignee_initials && (
                                       <PersonAvatar
                                         src={ticket.assignee_avatar_url}
                                         initials={ticket.assignee_initials}
-                                        className="size-5"
+                                        className="size-5 shrink-0"
                                         fallbackClassName="bg-slate-100 text-[10px] font-semibold text-slate-600"
                                       />
                                     )}
-                                    {ticket.assignee_name}
+                                    <span className="truncate">
+                                      {ticket.assignee_name}
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-2 text-slate-500 font-medium whitespace-nowrap">
@@ -1095,7 +1131,7 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.status && (
-                            <TableCell className="px-4 py-3 text-left align-middle">
+                            <TableCell className="px-3 py-3 text-left align-middle">
                               {cell(
                                 "status",
                                 "inline-flex py-1",
@@ -1105,7 +1141,7 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.sla && (
-                            <TableCell className="px-4 py-3 text-right align-middle text-xs">
+                            <TableCell className="px-3 py-3 text-right align-middle text-xs">
                               {cell(
                                 "sla",
                                 "inline-flex w-full justify-end py-1",
@@ -1122,7 +1158,7 @@ export default function TicketsTable({
             )}
           </div>
           {initialTickets.length > 0 && (
-            <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 text-sm text-slate-500 sm:flex-row dark:bg-muted/30">
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-3 py-3 text-sm text-slate-500 sm:flex-row dark:bg-muted/30">
               <div className="flex items-center gap-2 tabular-nums">
                 <span>
                   Showing {initialTickets.length} of {totalCount}

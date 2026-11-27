@@ -1,13 +1,14 @@
 "use client";
 
 import {
-  BotMessageSquare,
   CircleAlert,
+  CornerDownRight,
+  Headset,
   RotateCcw,
-  Sparkles,
   WifiOff,
 } from "lucide-react";
 import Link from "next/link";
+import { useId } from "react";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -47,13 +48,10 @@ export function AssistantAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
       className={
         size === "md"
           ? "flex size-9 shrink-0 items-center justify-center rounded-full bg-current/15"
-          : "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-accent text-brand-accent-foreground shadow-xs"
+          : "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border bg-background text-brand-ink"
       }
     >
-      <BotMessageSquare
-        className={size === "md" ? "size-5" : "size-4"}
-        aria-hidden
-      />
+      <Headset className={size === "md" ? "size-5" : "size-4"} aria-hidden />
     </span>
   );
 }
@@ -72,7 +70,7 @@ export function ChatMessage({
   if (item.role === "user") {
     return (
       <div className="flex justify-end">
-        <p className="max-w-[85%] rounded-2xl rounded-br-md bg-brand-accent px-3.5 py-2 text-sm whitespace-pre-wrap text-brand-accent-foreground shadow-xs">
+        <p className="max-w-[85%] rounded-2xl rounded-tr-md bg-brand-accent px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-brand-accent-foreground shadow-xs">
           {item.text}
         </p>
       </div>
@@ -87,7 +85,7 @@ export function ChatMessage({
         <AssistantAvatar />
         <div
           role="alert"
-          className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-destructive/25 bg-destructive/5 px-3.5 py-2.5 text-sm"
+          className="max-w-[85%] min-w-0 rounded-2xl rounded-tl-md border border-destructive/25 bg-destructive/5 px-3.5 py-2.5 text-sm leading-relaxed"
         >
           <p className="flex items-start gap-2 text-destructive">
             {code === "offline" ? (
@@ -124,8 +122,10 @@ export function ChatMessage({
   return (
     <div className="flex gap-2.5">
       <AssistantAvatar />
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="w-fit max-w-full rounded-2xl rounded-tl-md border bg-background px-3.5 py-2.5 text-sm text-foreground/90 shadow-xs">
+      {/* Same padding and corner as the customer's bubble, mirrored: the
+          tail corner is top-left here, top-right there. */}
+      <div className="min-w-0 flex-1 space-y-2 pr-[8%]">
+        <div className="w-fit max-w-full rounded-2xl rounded-tl-md border bg-background px-3.5 py-2.5 text-sm leading-relaxed text-foreground/90 shadow-xs">
           <ChatMarkdown text={item.text} />
         </div>
         {item.attachments && item.attachments.length > 0 ? (
@@ -165,19 +165,29 @@ export function SuggestionChips({
   suggestions: string[];
   onPick: (suggestion: string) => void;
 }) {
+  const labelId = useId();
+
   return (
-    <div className="flex flex-wrap gap-2 pl-9.5">
-      {suggestions.map((suggestion) => (
-        <button
-          key={suggestion}
-          type="button"
-          onClick={() => onPick(suggestion)}
-          className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-xs transition-all hover:-translate-y-px hover:border-brand-accent/50 hover:bg-brand-accent/5"
-        >
-          <Sparkles className="size-3 text-brand-ink opacity-70" aria-hidden />
-          {suggestion}
-        </button>
-      ))}
+    <div role="group" aria-labelledby={labelId} className="pl-9.5">
+      <p
+        id={labelId}
+        className="mb-1.5 text-[11px] font-medium text-muted-foreground"
+      >
+        Suggested replies
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((suggestion) => (
+          <button
+            key={suggestion}
+            type="button"
+            onClick={() => onPick(suggestion)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-brand-accent/35 bg-background py-1.5 pr-3 pl-2.5 text-xs font-medium text-brand-ink shadow-xs transition-[background-color,border-color,transform] outline-none hover:border-brand-accent hover:bg-brand-accent/8 focus-visible:border-brand-accent focus-visible:ring-3 focus-visible:ring-brand-accent/25 active:scale-[0.97]"
+          >
+            <CornerDownRight aria-hidden className="size-3.5 opacity-60" />
+            {suggestion}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
