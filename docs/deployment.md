@@ -73,6 +73,7 @@ Set each of these in both `development` and `production`, with that environment'
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                          | Variable | Yes      | Vercel         |
 | `SUPABASE_SERVICE_ROLE_KEY`                                                                                                          | Secret   | Yes      | Vercel         |
 | `NEXT_PUBLIC_TWITTER_HANDLE`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Variable | No       | Vercel         |
+| `NEXT_PUBLIC_DEMO_LOGINS` (`true` to show demo sign-in buttons), `NEXT_PUBLIC_DEMO_PASSWORD`, `NEXT_PUBLIC_DEMO_PLATFORM_EMAIL`, `NEXT_PUBLIC_DEMO_PLATFORM_PASSWORD` — development only, they ship to the browser | Variable | No | Vercel |
 | `PLATFORM_ADMIN_EMAILS`                                                                                                              | Either   | No       | Vercel         |
 | `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                     | Secret   | No       | Vercel         |
 | `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                         | Variable | Yes      | Edge Functions |

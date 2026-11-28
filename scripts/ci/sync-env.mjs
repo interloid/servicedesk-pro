@@ -56,6 +56,12 @@ export const MANIFEST = [
   { name: "GROQ_API_KEY", to: "app", secret: true },
   { name: "CHATBOT_PROVIDER", to: "app" },
   { name: "CHATBOT_MODEL", to: "app" },
+  // App: demo sign-in buttons on the login page (development only; these
+  // are compiled into the browser bundle, so never use real passwords)
+  { name: "NEXT_PUBLIC_DEMO_LOGINS", to: "app" },
+  { name: "NEXT_PUBLIC_DEMO_PASSWORD", to: "app" },
+  { name: "NEXT_PUBLIC_DEMO_PLATFORM_EMAIL", to: "app" },
+  { name: "NEXT_PUBLIC_DEMO_PLATFORM_PASSWORD", to: "app" },
   // App: payments and monitoring
   { name: "NEXT_PUBLIC_PAYPAL_CLIENT_ID", to: "app" },
   { name: "NEXT_PUBLIC_SENTRY_DSN", to: "app" },
