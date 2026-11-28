@@ -2,7 +2,7 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { REPORT_CARD } from "./styles";
+import { REPORT_CARD, REPORT_STAT_GRID } from "./styles";
 
 /**
  * Skeletons for the Reports page, mirroring ReportsDashboard piece for piece:
@@ -42,14 +42,29 @@ const AGENT_EMAIL_WIDTHS = ["w-40", "w-36", "w-44", "w-32", "w-40"];
 
 function StatCardSkeleton() {
   return (
-    <Card className={cn(REPORT_CARD, "min-w-0")}>
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-10 shrink-0 rounded-lg" />
-        <Skeleton className="h-4 w-28 max-w-full" />
+    <Card className={cn(REPORT_CARD, "min-w-0 gap-3 p-4 sm:p-5")}>
+      <div className="flex items-start justify-between gap-3">
+        <Skeleton className="mt-1 h-3.5 w-24 max-w-full" />
+        <Skeleton className="size-8 shrink-0 rounded-full" />
       </div>
-      <Skeleton className="mt-3 h-8 w-20 sm:mt-4 sm:h-9" />
-      <Skeleton className="mt-1 h-5 w-36 max-w-full" />
+      <div className="flex flex-col gap-1.5">
+        <Skeleton className="h-6.5 w-16" />
+        <Skeleton className="h-3 w-24 max-w-full" />
+      </div>
     </Card>
+  );
+}
+
+/** Stands in for ReportPanelHeading: round icon, title, one line. */
+function PanelHeadingSkeleton() {
+  return (
+    <div className="flex items-start gap-3">
+      <Skeleton className="size-9 shrink-0 rounded-full" />
+      <div className="flex flex-col gap-1.5 pt-0.5">
+        <Skeleton className="h-5 w-52 max-w-full" />
+        <Skeleton className="h-3.5 w-60 max-w-full" />
+      </div>
+    </div>
   );
 }
 
@@ -57,10 +72,7 @@ function TicketPerformanceSkeleton() {
   return (
     <Card className={REPORT_CARD}>
       <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
-        <div>
-          <Skeleton className="h-6 w-52 max-w-full" />
-          <Skeleton className="h-5 w-64 max-w-full" />
-        </div>
+        <PanelHeadingSkeleton />
         <div className="flex flex-wrap items-center gap-2">
           {/* legend, bar/area switch */}
           <Skeleton className="h-10 w-47 rounded-lg" />
@@ -74,10 +86,10 @@ function TicketPerformanceSkeleton() {
             <React.Fragment key={i}>
               {i > 0 && <div className="hidden border-t md:block" />}
               <div className="flex-1 md:flex-none">
-                <Skeleton className="size-5 rounded" />
-                <Skeleton className="mt-2 h-5 w-24" />
-                <Skeleton className="h-9 w-12" />
-                <Skeleton className="h-4 w-20" />
+                <Skeleton className="size-9 rounded-full" />
+                <Skeleton className="mt-2.5 h-5 w-24" />
+                <Skeleton className="mt-1 h-8 w-12" />
+                <Skeleton className="mt-1 h-4 w-20" />
               </div>
             </React.Fragment>
           ))}
@@ -130,19 +142,21 @@ function TicketPerformanceSkeleton() {
 function PrioritySkeleton() {
   return (
     <Card className={REPORT_CARD}>
-      <Skeleton className="h-6 w-52 max-w-full" />
-      <Skeleton className="h-5 w-64 max-w-full" />
+      <PanelHeadingSkeleton />
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col rounded-xl border p-3 sm:p-4">
+          <div
+            key={i}
+            className="flex flex-col rounded-xl border border-border p-3 sm:p-4"
+          >
             <div className="flex items-center gap-2">
-              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <Skeleton className="size-8 shrink-0 rounded-full" />
               <Skeleton className="h-5 w-14" />
             </div>
             <Skeleton className="mt-3 h-8 w-14" />
             <Skeleton className="h-4 w-20 max-w-full" />
             <div className="mt-auto pt-3">
-              <Skeleton className="h-2.5 w-full rounded-full" />
+              <Skeleton className="h-2 w-full rounded-full" />
             </div>
           </div>
         ))}
@@ -155,28 +169,28 @@ function AgentTableSkeleton({ className }: { className?: string }) {
   return (
     <Card
       className={cn(
-        "min-w-0 gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-sm ring-1",
+        "min-w-0 gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0",
         className,
       )}
     >
-      <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Skeleton className="size-10 shrink-0 rounded-lg" />
-          <div>
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-16" />
+          <Skeleton className="size-9 shrink-0 rounded-full" />
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3.5 w-16" />
           </div>
         </div>
-        <Skeleton className="h-10 w-full rounded-md sm:w-64" />
+        <Skeleton className="h-10 w-full rounded-lg sm:w-64" />
       </div>
 
       <div className="overflow-x-auto">
         <div className="min-w-170">
-          <div className="flex h-10 items-center border-b border-slate-100 bg-slate-50 dark:border-border dark:bg-muted">
+          <div className="flex h-10 items-center border-b border-border bg-slate-50 dark:bg-muted">
             {AGENT_COLUMNS.map((column, i) => (
               <div
                 key={i}
-                className={cn("px-4 sm:px-6", i === 0 ? "flex-2" : "flex-1")}
+                className={cn("px-4", i === 0 ? "flex-2" : "flex-1")}
               >
                 <Skeleton className={cn("h-3 bg-slate-200/80", column.head)} />
               </div>
@@ -186,12 +200,12 @@ function AgentTableSkeleton({ className }: { className?: string }) {
           {[0, 1, 2, 3, 4].map((row) => (
             <div
               key={row}
-              className="box-content flex h-15 items-center border-b border-slate-100 last:border-0 dark:border-border"
+              className="box-content flex h-15 items-center border-b border-border last:border-0"
             >
               {AGENT_COLUMNS.map((column, i) => (
                 <div
                   key={i}
-                  className={cn("px-4 sm:px-6", i === 0 ? "flex-2" : "flex-1")}
+                  className={cn("px-4", i === 0 ? "flex-2" : "flex-1")}
                 >
                   {column.cell === "agent" ? (
                     <div className="flex items-center gap-3">
@@ -226,7 +240,7 @@ function AgentTableSkeleton({ className }: { className?: string }) {
 export function ReportsSkeletonBody() {
   return (
     <div className="space-y-6" aria-hidden>
-      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <div className={REPORT_STAT_GRID}>
         {[0, 1, 2, 3, 4].map((i) => (
           <StatCardSkeleton key={i} />
         ))}
@@ -254,14 +268,15 @@ export function ReportsSkeleton() {
       className="h-full overflow-x-hidden overflow-y-auto p-4 sm:p-6 lg:p-8"
     >
       <div className="mx-auto space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <Skeleton className="h-8 w-28" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-32" />
             <Skeleton className="h-5 w-80 max-w-full" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Skeleton className="h-10 w-24 rounded-md" />
-            <Skeleton className="h-10 w-40 rounded-md" />
+            <Skeleton className="h-10 w-32 rounded-lg" />
+            <Skeleton className="h-10 w-40 rounded-lg" />
           </div>
         </div>
 

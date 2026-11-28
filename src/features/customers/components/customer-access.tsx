@@ -31,7 +31,19 @@ import {
   type CustomerPortalStatus,
 } from "@/features/customers/types/customers";
 
-/** The customer's portal status, in the team table's badge colours. */
+/**
+ * A hairline inset ring in each badge's own hue, as on the platform tables (a
+ * ring, not a border: the unlayered `* { border-border }` rule beats border
+ * colours).
+ */
+const STATUS_RING: Record<CustomerPortalStatus, string> = {
+  Active: "ring-1 ring-emerald-600/15 ring-inset",
+  Invited: "ring-1 ring-amber-600/20 ring-inset",
+  Disabled: "bg-slate-100 text-slate-600 ring-1 ring-slate-500/15 ring-inset",
+  "Not invited": "border-none ring-1 ring-slate-300 ring-inset",
+};
+
+/** The customer's portal status, in the platform tables' badge colours. */
 export function CustomerStatusBadge({
   status,
   className,
@@ -42,8 +54,9 @@ export function CustomerStatusBadge({
   return (
     <Badge
       className={cn(
-        "h-6 px-2.5 text-xs font-semibold",
+        "h-6 rounded-md px-2 text-xs font-semibold",
         CUSTOMER_STATUS_BADGE[status],
+        STATUS_RING[status],
         className,
       )}
     >
@@ -57,6 +70,7 @@ type AccessAction = {
   icon: LucideIcon;
   run: () => Promise<InviteCustomerResult>;
   success: string;
+  successDescription?: string;
   failure: string;
 };
 
@@ -91,8 +105,8 @@ export function CustomerAccessMenu({
       label: "Invite to portal",
       icon: Send,
       run: () => inviteExistingCustomerAction({ customerId: id }),
-      success: `Invite sent to ${email}.`,
-      failure: `We couldn't invite ${fullName}.`,
+      success: `Portal invite sent to ${email}`,
+      failure: `Couldn't invite ${fullName}`,
     });
   }
 
@@ -101,8 +115,8 @@ export function CustomerAccessMenu({
       label: "Resend invite",
       icon: MailPlus,
       run: () => inviteExistingCustomerAction({ customerId: id }),
-      success: `Invite resent to ${email}.`,
-      failure: `We couldn't resend the invite to ${email}.`,
+      success: `Portal invite resent to ${email}`,
+      failure: `Couldn't resend the invite to ${email}`,
     });
   }
 
@@ -113,8 +127,9 @@ export function CustomerAccessMenu({
       label: "Disable access",
       icon: Pause,
       run: () => setCustomerAccessAction({ customerId: id, enabled: false }),
-      success: `${fullName} can no longer sign in to your support portal.`,
-      failure: `We couldn't disable ${fullName}.`,
+      success: `Portal access disabled for ${fullName}`,
+      successDescription: "They can no longer sign in to your support portal.",
+      failure: `Couldn't disable portal access for ${fullName}`,
     });
   }
 
@@ -123,8 +138,9 @@ export function CustomerAccessMenu({
       label: "Enable access",
       icon: Play,
       run: () => setCustomerAccessAction({ customerId: id, enabled: true }),
-      success: `${fullName} can sign in to your support portal again.`,
-      failure: `We couldn't enable ${fullName}.`,
+      success: `Portal access enabled for ${fullName}`,
+      successDescription: "They can sign in to your support portal again.",
+      failure: `Couldn't enable portal access for ${fullName}`,
     });
   }
 
@@ -134,14 +150,18 @@ export function CustomerAccessMenu({
         const result = await action.run();
 
         if (!result.ok) {
-          toast.error(result.message);
+          toast.error(action.failure, { description: result.message });
           return;
         }
 
-        toast.success(action.success);
+        toast.success(action.success, {
+          description: action.successDescription,
+        });
       } catch (error) {
         console.error("[customers] access action failed", error);
-        toast.error(`${action.failure} Check your connection and try again.`);
+        toast.error(action.failure, {
+          description: "Check your connection and try again.",
+        });
       }
     });
 
@@ -149,12 +169,12 @@ export function CustomerAccessMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
           disabled={isPending}
           aria-label={`Portal access for ${fullName}`}
           className={cn(
-            "size-9 rounded-lg border border-none text-muted-foreground hover:bg-muted hover:text-foreground",
+            "size-9 rounded-lg text-slate-500 shadow-none hover:bg-slate-50 hover:text-foreground",
             className,
           )}
         >

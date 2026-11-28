@@ -76,14 +76,19 @@ export function SupportClosedNotice({ closed }: { closed: SupportClosed }) {
     <div
       role="status"
       suppressHydrationWarning
-      className="mx-3 mt-3 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:mx-4"
+      className="mb-3 flex items-start gap-3 rounded-xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 px-3.5 py-3 dark:border-amber-900/50 dark:border-l-amber-500 dark:bg-amber-950/30"
     >
-      <MoonStar className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+        <MoonStar className="size-4" aria-hidden />
+      </span>
       <div className="min-w-0 text-xs">
-        <p className="font-semibold text-amber-900">
+        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
           Support is currently closed
         </p>
-        <p className="mt-0.5 text-amber-800" suppressHydrationWarning>
+        <p
+          className="mt-0.5 leading-relaxed text-amber-800 dark:text-amber-200/90"
+          suppressHydrationWarning
+        >
           {REASONS[reason]}
           {mounted && opensAt !== null
             ? ` Our team will resume ${formatOpeningLong(opensAt, today)}. Replies are disabled until then.`

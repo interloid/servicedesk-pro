@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bot,
   Loader2,
   Maximize2,
   Minimize2,
@@ -34,6 +35,7 @@ import {
   CHAT_MESSAGE_MAX,
   CHAT_REPLY_MAX,
   chatStorageKey,
+  PORTAL_CHAT_OPEN_EVENT,
   STARTER_SUGGESTIONS,
   type ChatDraft,
   type ChatTurn,
@@ -148,13 +150,15 @@ export function PortalChatWidget({
   const pathname = usePathname();
   const storageKey = chatStorageKey(slug, customerId);
   const panelId = useId();
+  const titleId = useId();
+  const hintId = useId();
   const firstName = customerName.trim().split(/\s+/)[0] ?? "";
 
   const greeting: ChatItem = {
     id: "greeting",
     role: "assistant",
     local: true,
-    text: `Hi${firstName ? ` ${firstName}` : ""} 👋 I can check on your requests, explain how this portal works, or help you raise a new request. What can I do for you?`,
+    text: `Hi${firstName ? ` ${firstName}` : ""}. I can check on your requests, explain how this portal works, or help you raise a new request. What can I do for you?`,
     suggestions: STARTER_SUGGESTIONS,
   };
 
@@ -206,9 +210,15 @@ export function PortalChatWidget({
   }, [items, draft, restored, storageKey]);
 
   // Keep the newest message in view -- inside the list only, never the page.
+  // A fresh chat (only the greeting, shown as the welcome screen) stays at
+  // the top, so its greeting is what is seen first.
   useEffect(() => {
     const list = listRef.current;
-    list?.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+    const fresh = !draft && items.length === 1 && items[0]?.id === "greeting";
+    list?.scrollTo({
+      top: fresh ? 0 : list.scrollHeight,
+      behavior: "smooth",
+    });
   }, [items, draft, isSending, open, expanded]);
 
   // On a phone the panel covers the page; stop the page scrolling behind it.
@@ -228,6 +238,19 @@ export function PortalChatWidget({
     // preventScroll: focusing must not move the page under a fixed panel.
     if (open) inputRef.current?.focus({ preventScroll: true });
   }, [open]);
+
+  // "Ask the assistant" elsewhere on the page: opens the panel the same way
+  // the launcher does (a click on it), so storage and usage load as usual.
+  useEffect(() => {
+    const onOpenRequest = () => {
+      const launcher = launcherRef.current;
+      if (launcher?.getAttribute("aria-expanded") === "false") launcher.click();
+    };
+
+    window.addEventListener(PORTAL_CHAT_OPEN_EVENT, onOpenRequest);
+    return () =>
+      window.removeEventListener(PORTAL_CHAT_OPEN_EVENT, onOpenRequest);
+  }, []);
 
   const onThreadPage = REQUEST_THREAD.test(pathname);
 
@@ -455,65 +478,89 @@ export function PortalChatWidget({
         <section
           id={panelId}
           role="dialog"
-          aria-label="Support assistant"
+          aria-labelledby={titleId}
           onKeyDown={(event) => {
             if (event.key === "Escape") closePanel();
           }}
           style={clearanceStyle}
           className={cn(
-            "fixed inset-0 z-50 flex flex-col overflow-hidden bg-background",
-            "animate-in duration-200 fade-in-0 sm:slide-in-from-bottom-3 sm:zoom-in-95",
-            "sm:inset-auto sm:right-6 sm:bottom-[calc(6rem+var(--footer-clearance))] sm:origin-bottom-right sm:rounded-3xl sm:border",
+            // Phone: a sheet from just under the portal header to the bottom, so
+            // the header (account menu, Help centre) stays in view and usable.
+            "fixed inset-x-0 top-15 bottom-0 z-50 flex flex-col overflow-hidden bg-background",
+            "max-sm:rounded-t-2xl max-sm:border-t max-sm:shadow-[0_-16px_40px_-16px_rgba(15,23,42,0.4)]",
+            "animate-in duration-200 fade-in-0 max-sm:slide-in-from-bottom-8 sm:slide-in-from-bottom-3 sm:zoom-in-95",
+            "sm:inset-auto sm:right-6 sm:bottom-[calc(6rem+var(--footer-clearance))] sm:origin-bottom-right sm:rounded-2xl sm:border",
             "sm:shadow-[0_24px_60px_-12px_rgba(15,23,42,0.35)] sm:transition-[width,height] sm:duration-200",
             expanded
               ? "sm:h-[calc(100dvh-8rem-var(--footer-clearance))] sm:w-[min(56rem,calc(100vw-3rem))]"
               : "sm:h-[min(44rem,calc(100dvh-8rem-var(--footer-clearance)))] sm:w-[min(30rem,calc(100vw-3rem))]",
           )}
         >
-          <header className="relative flex shrink-0 items-center gap-3 overflow-hidden bg-brand-accent px-4 py-3.5 text-brand-accent-foreground">
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-linear-to-br from-white/20 via-transparent to-black/10"
-            />
-            <span className="relative">
+          <header className="flex shrink-0 items-center gap-3 bg-brand-accent py-3 pr-2.5 pl-4 text-brand-accent-foreground">
+            <span className="relative shrink-0">
               <AssistantAvatar size="md" />
               <span
                 aria-hidden
-                className="absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-brand-accent bg-emerald-400"
+                className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-emerald-400 ring-2 ring-brand-accent"
               />
             </span>
-            <div className="relative min-w-0 flex-1">
-              <h2 className="truncate text-sm leading-tight font-semibold">
-                Support assistant
+            <div className="min-w-0 flex-1">
+              <h2
+                id={titleId}
+                className="truncate text-[15px] leading-5 font-semibold"
+              >
+                Support
               </h2>
-              <p className="truncate text-xs text-current/75">
-                Online · usually replies in seconds
+              {/* The status sits on its own tinted chip, so it never reads as
+                  part of the name: this is automated, not a person. */}
+              <p className="mt-1 flex min-w-0 items-center gap-2 text-xs">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-current/15 px-2 py-0.5 text-[11px] leading-4 font-semibold">
+                  <Bot aria-hidden className="size-3" />
+                  Automated assistant
+                </span>
+                <span className="truncate text-current/70">
+                  Replies instantly
+                </span>
               </p>
             </div>
-            <HeaderButton label="New chat" onClick={reset}>
-              <SquarePen className="size-4" />
-            </HeaderButton>
-            <HeaderButton
-              label={expanded ? "Shrink" : "Expand"}
-              onClick={() => setExpanded((value) => !value)}
-              className="hidden sm:inline-flex"
-            >
-              {expanded ? (
-                <Minimize2 className="size-4" />
-              ) : (
-                <Maximize2 className="size-4" />
-              )}
-            </HeaderButton>
-            <HeaderButton label="Close" onClick={closePanel}>
-              <X className="size-4" />
-            </HeaderButton>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {/* Nothing to clear on a fresh chat, so New chat waits for one. */}
+              <HeaderButton
+                label="Start a new chat"
+                onClick={reset}
+                disabled={welcome}
+              >
+                <SquarePen className="size-4" />
+              </HeaderButton>
+              <HeaderButton
+                label={expanded ? "Shrink panel" : "Expand panel"}
+                onClick={() => setExpanded((value) => !value)}
+                pressed={expanded}
+                className="hidden sm:inline-flex"
+              >
+                {expanded ? (
+                  <Minimize2 className="size-4" />
+                ) : (
+                  <Maximize2 className="size-4" />
+                )}
+              </HeaderButton>
+              <span aria-hidden className="mx-1 h-5 w-px bg-current/20" />
+              <HeaderButton
+                label="Close chat"
+                hint="Esc"
+                keyShortcut="Escape"
+                onClick={closePanel}
+              >
+                <X className="size-4.5" />
+              </HeaderButton>
+            </div>
           </header>
 
           <div
             ref={listRef}
             // overscroll-contain: reaching the end of the chat must not start
             // scrolling the page behind it.
-            className="flex-1 overflow-y-auto overscroll-contain bg-muted/25 px-3 py-4 sm:px-4"
+            className="flex-1 overflow-y-auto overscroll-contain bg-muted/30 px-3 py-4 sm:px-4"
             aria-live="polite"
           >
             <div
@@ -522,14 +569,9 @@ export function PortalChatWidget({
                 expanded && "max-w-3xl",
               )}
             >
-              <p className="mx-auto flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1 text-[11px] text-muted-foreground">
-                <ShieldCheck className="size-3.5" aria-hidden />
-                AI assistant · can make mistakes · nothing is submitted until
-                you confirm
-              </p>
-
               {welcome ? (
                 <ChatWelcome
+                  slug={slug}
                   firstName={firstName}
                   onPick={send}
                   disabled={exhausted}
@@ -570,11 +612,14 @@ export function PortalChatWidget({
             onSubmit={onSubmit}
             className="shrink-0 border-t bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4"
           >
+            {/* Two parts in one box: the text on top, and a toolbar under it
+                with the shortcut (or the length, near the limit) on the left
+                and Send on the right. */}
             <div
               className={cn(
-                "mx-auto flex items-end gap-2 rounded-2xl border bg-background p-1.5 pl-3 shadow-xs transition-shadow",
+                "mx-auto overflow-hidden rounded-xl border bg-background shadow-xs transition-[border-color,box-shadow]",
                 "focus-within:border-brand-accent/60 focus-within:ring-3 focus-within:ring-brand-accent/15",
-                exhausted && "bg-muted/40",
+                exhausted && "bg-muted/50",
                 expanded && "max-w-3xl",
               )}
             >
@@ -592,50 +637,66 @@ export function PortalChatWidget({
                     : "Ask about a request, or describe a problem…"
                 }
                 aria-label="Message"
-                className="max-h-36 min-h-9 resize-none border-0 bg-transparent px-0 py-1.5 shadow-none focus-visible:ring-0 disabled:bg-transparent dark:bg-transparent"
+                aria-describedby={hintId}
+                // Important: a global style otherwise draws its own border and focus
+                // ring inside the composer, which already has one.
+                className="max-h-36 min-h-11 resize-none rounded-none border-0! bg-transparent px-3.5 pt-3 pb-1 text-sm leading-6 shadow-none! focus-visible:ring-0 disabled:cursor-not-allowed disabled:bg-transparent dark:bg-transparent dark:disabled:bg-transparent"
               />
-              <Button
-                type="submit"
-                size="icon-lg"
-                className="shrink-0 rounded-xl"
-                disabled={isSending || exhausted || !message.trim()}
-                aria-label="Send"
-              >
-                {isSending ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <SendHorizontal />
-                )}
-              </Button>
+              <div className="flex items-center gap-2 py-1.5 pr-1.5 pl-3.5">
+                <span
+                  id={hintId}
+                  className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
+                >
+                  {exhausted ? (
+                    <Link
+                      href={portalPath(slug, PORTAL_ROUTES.NEW_REQUEST)}
+                      className="font-semibold text-brand-ink underline underline-offset-2"
+                    >
+                      Raise a request instead
+                    </Link>
+                  ) : nearLimit ? (
+                    <span className="font-medium text-destructive tabular-nums">
+                      {message.length} / {CHAT_MESSAGE_MAX} characters
+                    </span>
+                  ) : (
+                    <span className="hidden sm:inline">
+                      <Kbd>Enter</Kbd> to send · <Kbd>Shift+Enter</Kbd> new line
+                    </span>
+                  )}
+                </span>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1.5 rounded-lg px-3 font-semibold disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
+                  disabled={isSending || exhausted || !message.trim()}
+                  aria-label={isSending ? "Sending" : "Send"}
+                >
+                  {isSending ? (
+                    <Loader2 aria-hidden className="animate-spin" />
+                  ) : (
+                    <SendHorizontal aria-hidden />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isSending ? "Sending…" : "Send"}
+                  </span>
+                </Button>
+              </div>
             </div>
 
+            {/* Beside the box where it is read before sending, rather than a
+                banner at the top of the chat that scrolls away. The daily
+                allowance sits quietly at the end of the same line. */}
             <div
               className={cn(
-                "mx-auto mt-2 flex min-h-4 items-center justify-between gap-3 px-1 text-[11px] text-muted-foreground",
+                "mx-auto mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[11px] leading-tight text-muted-foreground",
                 expanded && "max-w-3xl",
               )}
             >
+              <p className="flex min-w-0 items-center gap-1">
+                <ShieldCheck className="size-3 shrink-0" aria-hidden />
+                AI can make mistakes. Nothing is submitted until you confirm.
+              </p>
               <ChatUsageMeter usage={usage} />
-              {exhausted ? (
-                <Link
-                  href={portalPath(slug, PORTAL_ROUTES.NEW_REQUEST)}
-                  className="shrink-0 font-semibold text-brand-ink underline underline-offset-2"
-                >
-                  Raise a request instead
-                </Link>
-              ) : (
-                <span
-                  className={cn(
-                    "shrink-0 tabular-nums",
-                    !nearLimit && "hidden sm:inline",
-                    nearLimit && "font-medium text-destructive",
-                  )}
-                >
-                  {nearLimit
-                    ? `${message.length} / ${CHAT_MESSAGE_MAX}`
-                    : "Shift+Enter for a new line"}
-                </span>
-              )}
             </div>
           </form>
         </section>
@@ -671,27 +732,53 @@ export function PortalChatWidget({
 
 function HeaderButton({
   label,
+  hint,
+  keyShortcut,
+  pressed,
   onClick,
   className,
+  disabled = false,
   children,
 }: {
   label: string;
+  /** Shown in the tooltip after the label, e.g. "Esc". */
+  hint?: string;
+  keyShortcut?: string;
+  /** For a toggle (expand): announced as pressed or not. */
+  pressed?: boolean;
   onClick: () => void;
   className?: string;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
-      title={label}
+      aria-pressed={pressed}
+      aria-keyshortcuts={keyShortcut}
+      title={hint ? `${label} (${hint})` : label}
       className={cn(
-        "relative inline-flex size-8 items-center justify-center rounded-lg text-current/85 transition-colors outline-none hover:bg-current/15 hover:text-current focus-visible:ring-2 focus-visible:ring-current/60",
+        "relative inline-flex size-9 items-center justify-center rounded-lg text-current/85 transition-colors outline-none",
+        "hover:bg-current/15 hover:text-current active:bg-current/20",
+        // A solid ring in the bar's text colour, offset from the button, so
+        // focus shows on any brand colour.
+        "focus-visible:bg-current/15 focus-visible:text-current focus-visible:ring-2 focus-visible:ring-brand-accent-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-brand-accent",
+        "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
         className,
       )}
     >
       {children}
     </button>
+  );
+}
+
+function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="rounded border bg-muted/60 px-1 py-px font-sans text-[10.5px] text-foreground/80">
+      {children}
+    </kbd>
   );
 }

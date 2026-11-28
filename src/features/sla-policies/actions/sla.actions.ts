@@ -28,10 +28,11 @@ import {
 } from "../types/types";
 import { isDurationUnit, isValidDurationMins } from "../duration";
 import { DUPLICATE_HOLIDAY_MESSAGE, findHolidayOnDate } from "../holiday-rules";
+import { userErrorMessage } from "@/lib/user-error";
 
 const failure = (error: unknown) => ({
   success: false as const,
-  error: error instanceof Error ? error.message : "An error occurred",
+  error: userErrorMessage(error, "An error occurred"),
 });
 
 const invalid = (error: string) => ({ success: false as const, error });

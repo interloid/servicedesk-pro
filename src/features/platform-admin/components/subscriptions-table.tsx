@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, Eye, Loader2 } from "lucide-react";
+import { CalendarClock, Download, Eye, Loader2 } from "lucide-react";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_TITLE,
 } from "@/features/team/components/modal-buttons";
+import { getInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { listTenantInvoicesAction } from "../actions/platform-invoices.actions";
@@ -29,7 +31,7 @@ import {
   DataTable,
   FilterTabs,
   PLATFORM_ICON_BUTTON,
-  PlatformFilterBar,
+  PLATFORM_CARD,
   SearchField,
   TablePaginationFooter,
 } from "./platform-ui";
@@ -374,8 +376,14 @@ export function SubscriptionsTable({
 
   return (
     <div className="flex flex-col gap-4 min-h-0 flex-1">
-      <PlatformFilterBar
-        tabs={
+      {/* One toolbar: status tabs on the left, search on the right. */}
+      <div
+        className={cn(
+          PLATFORM_CARD,
+          "flex shrink-0 flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between",
+        )}
+      >
+        <div className="min-w-0">
           <FilterTabs
             label="Subscription status"
             value={filter}
@@ -388,8 +396,8 @@ export function SubscriptionsTable({
               count: searched.filter((row) => matches(row, item.value)).length,
             }))}
           />
-        }
-        search={
+        </div>
+        <div className="w-full lg:max-w-72">
           <SearchField
             value={query}
             onChange={(value) => {
@@ -399,15 +407,23 @@ export function SubscriptionsTable({
             label="Search subscriptions"
             placeholder="Search workspace, owner…"
           />
-        }
-      />
+        </div>
+      </div>
 
       <DataTable
         rows={pageRows}
         rowKey={(row) => row.id}
         empty="No subscriptions match."
         scrollLabel="Subscriptions"
-        summary={`${rows.length} subscription${rows.length === 1 ? "" : "s"}`}
+        summary={
+          <>
+            {rows.length} subscription{rows.length === 1 ? "" : "s"}
+            <span className="text-xs font-normal text-muted-foreground">
+              {formatCurrency(rows.reduce((sum, row) => sum + row.mrr, 0))} / mo
+              in total
+            </span>
+          </>
+        }
         footer={
           <TablePaginationFooter
             {...footer}
@@ -420,15 +436,28 @@ export function SubscriptionsTable({
             header: "Workspace",
             primary: true,
             cell: (row) => (
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate font-semibold">{row.tenantName}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {row.ownerEmail || row.owner}
-                </span>
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar className="size-9 after:border-transparent">
+                  <AvatarFallback className="bg-slate-100 text-xs font-bold text-slate-600">
+                    {getInitials(row.tenantName, row.tenantSlug)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate font-semibold">
+                    {row.tenantName}
+                  </span>
+                  <span className="truncate text-xs text-slate-500">
+                    {row.ownerEmail || row.owner}
+                  </span>
+                </div>
               </div>
             ),
           },
-          { key: "plan", header: "Plan", cell: (row) => row.plan },
+          {
+            key: "plan",
+            header: "Plan",
+            cell: (row) => <ToneBadge tone="muted">{row.plan}</ToneBadge>,
+          },
           {
             key: "status",
             header: "Status",
@@ -438,14 +467,21 @@ export function SubscriptionsTable({
             key: "mrr",
             header: "MRR",
             cell: (row) => (
-              <span className="tabular-nums">{formatCurrency(row.mrr)}</span>
+              <span className="font-semibold tabular-nums">
+                {formatCurrency(row.mrr)}
+              </span>
             ),
           },
           {
             key: "period",
             header: "Period ends",
             cell: (row) => (
-              <span className="text-muted-foreground">
+              <span className="flex items-center gap-2 whitespace-nowrap text-slate-600">
+                <CalendarClock
+                  className="size-4 shrink-0 text-slate-400"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
                 {formatDate(row.periodEnd)}
               </span>
             ),

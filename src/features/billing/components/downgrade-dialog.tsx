@@ -2,12 +2,19 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Loader2, X, XCircle, Zap } from "lucide-react";
+import {
+  ArrowDownCircle,
+  CalendarClock,
+  Loader2,
+  X,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { toast } from "sonner";
 import { FormattedPlan } from "../types";
 import { changeTenantPlanAction } from "../billing-actions";
 import { cn } from "@/lib/utils";
-import { MODAL_BUTTON } from "./modal-buttons";
+import { MODAL_BUTTON, MODAL_BUTTON_PRIMARY } from "./modal-buttons";
 import { ModalNotice } from "@/components/shared/modal-notice";
 import {
   AlertDialog,
@@ -20,10 +27,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePaymentRedirect } from "../hooks/use-payment-redirect";
+// Destructive: red on white behind a pale red border, as on the platform's
+// confirm dialogs. Important borders: globals.css sets border-border on
+// everything, outside any layer.
 const CONFIRM_DANGER =
-  "border-red-600 bg-background text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-600 disabled:border-red-300 disabled:bg-background disabled:text-red-300 disabled:opacity-100 dark:hover:bg-red-950/30";
-const CONFIRM_ACCENT =
-  "border-brand-accent bg-background text-brand-accent hover:border-brand-accent hover:bg-brand-accent/5 hover:text-brand-accent disabled:border-brand-accent/40 disabled:bg-background disabled:text-brand-accent/40 disabled:opacity-100";
+  "border-red-200! bg-card text-red-600 hover:border-red-300! hover:bg-red-50 hover:text-red-700 disabled:opacity-60 dark:border-red-900/50! dark:hover:bg-red-950/30";
 
 interface DowngradeDialogProps {
   tenantSlug: string;
@@ -110,9 +118,7 @@ export function DowngradeDialog({
       targetPlan.name.trim().toLowerCase() ===
         scheduledToPlan.trim().toLowerCase()
     ) {
-      toast.info(
-        `You've already scheduled the downgrade to ${targetPlan.name}.`,
-      );
+      toast.info(`Downgrade to ${targetPlan.name} already scheduled`);
 
       onOpenChange(false);
       return;
@@ -123,7 +129,9 @@ export function DowngradeDialog({
         const res = await changeTenantPlanAction(tenantSlug, targetPlan.id);
 
         if (!res.success) {
-          toast.error(res.error || "Failed to switch plan.");
+          toast.error(`Couldn't downgrade to ${targetPlan.name}`, {
+            description: res.error || undefined,
+          });
           return;
         }
 
@@ -141,9 +149,9 @@ export function DowngradeDialog({
               })
             : (renewalDate ?? "the end of your billing period");
 
-          toast.success(
-            `Downgrade to ${targetPlan.name} scheduled for ${when}. You keep your current plan until then.`,
-          );
+          toast.success(`Downgrade to ${targetPlan.name} scheduled`, {
+            description: `You keep your current plan until ${when}.`,
+          });
 
           onOpenChange(false);
           router.refresh();
@@ -155,11 +163,12 @@ export function DowngradeDialog({
       } catch (error) {
         console.error("Downgrade error:", error);
 
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Something went wrong while downgrading the plan.",
-        );
+        toast.error(`Couldn't downgrade to ${targetPlan.name}`, {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Something went wrong while downgrading the plan.",
+        });
       }
     });
   };
@@ -179,19 +188,33 @@ export function DowngradeDialog({
           data-[size=default]:max-w-110
           data-[size=default]:sm:max-w-125
           overflow-hidden
-          rounded-2xl
+          rounded-xl
           border
           border-border
           bg-background
           p-0
-          shadow-xl
+          shadow-[0_24px_48px_-16px_rgba(15,23,42,0.25)]
+          ring-0
         "
       >
-        <AlertDialogHeader className="block px-6 pb-4 pt-5 text-left">
-          <div className="flex w-full items-center justify-between gap-4">
-            <AlertDialogTitle className="text-xl font-bold text-foreground">
-              Downgrade to {targetName}?
-            </AlertDialogTitle>
+        <AlertDialogHeader className="block px-5 pt-5 pb-4 text-left">
+          <div className="flex w-full items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <span
+                aria-hidden
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-full",
+                  isFreeTarget
+                    ? "bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300"
+                    : "bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300",
+                )}
+              >
+                <ArrowDownCircle className="size-5" strokeWidth={1.75} />
+              </span>
+              <AlertDialogTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                Downgrade to {targetName}?
+              </AlertDialogTitle>
+            </div>
 
             <button
               type="button"
@@ -241,7 +264,7 @@ export function DowngradeDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter className="mx-0 mb-0 gap-3 border-t border-border px-4 py-4 sm:justify-end">
+        <AlertDialogFooter className="mx-0 mb-0 gap-3 border-t border-border bg-slate-50/60 px-5 py-4 sm:justify-end dark:bg-muted/30">
           <AlertDialogCancel
             disabled={isPending}
             onClick={(e) => {
@@ -250,7 +273,7 @@ export function DowngradeDialog({
 
               handleClose();
             }}
-            className={cn(MODAL_BUTTON, "mt-0")}
+            className={cn(MODAL_BUTTON, "mt-0 bg-card")}
           >
             Keep my plan
           </AlertDialogCancel>
@@ -264,7 +287,7 @@ export function DowngradeDialog({
             }}
             className={cn(
               MODAL_BUTTON,
-              isFreeTarget ? CONFIRM_DANGER : CONFIRM_ACCENT,
+              isFreeTarget ? CONFIRM_DANGER : MODAL_BUTTON_PRIMARY,
             )}
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

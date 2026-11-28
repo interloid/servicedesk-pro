@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Loader2, ExternalLink, Shield, Wallet } from "lucide-react";
+import {
+  CreditCard,
+  X,
+  Loader2,
+  ExternalLink,
+  Shield,
+  Wallet,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { MODAL_BUTTON } from "./modal-buttons";
+import { MODAL_BUTTON, MODAL_BUTTON_PRIMARY } from "./modal-buttons";
 import { ModalNotice } from "@/components/shared/modal-notice";
 import { updatePaymentMethodAction } from "../billing-actions";
 
@@ -89,42 +96,50 @@ export function UpdatePaymentModal({
             transform: "translate(-50%, -50%)",
             zIndex: 9999,
           }}
-          className="w-[calc(100%-2rem)] max-w-120 rounded-2xl bg-white p-6 text-slate-900 shadow-2xl border border-slate-200 outline-none"
+          className="w-[calc(100%-2rem)] max-w-120 overflow-hidden rounded-xl border border-border bg-popover p-5 text-foreground shadow-[0_24px_48px_-16px_rgba(15,23,42,0.25)] outline-none"
         >
-          <div className="mb-5 space-y-1">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-bold tracking-tight text-slate-900">
-                {isWallet
-                  ? "Manage your PayPal payment"
-                  : "Update payment method"}
-              </h2>
+          <div className="mb-5 flex items-start gap-3.5">
+            <span
+              aria-hidden
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+            >
+              <CreditCard className="size-5" strokeWidth={1.75} />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="font-heading text-lg leading-tight font-bold tracking-tight text-foreground">
+                  {isWallet
+                    ? "Manage your PayPal payment"
+                    : "Update payment method"}
+                </h2>
 
-              <DialogPrimitive.Close className="-mr-1.5 shrink-0 rounded-md p-1.5 text-slate-400 transition-colors duration-200 ease-out hover:text-slate-600 focus:outline-none motion-safe:active:scale-[0.98]">
-                <X className="h-5 w-5" />
-                <span className="sr-only">Close</span>
-              </DialogPrimitive.Close>
+                <DialogPrimitive.Close className="-mt-1 -mr-1.5 shrink-0 rounded-md p-1.5 text-slate-400 transition-colors duration-200 ease-out hover:text-foreground focus:outline-none motion-safe:active:scale-[0.98]">
+                  <X className="h-5 w-5" />
+                  <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
+              </div>
+              <p className="text-sm leading-relaxed text-slate-500">
+                {invoiceId
+                  ? `We'll retry invoice ${invoiceId} once the new details go through.`
+                  : "Any pending charges are retried automatically."}
+              </p>
             </div>
-            <p className="text-xs text-slate-500 font-normal">
-              {invoiceId
-                ? `We'll retry invoice ${invoiceId} once the new details go through.`
-                : "Any pending charges are retried automatically."}
-            </p>
           </div>
 
           {isWallet && (
-            <div className="mb-5 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="rounded-lg bg-slate-100 p-2">
-                <Wallet className="h-4 w-4 text-slate-600" />
+            <div className="mb-5 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-muted">
+                <Wallet className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-slate-900">
+                <p className="truncate text-sm font-semibold text-foreground">
                   {paypalPayerName ?? "PayPal account"}
                 </p>
-                <p className="truncate text-[11px] text-slate-500">
+                <p className="truncate text-xs text-slate-500">
                   {paypalEmail ?? "Billed through your PayPal account"}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+              <span className="inline-flex h-6 shrink-0 items-center rounded-md bg-emerald-50 px-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/15 ring-inset dark:bg-emerald-950/60 dark:text-emerald-300">
                 Current
               </span>
             </div>
@@ -145,23 +160,23 @@ export function UpdatePaymentModal({
             </ModalNotice>
 
             <div className="flex items-center space-x-2 text-xs text-slate-500">
-              <Shield className="h-4 w-4 text-emerald-600" />
+              <Shield className="h-4 w-4 text-brand-700" />
               <span>PCI DSS compliant - powered by PayPal</span>
             </div>
 
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+              <div className="rounded-lg border border-red-200! bg-red-50 p-3 dark:border-red-900/60! dark:bg-red-950/40">
                 <p className="text-xs text-red-700">{error}</p>
               </div>
             )}
 
-            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:items-center sm:justify-end">
+            <div className="-mx-5 -mb-5 flex flex-col-reverse gap-3 border-t border-border bg-slate-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-end dark:bg-muted/30">
               <Button
                 type="button"
                 variant="outline"
                 disabled={isSubmitting}
                 onClick={() => onOpenChange(false)}
-                className={MODAL_BUTTON}
+                className={cn(MODAL_BUTTON, "bg-card")}
               >
                 Cancel
               </Button>
@@ -169,10 +184,7 @@ export function UpdatePaymentModal({
                 <Button
                   type="button"
                   onClick={handleDone}
-                  className={cn(
-                    MODAL_BUTTON,
-                    "bg-teal-800 text-white hover:bg-teal-900",
-                  )}
+                  className={cn(MODAL_BUTTON, MODAL_BUTTON_PRIMARY)}
                 >
                   Done
                 </Button>
@@ -181,10 +193,7 @@ export function UpdatePaymentModal({
                   type="button"
                   disabled={isSubmitting}
                   onClick={handleUpdatePayment}
-                  className={cn(
-                    MODAL_BUTTON,
-                    "bg-teal-800 text-white hover:bg-teal-900",
-                  )}
+                  className={cn(MODAL_BUTTON, MODAL_BUTTON_PRIMARY)}
                 >
                   {isSubmitting ? (
                     <>

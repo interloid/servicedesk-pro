@@ -141,12 +141,12 @@ export function AuditDateRangePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "h-10 justify-start gap-2 rounded-lg bg-card px-3.5 text-sm font-medium shadow-none",
+            "h-10 justify-start gap-2 rounded-lg bg-card px-3.5 text-sm font-medium tabular-nums shadow-none hover:bg-slate-50 dark:hover:bg-muted",
             className,
           )}
           aria-label={`Date range: ${formatAuditDay(from)} to ${formatAuditDay(to)}`}
         >
-          <CalendarDays className="size-4 text-muted-foreground" aria-hidden />
+          <CalendarDays className="size-4 text-brand-700" aria-hidden />
           <span>{formatAuditDay(from)}</span>
           <ArrowRight className="size-3.5 text-muted-foreground" aria-hidden />
           <span>{formatAuditDay(to)}</span>
@@ -156,11 +156,11 @@ export function AuditDateRangePicker({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-auto max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl p-0"
+        className="w-auto max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border p-0 shadow-[0_16px_40px_-16px_rgba(15,23,42,0.25)]"
       >
         <div className="flex flex-col sm:flex-row">
           <div className="border-b border-border sm:w-44 sm:border-r sm:border-b-0">
-            <p className="hidden px-4 pt-4 pb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase sm:block">
+            <p className="hidden px-4 pt-4 pb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase sm:block">
               Quick select
             </p>
             <div className="flex gap-1 overflow-x-auto p-2 scrollbar-none sm:flex-col sm:px-2 sm:pt-0">
@@ -176,8 +176,8 @@ export function AuditDateRangePicker({
                     className={cn(
                       "flex h-9 shrink-0 items-center justify-between gap-3 rounded-lg px-3 text-sm whitespace-nowrap transition-colors",
                       active
-                        ? "bg-brand-accent/10 font-semibold text-brand-accent"
-                        : "text-foreground hover:bg-muted",
+                        ? "bg-brand-700/10 font-semibold text-brand-700 dark:text-brand-300"
+                        : "text-foreground hover:bg-slate-100 dark:hover:bg-muted",
                     )}
                   >
                     {preset.label}
@@ -225,8 +225,8 @@ export function AuditDateRangePicker({
               )}
             />
 
-            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
-              <p className="text-sm text-muted-foreground tabular-nums">
+            <div className="flex items-center justify-between gap-3 border-t border-border bg-slate-50/60 px-4 py-3 dark:bg-muted/20">
+              <p className="text-sm text-slate-500 tabular-nums">
                 {draftFrom && draftTo
                   ? `${daySpan(draftFrom, draftTo)} ${daySpan(draftFrom, draftTo) === 1 ? "day" : "days"} selected`
                   : "Pick a start day"}
@@ -259,8 +259,10 @@ export function AuditDateRangePicker({
 
 function RangeField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 flex-1 rounded-lg border border-border bg-muted/40 px-3 py-1.5">
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+    <div className="min-w-0 flex-1 rounded-lg border border-border bg-slate-50/60 px-3 py-1.5 dark:bg-muted/40">
+      <p className="text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase">
+        {label}
+      </p>
       <p className="truncate text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );

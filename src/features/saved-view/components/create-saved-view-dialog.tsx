@@ -2,7 +2,14 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { CopyX, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  BookmarkPlus,
+  CopyX,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -305,7 +312,7 @@ export default function SavedViewFormDialog({
         : await createSavedViewAction(tenant, input);
 
       if (res.success) {
-        toast.success(isEdit ? "View updated" : "View created");
+        toast.success(isEdit ? `"${trimmed}" updated` : `"${trimmed}" created`);
         onOpenChange(false);
         return;
       }
@@ -320,20 +327,35 @@ export default function SavedViewFormDialog({
       onOpenChange={(next) => !isPending && onOpenChange(next)}
     >
       <DialogContent
-        className={`gap-4 sm:max-w-140 max-h-[90dvh] overflow-y-auto ${TEAM_DIALOG_CONTENT}`}
+        className={cn(
+          "max-h-[90dvh] w-[calc(100%-2rem)] gap-5 overflow-y-auto sm:max-w-140",
+          TEAM_DIALOG_CONTENT,
+        )}
       >
-        <DialogHeader className="-mx-5 border-b border-border px-5 pb-4 pr-11">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            {isEdit ? "Edit saved view" : "Create saved view"}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            Save a filter over the ticket queue to open it in one click.
-          </DialogDescription>
+        <DialogHeader className="flex-row items-start gap-3.5 pr-6 text-left">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+            {isEdit ? (
+              <Pencil className="size-5" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <BookmarkPlus className="size-5" strokeWidth={1.75} aria-hidden />
+            )}
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+              {isEdit ? "Edit saved view" : "Create saved view"}
+            </DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              Save a filter over the ticket queue to open it in one click.
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="space-y-1.5">
-            <Label htmlFor="view-name" className="text-sm font-semibold">
+            <Label
+              htmlFor="view-name"
+              className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase"
+            >
               View name <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -361,7 +383,9 @@ export default function SavedViewFormDialog({
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm font-semibold">Filters</legend>
+            <legend className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+              Filters
+            </legend>
             <p className="-mt-1 text-xs text-muted-foreground">
               Add {VIEW_CONDITIONS_MIN} to {VIEW_CONDITIONS_MAX} conditions (
               {VIEW_CONDITIONS_MIN}–{VIEW_CONDITIONS_RECOMMENDED} reads best).
@@ -543,7 +567,7 @@ export default function SavedViewFormDialog({
 
             {/* The whole rule in words, brackets and all. */}
             {conditions > 0 ? (
-              <p className="rounded-lg bg-muted/50 px-3.5 py-2.5 text-xs text-muted-foreground">
+              <p className="rounded-lg border border-border bg-slate-50/60 px-3.5 py-2.5 text-xs text-muted-foreground dark:bg-muted/30">
                 <span className="font-semibold text-foreground">Shows:</span>{" "}
                 {describeFilter(filter)}
               </p>
@@ -577,7 +601,7 @@ export default function SavedViewFormDialog({
           ) : null}
 
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm font-semibold">
+            <legend className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
               Share with team
             </legend>
             <RadioGroup
@@ -602,7 +626,7 @@ export default function SavedViewFormDialog({
           </fieldset>
 
           <fieldset className="space-y-2" disabled={!isShared}>
-            <legend className="mb-2 text-sm font-semibold">
+            <legend className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
               Visible to roles
             </legend>
             <div
@@ -649,14 +673,19 @@ export default function SavedViewFormDialog({
             </p>
           ) : null}
 
-          <DialogFooter className={TEAM_DIALOG_FOOTER}>
+          <DialogFooter
+            className={cn(
+              TEAM_DIALOG_FOOTER,
+              "flex-row bg-slate-50/60 dark:bg-muted/30",
+            )}
+          >
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={isPending}
               onClick={() => onOpenChange(false)}
-              className={TEAM_MODAL_BUTTON}
+              className={cn(TEAM_MODAL_BUTTON, "flex-1 sm:flex-none")}
             >
               Cancel
             </Button>
@@ -664,7 +693,11 @@ export default function SavedViewFormDialog({
               type="submit"
               size="sm"
               disabled={!canSubmit}
-              className={`${TEAM_MODAL_BUTTON} ${TEAM_MODAL_BUTTON_PRIMARY}`}
+              className={cn(
+                TEAM_MODAL_BUTTON,
+                TEAM_MODAL_BUTTON_PRIMARY,
+                "flex-1 sm:flex-none",
+              )}
             >
               {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
               {isEdit ? "Save changes" : "Create view"}

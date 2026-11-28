@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Check, Minus } from "lucide-react";
+import { Check, ListChecks, Minus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ function rowsOf(group: (typeof GROUP_ORDER)[number]): Row[] {
 
 function Included({ value }: { value: boolean }) {
   return value ? (
-    <span className="inline-flex size-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+    <span className="inline-flex size-6 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-400">
       <Check className="size-4" aria-hidden />
       <span className="sr-only">Included</span>
     </span>
@@ -65,29 +65,34 @@ export function PlanComparison({ plans }: { plans: PlatformPlan[] }) {
   } as CSSProperties;
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-base font-bold text-foreground">
-          Feature comparison
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          The app only checks features tagged Enforced; the rest just appear on
-          the pricing page. Branding and reports are locked by plan name, and
-          ticket and storage limits aren&apos;t enforced.
-        </p>
+    <section className={cn(PLATFORM_CARD, "@container overflow-hidden")}>
+      <div className="flex items-start gap-3 px-5 pt-5 pb-4">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+          <ListChecks className="size-4.5" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+            Feature comparison
+          </h2>
+          <p className="mt-0.5 max-w-3xl text-xs leading-relaxed text-slate-500">
+            The app only checks features tagged Enforced; the rest just appear
+            on the pricing page. Branding and reports are locked by plan name,
+            and ticket and storage limits aren&apos;t enforced.
+          </p>
+        </div>
       </div>
 
-      <div className={cn(PLATFORM_CARD, "@container overflow-hidden")}>
+      <div className="border-t border-border">
         <div className="overflow-x-auto">
           <table
             className="w-full table-fixed border-collapse text-sm"
             style={columnStyle}
           >
             <thead>
-              <tr className="border-b border-border">
+              <tr className="border-b border-border bg-slate-50 dark:bg-muted/40">
                 <th
                   scope="col"
-                  className="p-3 text-left align-bottom text-xs font-bold text-foreground @3xl:px-4 @3xl:text-base"
+                  className="p-3 text-left align-bottom text-[11px] font-semibold tracking-wider text-slate-500 uppercase @3xl:px-5"
                 >
                   Feature
                 </th>
@@ -97,7 +102,7 @@ export function PlanComparison({ plans }: { plans: PlatformPlan[] }) {
                     scope="col"
                     className="w-16 border-l border-border px-1 py-2 text-center align-top @lg:w-(--plan-column) @3xl:p-4"
                   >
-                    <span className="block truncate text-xs font-bold text-foreground @3xl:text-base">
+                    <span className="block truncate font-heading text-xs font-bold text-foreground @3xl:text-base">
                       {plan.name}
                     </span>
                     {plan.description && (
@@ -114,11 +119,11 @@ export function PlanComparison({ plans }: { plans: PlatformPlan[] }) {
               {GROUP_ORDER.flatMap(rowsOf).map((row) => (
                 <tr
                   key={row.key}
-                  className="border-b border-border last:border-b-0 hover:bg-muted/40"
+                  className="border-b border-border transition-colors last:border-b-0 hover:bg-slate-50/80"
                 >
                   <th
                     scope="row"
-                    className="p-3 text-left font-medium text-foreground @3xl:px-4"
+                    className="p-3 text-left font-medium text-foreground @3xl:px-5"
                   >
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       {row.label}

@@ -10,9 +10,10 @@ import {
   useEffect,
 } from "react";
 import { useRouter } from "next/navigation";
+import { createSupabaseClient } from "@/lib/supabase/client";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import {
   Select,
   SelectContent,
@@ -20,7 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Paperclip, Loader2, X, Download } from "lucide-react";
+import {
+  Paperclip,
+  Loader2,
+  X,
+  Download,
+  SlidersHorizontal,
+  CircleDot,
+  Lock,
+  MessageSquareText,
+  MessagesSquare,
+  Reply,
+  SendHorizontal,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Ticket,
   TicketMessage,
@@ -60,6 +75,7 @@ import { useNow } from "@/hooks/use-now";
 import { useMounted } from "@/hooks/use-mounted";
 import { useListNavigation } from "@/hooks/use-list-navigation";
 import {
+  SlaBreachBanner,
   SlaHeadlineBadge,
   TicketSlaCard,
 } from "@/features/tickets/components/ticket-sla-card";
@@ -222,6 +238,78 @@ function MessageFiles({
   );
 }
 
+/** Header chips share the queue's soft tinted pill with a hairline ring. */
+const HEADER_CHIP =
+  "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap ring-1 ring-inset";
+
+const TONE = {
+  red: "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
+  amber:
+    "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
+  sky: "bg-sky-50 text-sky-700 ring-sky-600/15 dark:bg-sky-950/60 dark:text-sky-300",
+  teal: "bg-teal-50 text-teal-700 ring-teal-600/15 dark:bg-teal-950/60 dark:text-teal-300",
+  violet:
+    "bg-violet-50 text-violet-700 ring-violet-600/15 dark:bg-violet-950/60 dark:text-violet-300",
+  green:
+    "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-950/60 dark:text-emerald-300",
+  muted: "bg-slate-100 text-slate-600 ring-slate-500/15",
+} as const;
+
+/** The same colours the ticket queue uses for each status and priority. */
+const STATUS_TONE: Record<TicketStatus, string> = {
+  new: TONE.teal,
+  open: TONE.sky,
+  pending: TONE.amber,
+  on_hold: TONE.violet,
+  resolved: TONE.green,
+  closed: TONE.muted,
+};
+
+const PRIORITY_TONE: Record<TicketPriority, { chip: string; dot: string }> = {
+  urgent: { chip: TONE.red, dot: "bg-red-500" },
+  high: { chip: TONE.amber, dot: "bg-amber-500" },
+  normal: { chip: TONE.sky, dot: "bg-sky-500" },
+  low: { chip: TONE.muted, dot: "bg-slate-400" },
+};
+
+/** A sidebar card: icon, title and an optional count, then its content. */
+function SideCard({
+  icon: Icon,
+  title,
+  count,
+  className,
+  bodyClassName,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  count?: number;
+  className?: string;
+  bodyClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={cn(DASHBOARD_CARD, "relative overflow-hidden", className)}
+    >
+      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink">
+          <Icon className="size-3.5" strokeWidth={2} aria-hidden />
+        </span>
+        <h2 className="font-heading text-sm font-bold tracking-tight text-foreground">
+          {title}
+        </h2>
+        {count !== undefined && (
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600 tabular-nums dark:bg-muted dark:text-muted-foreground">
+            {count}
+          </span>
+        )}
+      </div>
+      <div className={cn("p-4 text-xs", bodyClassName)}>{children}</div>
+    </section>
+  );
+}
+
 const ROLE_LABELS: Record<string, string> = {
   tenant_admin: "Tenant Admin",
   manager: "Manager",
@@ -243,11 +331,13 @@ function announcePriorityChange(
   const kept = change?.slaKept ?? [];
   if (kept.length > 0) {
     const clocks = kept.map((t) => CLOCK_LABELS[t]).join(" and ");
-    toast.success(
-      `Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}. ${clocks} was due soon, so it keeps its original deadline.`,
-    );
+    toast.success(`Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}`, {
+      description: `${clocks} was due soon, so it keeps its original deadline.`,
+    });
   } else {
-    toast.success(`Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}.`);
+    toast.success(`Priority ${verb} to ${TICKET_PRIORITY_LABELS[to]}`, {
+      description: "SLA targets now follow the new priority.",
+    });
   }
 }
 
@@ -394,8 +484,9 @@ export default function TicketDetailView({
   }, [attachments, ticket.id]);
 
   // Someone else's message arrives over realtime without its files (they are
-  // recorded just after it, and links are signed on the server): refetch the
-  // page shortly after so they show in the bubble.
+  // recorded just after it, and links are signed on the server). Most replies
+  // have none, so ask first -- one small query -- and re-render the page only
+  // when files are actually there to show.
   const lastMessage = messages.at(-1);
   const lastFromOther =
     !!lastMessage &&
@@ -406,9 +497,21 @@ export default function TicketDetailView({
     !attachmentsByMessage.has(lastMessage.id);
   const [seenLastId] = useState(lastMessageId);
   useEffect(() => {
-    if (!lastFromOther || lastMessageId === seenLastId) return;
-    const id = setTimeout(() => router.refresh(), 1500);
-    return () => clearTimeout(id);
+    if (!lastFromOther || !lastMessageId || lastMessageId === seenLastId)
+      return;
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      const { count, error } = await createSupabaseClient()
+        .from("attachments")
+        .select("id", { count: "exact", head: true })
+        .eq("message_id", lastMessageId);
+      // On a failed check, refresh anyway rather than hide someone's files.
+      if (!cancelled && (error || (count ?? 0) > 0)) router.refresh();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [lastFromOther, lastMessageId, seenLastId, router]);
 
   useEffect(() => {
@@ -550,7 +653,7 @@ export default function TicketDetailView({
     e.preventDefault();
     const tooLarge = attachmentsError([...pendingFiles, ...pasted]);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
     setPendingFiles((prev) => [...prev, ...pasted]);
@@ -585,7 +688,7 @@ export default function TicketDetailView({
     if (!replyText.trim() && pendingFiles.length === 0) return;
     const tooLarge = attachmentsError(pendingFiles);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
 
@@ -608,11 +711,12 @@ export default function TicketDetailView({
           files: pendingFiles,
         });
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Couldn't upload the files. Please try again.",
-        );
+        toast.error("Couldn't upload the attachments", {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Your reply wasn't sent. Please try again.",
+        });
         setIsReplying(false);
         return;
       }
@@ -636,7 +740,10 @@ export default function TicketDetailView({
           }
           // Sent, but its files didn't attach: say so, and don't invite a
           // resend that would post the reply twice.
-          if ("warning" in res && res.warning) toast.warning(res.warning);
+          if ("warning" in res && res.warning)
+            toast.warning("Reply sent without its attachments", {
+              description: res.warning,
+            });
           setReplyText("");
           setPendingFiles([]);
           setMentionQuery(null);
@@ -645,13 +752,15 @@ export default function TicketDetailView({
           mentionStartRef.current = null;
         } else {
           await discardTicketFiles(tenant, ticket.id, uploads);
-          toast.error(res.error || "Failed to send reply.");
+          toast.error("Couldn't send the reply", { description: res.error });
         }
       } catch {
         // The request itself failed (network): keep the typed reply and say
         // so instead of the error page. Files already filed are kept.
         await discardTicketFiles(tenant, ticket.id, uploads);
-        toast.error("Couldn't send the reply. Please try again.");
+        toast.error("Couldn't send the reply", {
+          description: "Your message is still in the box. Please try again.",
+        });
       } finally {
         setIsReplying(false);
       }
@@ -664,7 +773,7 @@ export default function TicketDetailView({
     if (!selected.length) return;
     const tooLarge = attachmentsError([...pendingFiles, ...selected]);
     if (tooLarge) {
-      toast.error(tooLarge);
+      toast.error("Couldn't attach the files", { description: tooLarge });
       return;
     }
     setPendingFiles((prev) => [...prev, ...selected]);
@@ -716,15 +825,15 @@ export default function TicketDetailView({
         });
         if (!res.success) {
           setStatus(prev);
-          toast.error(res.error || "Failed to update status.");
+          toast.error("Couldn't update the status", { description: res.error });
         } else {
           if ("slaEvents" in res && res.slaEvents)
             replaceSlaEvents(res.slaEvents);
           if (val === "resolved") toast.success("Ticket resolved.");
-          else if (val === "closed") toast.success("Ticket closed.");
+          else if (val === "closed") toast.success("Ticket closed");
           else if (prev === "resolved" || prev === "closed")
             toast.success("Ticket reopened.");
-          else toast.success(`Status changed to ${TICKET_STATUS_LABELS[val]}.`);
+          else toast.success(`Status changed to ${TICKET_STATUS_LABELS[val]}`);
           // updateTicketDetailsAction's revalidatePath refreshes the page.
         }
       } finally {
@@ -760,7 +869,9 @@ export default function TicketDetailView({
         });
         if (!res.success) {
           setPriority(prev);
-          toast.error(res.error || "Failed to update priority.");
+          toast.error("Couldn't change the priority", {
+            description: res.error,
+          });
           return;
         }
         setLowerTo(null);
@@ -804,9 +915,11 @@ export default function TicketDetailView({
           });
           if (!res.success) {
             setAssigneeId(prev);
-            toast.error(res.error || "Failed to unassign ticket.");
+            toast.error("Couldn't unassign the ticket", {
+              description: res.error,
+            });
           } else {
-            toast.success("Ticket unassigned.");
+            toast.success("Ticket unassigned");
           }
         } finally {
           setUpdatingField(null);
@@ -824,10 +937,12 @@ export default function TicketDetailView({
           });
           if (res.success && res.assigneeId) {
             setAssigneeId(res.assigneeId);
-            toast.success("Ticket assigned to you.");
+            toast.success("Ticket assigned to you");
           } else {
             setAssigneeId(prev);
-            toast.error(res.error || "Failed to assign ticket to you.");
+            toast.error("Couldn't assign the ticket to you", {
+              description: res.error,
+            });
           }
         } finally {
           setUpdatingField(null);
@@ -845,11 +960,11 @@ export default function TicketDetailView({
         });
         if (!res.success) {
           setAssigneeId(prev);
-          toast.error(res.error || "Failed to assign ticket.");
+          toast.error("Couldn't assign the ticket", { description: res.error });
         } else {
           const name = agents.find((a) => a.id === val)?.full_name;
           toast.success(
-            name ? `Ticket assigned to ${name}.` : "Ticket assigned.",
+            name ? `Ticket assigned to ${name}` : "Ticket assigned",
           );
         }
       } finally {
@@ -871,10 +986,26 @@ export default function TicketDetailView({
           </BackLink>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="text-slate-400 font-medium">
+        {/* The header reads top to bottom: what state the ticket is in (number,
+            status, priority, SLA), what it's about, and who's involved. */}
+        <header className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex h-6 items-center rounded-md bg-slate-100 px-2 font-semibold text-slate-600 tabular-nums ring-1 ring-slate-500/15 ring-inset dark:bg-muted dark:text-muted-foreground">
               #{ticket.number ?? "-"}
+            </span>
+            <span className={cn(HEADER_CHIP, STATUS_TONE[status])}>
+              <CircleDot className="size-3 shrink-0" aria-hidden />
+              {TICKET_STATUS_LABELS[status]}
+            </span>
+            <span className={cn(HEADER_CHIP, PRIORITY_TONE[priority].chip)}>
+              <span
+                className={cn(
+                  "size-1.5 shrink-0 rounded-full",
+                  PRIORITY_TONE[priority].dot,
+                )}
+                aria-hidden
+              />
+              {TICKET_PRIORITY_LABELS[priority]} priority
             </span>
             {!isClosed && status !== "resolved" && (
               <SlaHeadlineBadge events={slaEvents} policy={slaPolicy} />
@@ -882,7 +1013,7 @@ export default function TicketDetailView({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <h1 className="min-w-0 text-2xl font-bold tracking-tight text-slate-900 wrap-break-word">
+            <h1 className="min-w-0 font-heading text-[1.625rem] leading-tight font-bold tracking-tight wrap-break-word text-foreground sm:text-[2rem]">
               {ticket.subject}
             </h1>
             <div className="shrink-0">
@@ -894,24 +1025,38 @@ export default function TicketDetailView({
             </div>
           </div>
 
-          <p className="text-xs text-slate-500">
-            Created by{" "}
-            <span className="font-semibold text-slate-700">
-              {createdBy.name}
-            </span>{" "}
-            <span className="text-slate-400">({createdBy.role})</span>
-            {openedBy && (
-              <>
-                {" "}
-                · Opened by{" "}
-                <span className="font-semibold text-slate-700">
-                  {staffName(openedBy)}
-                </span>{" "}
-                <span className="text-slate-400">({staffRole(openedBy)})</span>
-              </>
-            )}
-            <LastActivity at={activityAt} />
-          </p>
+          <div className="flex items-start gap-2 text-sm text-slate-500">
+            <PersonAvatar
+              src={ticket.created_by ? undefined : ticket.requester_avatar_url}
+              initials={getInitials(createdBy.name, "")}
+              className="size-6 shrink-0"
+              fallbackClassName="bg-slate-200 text-[10px] font-semibold text-slate-600"
+            />
+            <p className="min-w-0 pt-0.5 leading-snug">
+              Created by{" "}
+              <span className="font-semibold text-slate-700 dark:text-foreground">
+                {createdBy.name}
+              </span>{" "}
+              <span className="text-slate-400">({createdBy.role})</span>
+              {openedBy && (
+                <>
+                  {" "}
+                  · Opened by{" "}
+                  <span className="font-semibold text-slate-700 dark:text-foreground">
+                    {staffName(openedBy)}
+                  </span>{" "}
+                  <span className="text-slate-400">
+                    ({staffRole(openedBy)})
+                  </span>
+                </>
+              )}
+              <LastActivity at={activityAt} />
+            </p>
+          </div>
+
+          {!isClosed && status !== "resolved" && (
+            <SlaBreachBanner events={slaEvents} policy={slaPolicy} />
+          )}
 
           <TicketLifecycleBanner
             status={status}
@@ -919,18 +1064,47 @@ export default function TicketDetailView({
             closedAt={closedAt}
             autoCloseDays={autoCloseDays}
           />
-        </div>
+        </header>
 
         {/* min-h keeps a short laptop screen from squeezing the thread to
             nothing -- there the page scrolls instead. grid-rows-1 is
             minmax(0, 1fr): with the default auto row the taller column (the
             sidebar) set the row's height and pushed the page into a scroll. */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:min-h-112 lg:flex-1 lg:grid-cols-3 lg:grid-rows-1">
-          <section className="flex h-[75dvh] min-h-112 flex-col overflow-hidden rounded-xl bg-white shadow-sm lg:col-span-2 lg:h-auto lg:min-h-0">
+        {/* The conversation takes the room; the sidebar is a fixed, narrower
+            column of secondary details. */}
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:min-h-136 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_19rem] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_21rem]">
+          <section
+            className={cn(
+              DASHBOARD_CARD,
+              // A phone gets the screen under the header, so the thread is not
+              // squeezed out by the reply box; a tablet keeps three quarters.
+              "flex h-[calc(100dvh-8.5rem)] min-h-120 flex-col overflow-hidden sm:h-[75dvh] sm:min-h-112 lg:h-auto lg:min-h-0",
+            )}
+          >
+            <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-4 py-3 sm:px-5">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink">
+                <MessagesSquare
+                  className="size-3.5"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+              </span>
+              <h2 className="font-heading text-sm font-bold tracking-tight text-foreground">
+                Conversation
+              </h2>
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600 tabular-nums dark:bg-muted dark:text-muted-foreground">
+                {threadMessages.length}
+              </span>
+              <span className="ml-auto hidden items-center gap-1.5 text-xs text-slate-400 sm:flex">
+                <Lock className="size-3" aria-hidden />
+                Internal notes are visible to your team only
+              </span>
+            </div>
+
             {/* The only part of the card that scrolls. */}
             <div
               ref={threadRef}
-              className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5"
+              className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-slate-50/50 px-3 py-5 sm:px-6 dark:bg-muted/10"
             >
               {threadMessages.length === 0 && (
                 <TicketThreadEmptyState
@@ -973,32 +1147,42 @@ export default function TicketDetailView({
                 return (
                   <Fragment key={msg.id}>
                     {newDay && (
-                      <p className="pt-1 text-center text-xs font-medium text-slate-500">
-                        {day}
-                      </p>
+                      <div className="flex items-center gap-3 pt-1">
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-border" />
+                        <span className="rounded-full border border-slate-200 bg-card px-3 py-0.5 text-[11px] font-semibold text-slate-500 shadow-xs dark:border-border">
+                          {day}
+                        </span>
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-border" />
+                      </div>
                     )}
                     <article
                       className={cn(
-                        "flex min-w-0 flex-col gap-1",
+                        "flex min-w-0 flex-col gap-1.5",
                         isMine ? "items-end" : "items-start",
                       )}
                     >
                       <p
                         className={cn(
-                          "flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-slate-500",
-                          !isMine && "ml-10.5",
+                          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400",
+                          !isMine && "ml-11.5",
                         )}
                       >
                         {!isMine && (
-                          <span className="font-medium wrap-break-word text-slate-700">
+                          <span className="font-semibold wrap-break-word text-slate-700 dark:text-foreground">
                             {authorName}
                           </span>
                         )}
-                        <span>
+                        {!isMine && isCustomer && (
+                          <span className="rounded-md bg-brand-soft px-1.5 py-px text-[10px] font-semibold tracking-wide text-brand-ink uppercase">
+                            Customer
+                          </span>
+                        )}
+                        <span className="tabular-nums">
                           {mounted ? formatChatTime(msg.created_at) : "\u00a0"}
                         </span>
                         {isInternal && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                            <Lock className="size-2.5" aria-hidden />
                             Internal note
                           </span>
                         )}
@@ -1014,9 +1198,9 @@ export default function TicketDetailView({
                           <PersonAvatar
                             src={avatarUrl}
                             initials={initials}
-                            className="size-8"
+                            className="size-9 ring-2 ring-card"
                             fallbackClassName={cn(
-                              "text-[11px]",
+                              "text-xs font-semibold",
                               isCustomer
                                 ? "bg-brand-accent text-brand-accent-foreground"
                                 : "bg-slate-600 text-white",
@@ -1025,13 +1209,13 @@ export default function TicketDetailView({
                         )}
                         <div
                           className={cn(
-                            "min-w-0 max-w-[85%] space-y-2 rounded-2xl px-3.5 py-2 text-sm leading-[1.6] text-slate-800 sm:max-w-[75%]",
-                            isMine ? "rounded-tr-sm" : "rounded-tl-sm",
+                            "min-w-0 max-w-[85%] space-y-2 rounded-2xl px-4 py-2.5 text-sm leading-[1.65] text-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.05)] sm:max-w-[72%] dark:text-foreground",
+                            isMine ? "rounded-tr-md" : "rounded-tl-md",
                             isInternal
-                              ? "border border-amber-200 bg-amber-50"
+                              ? "border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
                               : isMine
-                                ? "bg-brand-accent/10"
-                                : "bg-slate-100",
+                                ? "border border-brand-accent/15 bg-brand-soft"
+                                : "border border-slate-200 bg-card dark:border-border",
                           )}
                         >
                           {msg.body.trim() && (
@@ -1056,54 +1240,80 @@ export default function TicketDetailView({
 
             {/* Pinned under the thread, as a chat composer is. */}
             {isClosed ? (
-              <p className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs text-slate-500">
+              <p className="flex shrink-0 items-center justify-center gap-2 border-t border-border bg-slate-50 px-4 py-3.5 text-center text-sm text-slate-500 dark:bg-muted/30">
+                <Lock className="size-4 text-slate-400" aria-hidden />
                 This ticket is closed. Reopen it to reply.
               </p>
             ) : (
-              <div
-                className={`shrink-0 border-t transition-colors ${
-                  replyType === "internal"
-                    ? "bg-amber-50 border-amber-200"
-                    : "bg-slate-50/60 border-slate-200"
-                }`}
-              >
+              <div className="shrink-0 border-t border-border bg-card px-3 pt-3 pb-3 sm:px-5 sm:pb-4">
                 {supportClosed && (
                   <SupportClosedNotice closed={supportClosed} />
                 )}
-                <div className="flex items-center space-x-2 px-3 sm:px-4 pt-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-pressed={replyType === "public"}
-                    onClick={() => setReplyType("public")}
-                    disabled={!!supportClosed}
-                    className={`h-9 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border transition-all ${
-                      replyType === "public"
-                        ? "border-teal-700 text-teal-700 bg-teal-700/10 shadow-sm  hover:bg-teal-700/10 hover:text-teal-700"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {/* A segmented switch: which audience the message is for. */}
+                  <div
+                    role="group"
+                    aria-label="Message type"
+                    className="inline-flex rounded-lg bg-slate-100 p-1 dark:bg-muted"
                   >
-                    Reply to customer
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-pressed={replyType === "internal"}
-                    onClick={() => setReplyType("internal")}
-                    disabled={!!supportClosed}
-                    className={`h-9 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border transition-all ${
-                      replyType === "internal"
-                        ? "border-amber-600 text-amber-800 bg-amber-100/50 shadow-sm  hover:bg-amber-100/50 hover:text-amber-800"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    Internal note
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-pressed={replyType === "public"}
+                      onClick={() => setReplyType("public")}
+                      disabled={!!supportClosed}
+                      className={cn(
+                        "h-8 gap-1.5 rounded-md px-3 text-xs font-semibold transition-all",
+                        replyType === "public"
+                          ? "bg-card text-brand-ink shadow-sm hover:bg-card hover:text-brand-ink"
+                          : "text-slate-500 hover:bg-transparent hover:text-slate-800",
+                      )}
+                    >
+                      <Reply className="size-3.5" aria-hidden />
+                      Reply to customer
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-pressed={replyType === "internal"}
+                      onClick={() => setReplyType("internal")}
+                      disabled={!!supportClosed}
+                      className={cn(
+                        "h-8 gap-1.5 rounded-md px-3 text-xs font-semibold transition-all",
+                        replyType === "internal"
+                          ? "bg-amber-100 text-amber-900 shadow-sm hover:bg-amber-100 hover:text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
+                          : "text-slate-500 hover:bg-transparent hover:text-slate-800",
+                      )}
+                    >
+                      <MessageSquareText className="size-3.5" aria-hidden />
+                      Internal note
+                    </Button>
+                  </div>
+                  <span className="hidden items-center gap-1.5 text-xs text-slate-400 sm:inline-flex">
+                    {replyType === "internal" ? (
+                      <>
+                        <Lock className="size-3" aria-hidden />
+                        Not sent to the customer.
+                      </>
+                    ) : (
+                      <>
+                        <UserRound className="size-3" aria-hidden />
+                        Shows on the portal.
+                      </>
+                    )}
+                  </span>
                 </div>
 
                 {/* One box, as a chat app's: the files going with the message
                     sit above the text, the paperclip beside it. */}
-                <div className="relative mx-3 mt-2 rounded-lg border border-slate-200 bg-white focus-within:border-slate-300 sm:mx-4">
+                <div
+                  className={cn(
+                    "relative mt-2.5 rounded-xl border transition-colors",
+                    replyType === "internal"
+                      ? "border-amber-300 bg-amber-50/70 focus-within:border-amber-400 focus-within:ring-3 focus-within:ring-amber-200/60 dark:border-amber-900/60 dark:bg-amber-950/20"
+                      : "border-slate-200 bg-card focus-within:border-brand-accent/50 focus-within:ring-3 focus-within:ring-brand-accent/15 dark:border-border",
+                  )}
+                >
                   {pendingFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 px-2.5 pt-2.5">
                       {pendingFiles.map((file, i) => (
@@ -1231,20 +1441,20 @@ export default function TicketDetailView({
                 <CharacterCount
                   length={replyText.length}
                   max={TICKET_REPLY_MAX}
-                  className="px-3 pt-1 sm:px-4"
+                  className="pt-1"
                 />
 
-                <div className="px-3 sm:px-4 pt-2 pb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-[10px] sm:text-xs text-slate-400 hidden sm:inline">
-                      {replyType === "internal"
-                        ? "Not sent to the customer."
-                        : "Shows on the portal."}
-                    </span>
-                    <span className="text-[10px] sm:text-xs text-slate-400 hidden lg:inline">
-                      Enter to send · Shift+Enter for a new line
-                    </span>
-                  </div>
+                <div className="flex flex-col items-stretch justify-between gap-2 pt-2 sm:flex-row sm:items-center">
+                  <span className="hidden items-center gap-1.5 text-xs text-slate-400 lg:inline-flex">
+                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-px font-sans text-[10px] font-semibold text-slate-500 dark:border-border dark:bg-muted">
+                      Enter
+                    </kbd>
+                    to send ·
+                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-px font-sans text-[10px] font-semibold text-slate-500 dark:border-border dark:bg-muted">
+                      Shift+Enter
+                    </kbd>
+                    new line
+                  </span>
 
                   <Button
                     size="sm"
@@ -1254,10 +1464,19 @@ export default function TicketDetailView({
                       !!supportClosed ||
                       (!replyText.trim() && pendingFiles.length === 0)
                     }
-                    className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 h-10 rounded-lg transition-colors shadow-sm"
+                    className={cn(
+                      "h-10 gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md sm:ml-auto",
+                      replyType === "internal"
+                        ? "bg-amber-500 text-white hover:bg-amber-600"
+                        : "bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90",
+                    )}
                   >
-                    {isReplying && (
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    {isReplying ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                    ) : replyType === "internal" ? (
+                      <MessageSquareText className="size-4" aria-hidden />
+                    ) : (
+                      <SendHorizontal className="size-4" aria-hidden />
                     )}
                     {replyType === "internal"
                       ? "Add internal note"
@@ -1271,201 +1490,207 @@ export default function TicketDetailView({
           {/* From lg up the sidebar is as tall as the chat card: the details
               and SLA cards keep their size and the attachments card takes the
               rest, scrolling its own list. The cards carry their padding once
-              (CardContent's), not Card's py on top, so details and SLA fit
+              (their inner div's), not the card's on top, so details and SLA fit
               and only the attachments scroll. On a screen too short for even
               that the column scrolls -- never the page. */}
-          <div className="flex flex-col gap-4 lg:min-h-0 lg:overflow-y-auto">
-            <Card className="relative shrink-0 gap-0 py-0 shadow-sm border-slate-200 bg-white ring-0">
+          <div className="flex flex-col gap-4 lg:-mr-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+            <SideCard icon={UserRound} title="Customer" className="shrink-0">
+              <div className="flex items-center gap-3">
+                <PersonAvatar
+                  src={ticket.requester_avatar_url}
+                  initials={
+                    ticket.requester_name
+                      ? getInitials(ticket.requester_name, "")
+                      : "CU"
+                  }
+                  className="size-11"
+                  fallbackClassName="bg-brand-accent text-sm font-semibold text-brand-accent-foreground"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {ticket.requester_name}
+                  </p>
+                  {ticket.requester_company && (
+                    <p className="truncate text-xs text-slate-500">
+                      {ticket.requester_company}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </SideCard>
+
+            <SideCard
+              icon={SlidersHorizontal}
+              title="Properties"
+              className="shrink-0"
+              bodyClassName="space-y-3.5"
+            >
               <div className="absolute top-0 left-0 right-0 z-10">
                 <IndeterminateProgress
                   active={isUpdatingTicket}
                   label="Updating ticket"
                 />
               </div>
-              <CardContent className="p-4 space-y-3 text-xs">
-                <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
-                  <PersonAvatar
-                    src={ticket.requester_avatar_url}
-                    initials={
-                      ticket.requester_name
-                        ? getInitials(ticket.requester_name, "")
-                        : "CU"
-                    }
-                    className="size-9"
-                    fallbackClassName="bg-slate-500 text-xs text-white"
-                  />
-                  <div>
-                    <h4 className="font-bold text-slate-900">
-                      {ticket.requester_name}
-                    </h4>
-                    {ticket.requester_company && (
-                      <p className="text-[11px] text-slate-400">
-                        {ticket.requester_company}
-                      </p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="grid gap-1.5">
-                  <Label
-                    htmlFor="status"
-                    className="flex items-center justify-between font-semibold text-slate-700"
+              <div className="grid gap-1.5">
+                <Label
+                  htmlFor="status"
+                  className="flex items-center justify-between text-xs font-semibold text-slate-600"
+                >
+                  Status
+                  <SavingHint active={updatingField === "status"} />
+                </Label>
+                <Select
+                  value={status}
+                  onValueChange={handleStatusChange}
+                  disabled={isUpdatingTicket}
+                >
+                  <SelectTrigger
+                    id="status"
+                    className="h-10! min-h-10 w-full rounded-lg bg-card"
                   >
-                    Status
-                    <SavingHint active={updatingField === "status"} />
-                  </Label>
-                  <Select
-                    value={status}
-                    onValueChange={handleStatusChange}
-                    disabled={isUpdatingTicket}
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    position="popper"
+                    className="p-1"
                   >
-                    <SelectTrigger
-                      id="status"
-                      className="h-9 min-h-9 w-full bg-white border-slate-200"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent
-                      side="bottom"
-                      align="start"
-                      position="popper"
-                      className="p-1"
-                    >
-                      {TICKET_STATUSES.map((s) => (
-                        <SelectItem
-                          key={s}
-                          value={s}
-                          className="cursor-pointer p-2"
-                        >
-                          {TICKET_STATUS_LABELS[s]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label
-                    htmlFor="priority"
-                    className="flex items-center justify-between font-semibold text-slate-700"
-                  >
-                    Priority
-                    <SavingHint active={updatingField === "priority"} />
-                  </Label>
-                  <Select
-                    value={priority}
-                    onValueChange={handlePriorityChange}
-                    disabled={isUpdatingTicket}
-                  >
-                    <SelectTrigger
-                      id="priority"
-                      className="h-9 min-h-9 w-full bg-white border-slate-200"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent
-                      side="bottom"
-                      align="start"
-                      position="popper"
-                      className="p-1"
-                    >
-                      {TICKET_PRIORITIES.map((p) => (
-                        <SelectItem
-                          key={p}
-                          value={p}
-                          className="cursor-pointer p-2"
-                        >
-                          {TICKET_PRIORITY_LABELS[p]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label
-                    htmlFor="assignee"
-                    className="flex items-center justify-between font-semibold text-slate-700"
-                  >
-                    Assignee
-                    <SavingHint active={updatingField === "assignee"} />
-                  </Label>
-                  <Select
-                    value={assigneeId}
-                    onValueChange={handleAssigneeChange}
-                    disabled={isUpdatingTicket}
-                  >
-                    <SelectTrigger
-                      id="assignee"
-                      className="h-9 min-h-9 w-full bg-white border-slate-200"
-                    >
-                      <SelectValue placeholder="Unassigned" />
-                    </SelectTrigger>
-                    <SelectContent
-                      side="bottom"
-                      align="start"
-                      position="popper"
-                      className="p-1"
-                    >
-                      {currentUserId &&
-                        canAssignToSelf &&
-                        assigneeId !== currentUserId && (
-                          <SelectItem value="me" className="cursor-pointer p-2">
-                            Assign to me
-                          </SelectItem>
-                        )}
-                      {/* The current assignee, if no longer pickable (a
-                          tenant admin), so the select can still name them. */}
-                      {assigneeId !== "unassigned" &&
-                        !agents.some((a) => a.id === assigneeId) && (
-                          <SelectItem
-                            value={assigneeId}
-                            disabled
-                            className="cursor-pointer p-2"
-                          >
-                            {memberNameById[assigneeId] ?? "Team member"}
-                          </SelectItem>
-                        )}
-                      {/* "Assign to me" stands in for the viewer's own row;
-                          keep it only while they're the assignee so the
-                          select can still name them. */}
-                      {agents
-                        .filter(
-                          (agent) =>
-                            !(
-                              currentUserId &&
-                              canAssignToSelf &&
-                              agent.id === currentUserId &&
-                              assigneeId !== currentUserId
-                            ),
-                        )
-                        .map((agent) => (
-                          <SelectItem
-                            key={agent.id}
-                            value={agent.id}
-                            className="cursor-pointer p-2"
-                          >
-                            {agent.full_name}
-                          </SelectItem>
-                        ))}
+                    {TICKET_STATUSES.map((s) => (
                       <SelectItem
-                        value="unassigned"
+                        key={s}
+                        value={s}
                         className="cursor-pointer p-2"
                       >
-                        Unassigned
+                        {TICKET_STATUS_LABELS[s]}
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <TicketTagsField
-                  tenant={tenant}
-                  ticketId={ticket.id}
-                  initialTags={tags}
-                  suggestions={tenantTags}
-                />
-              </CardContent>
-            </Card>
+              <div className="grid gap-1.5">
+                <Label
+                  htmlFor="priority"
+                  className="flex items-center justify-between text-xs font-semibold text-slate-600"
+                >
+                  Priority
+                  <SavingHint active={updatingField === "priority"} />
+                </Label>
+                <Select
+                  value={priority}
+                  onValueChange={handlePriorityChange}
+                  disabled={isUpdatingTicket}
+                >
+                  <SelectTrigger
+                    id="priority"
+                    className="h-10! min-h-10 w-full rounded-lg bg-card"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    position="popper"
+                    className="p-1"
+                  >
+                    {TICKET_PRIORITIES.map((p) => (
+                      <SelectItem
+                        key={p}
+                        value={p}
+                        className="cursor-pointer p-2"
+                      >
+                        {TICKET_PRIORITY_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label
+                  htmlFor="assignee"
+                  className="flex items-center justify-between text-xs font-semibold text-slate-600"
+                >
+                  Assignee
+                  <SavingHint active={updatingField === "assignee"} />
+                </Label>
+                <Select
+                  value={assigneeId}
+                  onValueChange={handleAssigneeChange}
+                  disabled={isUpdatingTicket}
+                >
+                  <SelectTrigger
+                    id="assignee"
+                    className="h-10! min-h-10 w-full rounded-lg bg-card"
+                  >
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    position="popper"
+                    className="p-1"
+                  >
+                    {currentUserId &&
+                      canAssignToSelf &&
+                      assigneeId !== currentUserId && (
+                        <SelectItem value="me" className="cursor-pointer p-2">
+                          Assign to me
+                        </SelectItem>
+                      )}
+                    {/* The current assignee, if no longer pickable (a
+                          tenant admin), so the select can still name them. */}
+                    {assigneeId !== "unassigned" &&
+                      !agents.some((a) => a.id === assigneeId) && (
+                        <SelectItem
+                          value={assigneeId}
+                          disabled
+                          className="cursor-pointer p-2"
+                        >
+                          {memberNameById[assigneeId] ?? "Team member"}
+                        </SelectItem>
+                      )}
+                    {/* "Assign to me" stands in for the viewer's own row;
+                          keep it only while they're the assignee so the
+                          select can still name them. */}
+                    {agents
+                      .filter(
+                        (agent) =>
+                          !(
+                            currentUserId &&
+                            canAssignToSelf &&
+                            agent.id === currentUserId &&
+                            assigneeId !== currentUserId
+                          ),
+                      )
+                      .map((agent) => (
+                        <SelectItem
+                          key={agent.id}
+                          value={agent.id}
+                          className="cursor-pointer p-2"
+                        >
+                          {agent.full_name}
+                        </SelectItem>
+                      ))}
+                    <SelectItem
+                      value="unassigned"
+                      className="cursor-pointer p-2"
+                    >
+                      Unassigned
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <TicketTagsField
+                tenant={tenant}
+                ticketId={ticket.id}
+                initialTags={tags}
+                suggestions={tenantTags}
+              />
+            </SideCard>
 
             <div className="shrink-0">
               <TicketSlaCard
@@ -1476,46 +1701,52 @@ export default function TicketDetailView({
               />
             </div>
 
-            <Card className="shrink-0 gap-0 py-0 shadow-sm border-slate-200 bg-white ring-0 lg:min-h-28 lg:flex-1 lg:shrink lg:basis-0">
-              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-4 text-xs">
-                <h4 className="shrink-0 font-bold uppercase tracking-wider text-[11px] text-slate-400">
-                  Attachments
-                </h4>
-
-                {attachments.length === 0 ? (
-                  <p className="text-[11px] text-slate-400">
+            <SideCard
+              icon={Paperclip}
+              title="Attachments"
+              count={attachments.length}
+              className="flex shrink-0 flex-col lg:min-h-36 lg:flex-1 lg:shrink lg:basis-0"
+              bodyClassName="flex min-h-0 flex-1 flex-col"
+            >
+              {attachments.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-5 text-center dark:border-border">
+                  <Paperclip className="size-4 text-slate-300" aria-hidden />
+                  <p className="text-xs text-slate-500">
                     No attachments on this ticket.
                   </p>
-                ) : (
-                  <div className="-mr-2 max-h-72 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2 lg:max-h-none">
-                    {attachments.map((att) => (
-                      <a
-                        key={att.id}
-                        href={att.signed_url || "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2.5 rounded-lg border border-slate-200 flex items-center space-x-3 bg-white hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                          {(
-                            att.extension ||
-                            fileExtension(att.original_filename)
-                          ).slice(0, 3)}
+                </div>
+              ) : (
+                <div className="-mr-2 max-h-72 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2 lg:max-h-none">
+                  {attachments.map((att) => (
+                    <a
+                      key={att.id}
+                      href={att.signed_url || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group flex items-center gap-3 rounded-lg border border-slate-200! bg-card p-2.5 transition-all hover:border-brand-accent/30! hover:bg-brand-soft/40 dark:border-border! dark:hover:bg-muted/40"
+                    >
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-500 uppercase">
+                        {(
+                          att.extension || fileExtension(att.original_filename)
+                        ).slice(0, 3)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-semibold text-foreground">
+                          {att.original_filename}
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-800 truncate">
-                            {att.original_filename}
-                          </div>
-                          <div className="text-[10px] text-slate-400">
-                            {formatSize(att.size)}
-                          </div>
+                        <div className="text-[11px] text-slate-500 tabular-nums">
+                          {formatSize(att.size)}
                         </div>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      </div>
+                      <Download
+                        className="size-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-brand-ink"
+                        aria-hidden
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </SideCard>
           </div>
         </div>
       </div>

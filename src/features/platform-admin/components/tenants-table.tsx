@@ -44,6 +44,7 @@ import {
   PLATFORM_CARD,
   PLATFORM_ICON_BUTTON,
   SearchField,
+  StatFilterCard,
   TablePaginationFooter,
 } from "./platform-ui";
 import { TenantStatusBadge, ToneBadge, type BadgeTone } from "./status-badge";
@@ -91,57 +92,6 @@ type Support = {
 };
 
 const NO_SUPPORT: Support = { requests: [], open: [], accessActive: false };
-
-/** The stat cards double as filters, like the tabs below them. */
-function StatFilterCard({
-  label,
-  value,
-  icon: Icon,
-  iconClass = "text-muted-foreground",
-  active,
-  alert = false,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  /** The icon's colour, when it isn't the alert red. */
-  iconClass?: string;
-  active: boolean;
-  alert?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        PLATFORM_CARD,
-        "flex min-w-0 flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-muted/40",
-        active && "border-primary! bg-primary/5 ring-1 ring-primary/30",
-        alert &&
-          !active &&
-          value > 0 &&
-          "border-red-200! bg-red-50/60 dark:border-red-900/60! dark:bg-red-950/30",
-      )}
-    >
-      <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <Icon
-          className={cn(
-            "size-4 shrink-0",
-            alert && value > 0 ? "text-red-600" : iconClass,
-          )}
-          aria-hidden
-        />
-        <span className="truncate">{label}</span>
-      </span>
-      <span className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-        {value}
-      </span>
-    </button>
-  );
-}
 
 export function TenantsTable({
   tenants,
@@ -281,6 +231,7 @@ export function TenantsTable({
           label="All Tenants"
           value={countOf("all")}
           icon={Users}
+          iconClass="bg-brand-50 text-brand-700"
           active={status === "all"}
           onClick={() => update(setStatus)("all")}
         />
@@ -288,7 +239,7 @@ export function TenantsTable({
           label="Active"
           value={countOf("active")}
           icon={CircleCheck}
-          iconClass="text-emerald-600"
+          iconClass="bg-emerald-50 text-emerald-600"
           active={status === "active"}
           onClick={() => update(setStatus)("active")}
         />
@@ -296,7 +247,7 @@ export function TenantsTable({
           label="In trial"
           value={countOf("trialing")}
           icon={Hourglass}
-          iconClass="text-sky-600"
+          iconClass="bg-sky-50 text-sky-600"
           active={status === "trialing"}
           onClick={() => update(setStatus)("trialing")}
         />
@@ -312,7 +263,7 @@ export function TenantsTable({
           label="Past Due"
           value={countOf("past_due")}
           icon={CircleAlert}
-          iconClass="text-amber-600"
+          iconClass="bg-amber-50 text-amber-600"
           active={status === "past_due"}
           onClick={() => update(setStatus)("past_due")}
         />
@@ -320,113 +271,120 @@ export function TenantsTable({
           label="Blocked"
           value={countOf("suspended")}
           icon={Ban}
-          iconClass="text-slate-500"
+          iconClass="bg-slate-100 text-slate-600"
           active={status === "suspended"}
           onClick={() => update(setStatus)("suspended")}
         />
       </div>
 
-      <FilterTabs
-        label="Tenant status"
-        value={status}
-        onChange={update(setStatus)}
-        options={[
-          ...(
-            [
-              "all",
-              "active",
-              "trialing",
-              "past_due",
-              "suspended",
-              "cancelled",
-            ] as const
-          ).map((value) => ({
-            value,
-            label: STATUS_LABELS[value],
-            count: countOf(value),
-          })),
-          {
-            value: "support" as const,
-            label: "Support Requests",
-            count: countOf("support"),
-          },
-        ]}
-      />
-
-      <div
-        className={cn(
-          PLATFORM_CARD,
-          "grid shrink-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center",
-        )}
-      >
-        <div className="sm:col-span-2 xl:min-w-64 xl:flex-1">
-          <SearchField
-            value={query}
-            onChange={update(setQuery)}
-            label="Search tenants"
-            placeholder="Search tenant (name, slug, owner, email)…"
+      {/* One toolbar: status tabs and Clear on top, search and filters below. */}
+      <div className={cn(PLATFORM_CARD, "flex shrink-0 flex-col")}>
+        <div className="flex items-center gap-3 border-b border-border p-3">
+          <div className="min-w-0 flex-1">
+            <FilterTabs
+              label="Tenant status"
+              value={status}
+              onChange={update(setStatus)}
+              options={[
+                ...(
+                  [
+                    "all",
+                    "active",
+                    "trialing",
+                    "past_due",
+                    "suspended",
+                    "cancelled",
+                  ] as const
+                ).map((value) => ({
+                  value,
+                  label: STATUS_LABELS[value],
+                  count: countOf(value),
+                })),
+                {
+                  value: "support" as const,
+                  label: "Support Requests",
+                  count: countOf("support"),
+                },
+              ]}
+            />
+          </div>
+          <Button
+            variant="ghost"
+            className="h-9 shrink-0 gap-1.5 rounded-lg px-3 font-semibold text-slate-600 hover:text-foreground disabled:opacity-40"
+            disabled={!isFiltered}
+            onClick={reset}
+          >
+            <RotateCcw className="size-4" aria-hidden />
+            <span className="hidden sm:inline">Clear filters</span>
+            <span className="sm:hidden">Clear</span>
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-[minmax(16rem,1.6fr)_repeat(4,minmax(0,1fr))]">
+          <div className="sm:col-span-2 lg:col-span-4 2xl:col-span-1">
+            <SearchField
+              value={query}
+              onChange={update(setQuery)}
+              label="Search tenants"
+              placeholder="Search tenant (name, slug, owner, email)…"
+            />
+          </div>
+          <FilterSelect
+            className="xl:w-full"
+            label="Filter by plan"
+            value={plan}
+            onChange={update(setPlan)}
+            options={[
+              { value: "all", label: "Plan: All" },
+              ...plans.map((name) => ({ value: name, label: `Plan: ${name}` })),
+            ]}
+          />
+          <FilterSelect
+            className="xl:w-full"
+            label="Filter by status"
+            value={status}
+            onChange={(value) => update(setStatus)(value as StatusFilter)}
+            options={[
+              ...(
+                Object.keys(STATUS_LABELS) as Array<keyof typeof STATUS_LABELS>
+              ).map((value) => ({
+                value,
+                label: `Status: ${STATUS_LABELS[value]}`,
+              })),
+              { value: "support", label: "Status: Has support request" },
+            ]}
+          />
+          <FilterSelect
+            className="xl:w-full"
+            label="Filter by support requests"
+            value={support}
+            onChange={(value) => update(setSupport)(value as SupportFilter)}
+            options={[
+              { value: "all", label: "Support: All" },
+              { value: "open", label: "Support: Open requests" },
+              { value: "access", label: "Support: Access granted" },
+              { value: "none", label: "Support: No requests" },
+            ]}
+          />
+          <FilterSelect
+            className="xl:w-full"
+            label="Filter by created date"
+            value={created}
+            onChange={(value) => {
+              const days = value as CreatedFilter;
+              setCreatedAfter(
+                days === "any" ? null : Date.now() - Number(days) * 86_400_000,
+              );
+              update(setCreated)(days);
+            }}
+            options={[
+              { value: "any", label: "Created: Any time" },
+              { value: "7", label: "Created: Last 7 days" },
+              { value: "30", label: "Created: Last 30 days" },
+              { value: "90", label: "Created: Last 90 days" },
+              { value: "365", label: "Created: Last year" },
+            ]}
           />
         </div>
-        <FilterSelect
-          label="Filter by plan"
-          value={plan}
-          onChange={update(setPlan)}
-          options={[
-            { value: "all", label: "Plan: All" },
-            ...plans.map((name) => ({ value: name, label: `Plan: ${name}` })),
-          ]}
-        />
-        <FilterSelect
-          label="Filter by status"
-          value={status}
-          onChange={(value) => update(setStatus)(value as StatusFilter)}
-          options={[
-            ...(
-              Object.keys(STATUS_LABELS) as Array<keyof typeof STATUS_LABELS>
-            ).map((value) => ({
-              value,
-              label: `Status: ${STATUS_LABELS[value]}`,
-            })),
-            { value: "support", label: "Status: Has support request" },
-          ]}
-        />
-        <FilterSelect
-          label="Filter by support requests"
-          value={support}
-          onChange={(value) => update(setSupport)(value as SupportFilter)}
-          options={[
-            { value: "all", label: "Support: All" },
-            { value: "open", label: "Support: Open requests" },
-            { value: "access", label: "Support: Access granted" },
-            { value: "none", label: "Support: No requests" },
-          ]}
-        />
-        <FilterSelect
-          label="Filter by created date"
-          value={created}
-          onChange={(value) => {
-            const days = value as CreatedFilter;
-            setCreatedAfter(
-              days === "any" ? null : Date.now() - Number(days) * 86_400_000,
-            );
-            update(setCreated)(days);
-          }}
-          options={[
-            { value: "any", label: "Created: Any time" },
-            { value: "7", label: "Created: Last 7 days" },
-            { value: "30", label: "Created: Last 30 days" },
-            { value: "90", label: "Created: Last 90 days" },
-            { value: "365", label: "Created: Last year" },
-          ]}
-        />
-        <Button
-          variant="ghost"
-          className="h-10 rounded-lg px-3 font-semibold text-primary hover:text-primary"
-          disabled={!isFiltered}
-          onClick={reset}
-        >
-          Reset
-        </Button>
       </div>
 
       <DataTable
@@ -460,21 +418,21 @@ export function TenantsTable({
             primary: true,
             cell: (tenant) => (
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar className="size-9 rounded-md after:rounded-md">
+                <Avatar className="size-9 after:border-transparent">
                   {tenant.logoUrl && (
                     <AvatarImage
                       src={tenant.logoUrl}
                       alt=""
-                      className="rounded-md object-contain"
+                      className="object-contain"
                     />
                   )}
-                  <AvatarFallback className="rounded-md bg-muted text-xs font-bold text-foreground">
+                  <AvatarFallback className="bg-slate-100 text-xs font-bold text-slate-600">
                     {tenant.initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate font-semibold">{tenant.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="truncate text-xs text-slate-500">
                     /{tenant.slug}
                     {tenant.ownerEmail && ` · ${tenant.ownerEmail}`}
                   </span>
@@ -492,12 +450,15 @@ export function TenantsTable({
           {
             key: "seats",
             header: "Seats",
-            cell: (tenant) =>
-              `${tenant.seatsUsed} / ${
-                tenant.seatsLimit >= UNLIMITED_SEATS
-                  ? "Unlimited"
-                  : tenant.seatsLimit
-              }`,
+            cell: (tenant) => (
+              <span className="text-slate-700 tabular-nums">
+                {`${tenant.seatsUsed} / ${
+                  tenant.seatsLimit >= UNLIMITED_SEATS
+                    ? "Unlimited"
+                    : tenant.seatsLimit
+                }`}
+              </span>
+            ),
           },
           {
             key: "mrr",
@@ -549,7 +510,7 @@ export function TenantsTable({
                       requestId: s.open.length === 1 ? s.open[0].id : null,
                     })
                   }
-                  className="inline-flex h-6 items-center gap-1.5 rounded-md bg-red-50 px-2.5 text-xs font-semibold whitespace-nowrap text-red-700 transition-colors hover:bg-red-100 dark:bg-red-950/60 dark:text-red-300"
+                  className="inline-flex h-6 items-center gap-1.5 rounded-md bg-red-50 px-2 text-xs font-semibold whitespace-nowrap text-red-700 ring-1 ring-red-600/15 transition-colors outline-none ring-inset hover:bg-red-100 focus-visible:ring-2 focus-visible:ring-red-500/50 dark:bg-red-950/60 dark:text-red-300"
                 >
                   <LifeBuoy className="size-3.5" aria-hidden />
                   {s.open.length} Open
@@ -563,7 +524,7 @@ export function TenantsTable({
             key: "created",
             header: "Created",
             cell: (tenant) => (
-              <span className="whitespace-nowrap text-muted-foreground">
+              <span className="whitespace-nowrap text-slate-500 tabular-nums">
                 {tenant.createdAt}
               </span>
             ),

@@ -78,17 +78,10 @@ export function useRealtimeTicketsRefresh(
         { event: "UPDATE", schema: "public", table: "sla_events", filter },
         schedule,
       )
-      // Deletes can't be filtered server-side; skip one that names another
-      // tenant (the old row may carry only the id, then it counts).
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "sla_events" },
-        (payload) => {
-          const old = payload.old as { tenant_id?: string } | undefined;
-          if (old?.tenant_id && old.tenant_id !== tenantId) return;
-          schedule();
-        },
-      )
+      // No sla_events DELETE listener: Realtime can't filter deletes, and
+      // with RLS on the old row carries only its id, so every tenant's
+      // deletes would refresh every open queue. The changes that delete
+      // clocks (priority, policy) also update the ticket row, caught below.
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "tickets", filter },

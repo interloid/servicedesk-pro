@@ -10,6 +10,7 @@ import type {
   PortalSupportHours,
   PortalTenant,
 } from "@/features/portal/portal";
+import { PortalHeaderNav } from "@/features/portal/components/portal-header-nav";
 import {
   PortalGuestMenu,
   PortalUserMenu,
@@ -108,55 +109,55 @@ function PortalHeader({
     <header className="sticky top-0 z-40 border-b border-current/15 bg-brand-accent text-brand-accent-foreground shadow-[0_1px_0_rgba(15,23,42,0.04),0_4px_16px_rgba(15,23,42,0.06)]">
       {/* Same max width as the footer, so the logo and the footer's name
           line up on a wide screen instead of sitting at opposite gutters. */}
-      <div className="mx-auto flex h-15 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:gap-4 sm:px-5 md:px-6">
+      <div className="mx-auto flex h-15 w-full max-w-7xl items-center gap-3 px-4 sm:h-16 sm:gap-6 sm:px-5 md:px-6">
         <Link
           href={portalPath(tenant.slug, PORTAL_ROUTES.REQUESTS)}
           // The colour is set here, not inherited from the header. globals.css
           // carries `a { @apply text-primary }`, and --primary IS the brand
-          // colour — so an anchor sitting on the brand bar paints itself the
-          // same colour as the bar it is on and disappears. An element selector
-          // loses to a class, so naming the colour here settles it. The hover
-          // variant is needed for the same reason: `a:hover` reaches for
-          // --brand-pressed, which is just as invisible.
-          className="flex min-w-0 items-center gap-2.5 rounded-md text-brand-accent-foreground outline-none hover:text-brand-accent-foreground focus-visible:ring-2 focus-visible:ring-current/60"
+          // colour, so an anchor on the brand bar would vanish into it. The
+          // hover variant is needed for the same reason.
+          className="flex min-w-0 items-center gap-3 rounded-md text-brand-accent-foreground outline-none hover:text-brand-accent-foreground focus-visible:ring-2 focus-visible:ring-current/60"
         >
           {/* Switched off in branding: no logo and no initial tile either --
               the name alone still reads as the workspace. */}
           {tenant.showLogoOnPortal ? (
-            <TenantMark tenant={tenant} className="bg-current/15" />
+            <TenantMark
+              tenant={tenant}
+              className="bg-current/15 ring-1 ring-current/20"
+            />
           ) : null}
 
           {/* min-w-0 + truncate so a long workspace name shortens instead of
               squeezing the actions off the right edge on a narrow screen. */}
-          <span className="min-w-0 truncate text-base font-bold tracking-tight">
-            {tenant.name.charAt(0).toUpperCase() +
-              tenant.name.slice(1).toLowerCase()}
-            <span className="font-semibold text-current/80"> Support</span>
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span className="min-w-0 truncate text-base font-bold tracking-tight">
+              {tenant.name}
+            </span>
+            <span
+              aria-hidden
+              className="hidden h-4 w-px shrink-0 bg-current/30 sm:block"
+            />
+            <span className="hidden shrink-0 text-sm font-medium text-current/80 sm:inline">
+              Support
+            </span>
+            <span className="sr-only sm:hidden"> Support</span>
           </span>
         </Link>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-          <Link
-            href={portalPath(tenant.slug, PORTAL_ROUTES.HELP)}
-            className={cn(
-              // bg-current, not bg-white. A white overlay lightens the bar, and
-              // on a mid-tone brand that pushed the pill to 1.18:1 against the
-              // header while dropping its own text to 2.76:1 -- the control was
-              // washing out the very text it held. currentColor tints toward the
-              // readable foreground instead, so it separates on any brand.
-              // text-brand-accent-foreground for the same reason as the logo
-              // link above: without it `a { @apply text-primary }` wins over the
-              // header's inherited colour and this pill vanishes into the bar.
-              // Hidden on a phone: the menu button carries Help centre there.
-              "hidden rounded-lg bg-current/12 px-3.5 py-2 text-sm font-semibold text-brand-accent-foreground transition-colors sm:inline-flex",
-              "hover:bg-current/20 hover:text-brand-accent-foreground focus-visible:ring-2 focus-visible:ring-current/60 focus-visible:outline-none",
-            )}
-          >
-            Help centre
-          </Link>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 self-stretch sm:gap-4">
+          <PortalHeaderNav
+            tenantSlug={tenant.slug}
+            signedIn={Boolean(customer)}
+          />
 
           {customer ? (
-            <PortalUserMenu tenantSlug={tenant.slug} customer={customer} />
+            <>
+              <span
+                aria-hidden
+                className="hidden h-6 w-px bg-current/20 sm:block"
+              />
+              <PortalUserMenu tenantSlug={tenant.slug} customer={customer} />
+            </>
           ) : (
             <PortalGuestMenu tenantSlug={tenant.slug} />
           )}

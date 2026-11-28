@@ -6,8 +6,11 @@ import {
   Database,
   Gauge,
   HardDrive,
+  KeyRound,
   MemoryStick,
   Plug,
+  Server,
+  Table2,
   Timer,
   XCircle,
   Zap,
@@ -27,47 +30,94 @@ import type {
 } from "../types";
 import { ApiTrafficChart } from "./api-traffic-chart";
 import { ManagementNotice } from "./management-notice";
-import { PLATFORM_CARD, PLATFORM_STAT_GRID } from "./platform-ui";
+import {
+  PLATFORM_CARD,
+  PlatformEmpty,
+  PlatformSectionHeading,
+} from "./platform-ui";
 import { SimpleTable } from "./simple-table";
 import { StatCard } from "./stat-card";
 
 const STATES: Record<
   ServiceState,
-  { label: string; icon: LucideIcon; className: string }
+  {
+    label: string;
+    icon: LucideIcon;
+    className: string;
+    /** Status pill on a service card. */
+    pill: string;
+    dot: string;
+    /** The overall banner: surface tint and icon tile. */
+    banner: string;
+    tile: string;
+  }
 > = {
   operational: {
     label: "Operational",
     icon: CheckCircle2,
-    className: "text-emerald-600",
+    // The brand teal, not emerald: "all good" reads in the app's own colour.
+    className: "text-brand-700",
+    pill: "bg-brand-700/8 text-brand-700 ring-brand-700/15",
+    dot: "bg-brand-600",
+    banner: "bg-brand-700/5 ring-brand-700/20",
+    tile: "bg-brand-700/10 text-brand-700",
   },
   degraded: {
     label: "Degraded",
     icon: AlertTriangle,
     className: "text-amber-600",
+    pill: "bg-amber-50 text-amber-800 ring-amber-600/20",
+    dot: "bg-amber-500",
+    banner: "bg-amber-50/70 ring-amber-200",
+    tile: "bg-amber-100 text-amber-700",
   },
-  down: { label: "Down", icon: XCircle, className: "text-red-600" },
+  down: {
+    label: "Down",
+    icon: XCircle,
+    className: "text-red-600",
+    pill: "bg-red-50 text-red-700 ring-red-600/15",
+    dot: "bg-red-500",
+    banner: "bg-red-50/70 ring-red-200",
+    tile: "bg-red-100 text-red-700",
+  },
 };
 
 function Section({
   title,
   description,
+  icon,
   children,
 }: {
   title: string;
-  description?: string;
+  description: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-base font-bold text-foreground">{title}</h2>
-        {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
+      <PlatformSectionHeading
+        icon={icon}
+        title={title}
+        description={description}
+      />
       {children}
     </section>
   );
+}
+
+/** An icon for each checked service, by its name. */
+function ServiceGlyph({ name }: { name: string }) {
+  const n = name.toLowerCase();
+  const props = {
+    className: "size-5.5",
+    strokeWidth: 1.75,
+    "aria-hidden": true,
+  };
+  if (n.includes("auth")) return <KeyRound {...props} />;
+  if (n.includes("storage")) return <HardDrive {...props} />;
+  if (n.includes("database") || n.includes("rest"))
+    return <Database {...props} />;
+  return <Server {...props} />;
 }
 
 function Overall({ services }: { services: ServiceHealth[] }) {
@@ -76,51 +126,94 @@ function Overall({ services }: { services: ServiceHealth[] }) {
     : services.some((s) => s.state === "degraded")
       ? "degraded"
       : "operational";
-  const { icon: Icon, className } = STATES[worst];
+  const { icon: Icon, banner, tile } = STATES[worst];
   const affected = services.filter((s) => s.state !== "operational");
 
   return (
-    <div className={cn(PLATFORM_CARD, "flex items-center gap-3 p-4")}>
-      <Icon className={cn("size-6 shrink-0", className)} aria-hidden />
-      <div className="flex min-w-0 flex-col">
-        <span className="text-sm font-semibold text-foreground">
+    // Tinted by the worst state; a ring stands in for the border colour,
+    // which the global `* { border-border }` rule would override.
+    <div
+      className={cn(
+        "flex items-center gap-4 rounded-xl p-4 ring-1 sm:px-5",
+        banner,
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-11 shrink-0 items-center justify-center rounded-full",
+          tile,
+        )}
+      >
+        <Icon className="size-5.5" aria-hidden />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="font-heading text-base font-bold text-foreground">
           {worst === "operational"
             ? "All checked services are operational"
             : `${affected.length} service${affected.length === 1 ? "" : "s"} need${affected.length === 1 ? "s" : ""} attention`}
         </span>
-        {affected.length > 0 && (
-          <span className="truncate text-xs text-muted-foreground">
-            {affected.map((s) => s.name).join(", ")}
-          </span>
-        )}
+        <span className="truncate text-sm text-slate-600">
+          {affected.length > 0
+            ? affected.map((s) => s.name).join(", ")
+            : `${services.length} of ${services.length} services responding normally`}
+        </span>
+      </div>
+      <div className="hidden shrink-0 items-center gap-1.5 sm:flex" aria-hidden>
+        {services.map((service) => (
+          <span
+            key={service.name}
+            title={service.name}
+            className={cn("size-2.5 rounded-full", STATES[service.state].dot)}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
 function ServiceCard({ service }: { service: ServiceHealth }) {
-  const { label, icon: Icon, className } = STATES[service.state];
+  const { label, icon: Icon, pill, tile } = STATES[service.state];
 
   return (
-    <div className={cn(PLATFORM_CARD, "flex flex-col gap-1 p-4")}>
-      <span className="text-sm font-semibold text-foreground">
-        {service.name}
-      </span>
+    <div className={cn(PLATFORM_CARD, "flex items-start gap-4 p-5")}>
       <span
         className={cn(
-          "flex items-center gap-1.5 text-sm font-medium",
-          className,
+          "flex size-11 shrink-0 items-center justify-center rounded-full",
+          tile,
         )}
       >
-        <Icon className="size-4" aria-hidden />
-        {label}
+        <ServiceGlyph name={service.name} />
       </span>
-      <span className="text-xs text-muted-foreground">
-        {service.detail ??
-          (service.latencyMs !== null
-            ? `${service.latencyMs} ms response`
-            : "Reported by Supabase")}
-      </span>
+      {/* Name on top; status and response time below it, so nothing overlaps. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="font-heading text-base leading-snug font-bold text-foreground">
+          {service.name}
+        </span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span
+            className={cn(
+              "inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ring-inset",
+              pill,
+            )}
+          >
+            <Icon className="size-3.5" aria-hidden />
+            {label}
+          </span>
+          <span className="text-xs text-slate-500">
+            {service.detail ??
+              (service.latencyMs !== null ? (
+                <>
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {service.latencyMs} ms
+                  </span>{" "}
+                  response
+                </>
+              ) : (
+                "Reported by Supabase"
+              ))}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -158,17 +251,22 @@ export function HealthDashboard({
       <Overall services={services} />
 
       <Section
+        icon={Server}
         title="Services"
         description="Checked from this server just now."
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {services.map((service) => (
             <ServiceCard key={service.name} service={service} />
           ))}
         </div>
       </Section>
 
-      <Section title="Database & infrastructure">
+      <Section
+        icon={Database}
+        title="Database & infrastructure"
+        description="Connections, storage and server load."
+      >
         {!db.available && (
           <ModalNotice icon={AlertTriangle} tone="danger">
             {db.missing
@@ -178,7 +276,7 @@ export function HealthDashboard({
                 : "The database metrics couldn't be read. Check the server logs."}
           </ModalNotice>
         )}
-        <div className={PLATFORM_STAT_GRID}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Connections"
             value={
@@ -192,11 +290,13 @@ export function HealthDashboard({
                 : undefined
             }
             icon={Plug}
+            iconClassName="bg-brand-50 text-brand-700"
           />
           <StatCard
             label="Database size"
             value={formatBytes(database?.database_bytes)}
             icon={Database}
+            iconClassName="bg-sky-50 text-sky-600"
           />
           <StatCard
             label="Cache hit rate"
@@ -207,6 +307,7 @@ export function HealthDashboard({
             }
             hint="Since stats were last reset"
             icon={Gauge}
+            iconClassName="bg-emerald-50 text-emerald-600"
           />
           <StatCard
             label="Longest running query"
@@ -219,6 +320,7 @@ export function HealthDashboard({
                 : undefined
             }
             icon={Timer}
+            iconClassName="bg-amber-50 text-amber-600"
           />
           <StatCard
             label="Memory"
@@ -229,6 +331,7 @@ export function HealthDashboard({
                 : "Not reported"
             }
             icon={MemoryStick}
+            iconClassName="bg-violet-50 text-violet-600"
           />
           <StatCard
             label="Disk"
@@ -239,6 +342,7 @@ export function HealthDashboard({
                 : "Not reported"
             }
             icon={HardDrive}
+            iconClassName="bg-sky-50 text-sky-600"
           />
           <StatCard
             label="CPU load (1 min)"
@@ -249,6 +353,7 @@ export function HealthDashboard({
                 : "Not reported"
             }
             icon={Cpu}
+            iconClassName="bg-rose-50 text-rose-600"
           />
           <StatCard
             label="API requests (24 h)"
@@ -259,11 +364,13 @@ export function HealthDashboard({
                 : undefined
             }
             icon={Zap}
+            iconClassName="bg-brand-50 text-brand-700"
           />
         </div>
       </Section>
 
       <Section
+        icon={Zap}
         title="API traffic"
         description="Requests through the Supabase gateway, last 24 hours (UTC)."
       >
@@ -271,18 +378,16 @@ export function HealthDashboard({
           <ManagementNotice failure={traffic} />
         ) : (
           <>
-            <div
-              className={cn(PLATFORM_CARD, "flex flex-col gap-3 p-4 sm:p-5")}
-            >
+            <div className={cn(PLATFORM_CARD, "flex flex-col gap-3 p-5")}>
               {traffic.data.hours.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
+                <PlatformEmpty icon={Zap}>
                   No API requests in the last 24 hours.
-                </p>
+                </PlatformEmpty>
               ) : (
                 <ApiTrafficChart hours={traffic.data.hours} />
               )}
               {traffic.data.p95Ms !== null && (
-                <p className="text-xs text-muted-foreground">
+                <p className="border-t border-border pt-3 text-xs text-slate-500">
                   Slowest hourly p95 origin time: {traffic.data.p95Ms} ms
                 </p>
               )}
@@ -305,7 +410,11 @@ export function HealthDashboard({
       </Section>
 
       {database && (
-        <Section title="Database performance">
+        <Section
+          icon={Table2}
+          title="Database performance"
+          description="The largest tables by size."
+        >
           <SimpleTable
             headers={["Largest table", "Rows (est.)", "Size"]}
             empty="No tables found."

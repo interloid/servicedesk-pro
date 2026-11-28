@@ -15,7 +15,6 @@ import { PersonAvatar } from "@/components/shared/person-avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -49,8 +48,13 @@ import {
   Columns,
   Flag,
   Loader2,
+  Ticket as TicketIcon,
   UserRound,
 } from "lucide-react";
+import {
+  DASHBOARD_BUTTON,
+  DASHBOARD_CARD,
+} from "@/components/shared/dashboard-ui";
 import { cn } from "@/lib/utils";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import CreateTicketSheet from "./create-ticket-sheet";
@@ -104,37 +108,55 @@ const NO_VIEW_TABS: Promise<SavedViewTab[]> = Promise.resolve([]);
 
 /** The bulk bar's white action buttons; each adds its own hover tint. */
 const BULK_ACTION_BUTTON =
-  "h-10 gap-2 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-xs transition-colors dark:border-border dark:bg-card dark:text-foreground";
+  "h-10 gap-2 rounded-lg border-slate-200! bg-white px-4 text-sm font-semibold text-slate-800 shadow-none transition-colors hover:bg-slate-50 hover:text-foreground dark:border-border! dark:bg-card dark:text-foreground dark:hover:bg-muted";
+
+/** The table's header cells, as on the platform tables. */
+const TH =
+  "h-10 overflow-hidden px-3 text-left text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase";
+
+/** A soft tinted pill with a hairline ring in the same hue. */
+const PILL =
+  "h-6 gap-1.5 rounded-md border-none px-2 text-xs font-semibold ring-1 ring-inset";
 
 type ColumnKey =
   "id" | "subject" | "requester" | "priority" | "assignee" | "status" | "sla";
 
+const TONE = {
+  red: "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
+  amber:
+    "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
+  sky: "bg-sky-50 text-sky-700 ring-sky-600/15 dark:bg-sky-950/60 dark:text-sky-300",
+  teal: "bg-teal-50 text-teal-700 ring-teal-600/15 dark:bg-teal-950/60 dark:text-teal-300",
+  violet:
+    "bg-violet-50 text-violet-700 ring-violet-600/15 dark:bg-violet-950/60 dark:text-violet-300",
+  green:
+    "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-950/60 dark:text-emerald-300",
+  muted: "bg-slate-100 text-slate-600 ring-slate-500/15",
+} as const;
+
 const PRIORITY_STYLES: Record<string, { badge: string; dot: string }> = {
-  urgent: { badge: "bg-red-100 text-red-800", dot: "bg-red-500" },
-  high: { badge: "bg-orange-100 text-orange-800", dot: "bg-orange-500" },
-  normal: { badge: "bg-blue-100 text-blue-800", dot: "bg-blue-500" },
-  low: { badge: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-600" },
+  urgent: { badge: TONE.red, dot: "bg-red-500" },
+  high: { badge: TONE.amber, dot: "bg-amber-500" },
+  normal: { badge: TONE.sky, dot: "bg-sky-500" },
+  low: { badge: TONE.muted, dot: "bg-slate-400" },
 };
 
 const STATUS_BADGE: Record<TicketStatus, string> = {
-  new: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  open: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-  pending: "bg-amber-100 text-amber-800 hover:bg-amber-100",
-  on_hold: "bg-purple-100 text-purple-800 hover:bg-purple-100",
-  resolved: "bg-slate-100 text-slate-700 hover:bg-slate-100",
-  closed: "bg-slate-200 text-slate-600 hover:bg-slate-200",
+  new: TONE.teal,
+  open: TONE.sky,
+  pending: TONE.amber,
+  on_hold: TONE.violet,
+  resolved: TONE.green,
+  closed: TONE.muted,
 };
 
 const SLA_PILL: Record<LiveSla["type"], { pill: string; dot: string }> = {
-  breached: { pill: "bg-rose-100/80 text-rose-800", dot: "bg-rose-600" },
-  warning: { pill: "bg-amber-100/80 text-amber-900", dot: "bg-amber-600" },
-  paused: { pill: "bg-slate-100 text-slate-600", dot: "bg-slate-400" },
-  waiting: { pill: "bg-slate-100 text-slate-600", dot: "bg-slate-400" },
-  completed: {
-    pill: "bg-emerald-100/80 text-emerald-800",
-    dot: "bg-emerald-600",
-  },
-  normal: { pill: "bg-[#0e7adf]/10 text-[#0e7adf]", dot: "bg-[#0e7adf]" },
+  breached: { pill: TONE.red, dot: "bg-red-500" },
+  warning: { pill: TONE.amber, dot: "bg-amber-500" },
+  paused: { pill: TONE.muted, dot: "bg-slate-400" },
+  waiting: { pill: TONE.muted, dot: "bg-slate-400" },
+  completed: { pill: TONE.green, dot: "bg-emerald-500" },
+  normal: { pill: TONE.sky, dot: "bg-sky-500" },
 };
 
 /**
@@ -155,14 +177,16 @@ function SlaBadge({ ticket }: { ticket: Ticket }) {
       // Read from the clock, which differs between server render and browser.
       suppressHydrationWarning
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+        "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap tabular-nums ring-1 ring-inset",
         style.pill,
       )}
     >
-      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", style.dot)} />
-      {live.type === "waiting" && !mounted
-        ? "Outside business hours"
-        : live.text}
+      <span className={cn("size-1.5 shrink-0 rounded-full", style.dot)} />
+      <span className="truncate">
+        {live.type === "waiting" && !mounted
+          ? "Outside business hours"
+          : live.text}
+      </span>
     </span>
   );
 }
@@ -289,12 +313,16 @@ export default function TicketsTable({
         setBulkLowerTo(null);
         if ("slaKept" in res && res.slaKept) {
           toast.success(
-            `${res.slaKept} ticket${res.slaKept === 1 ? " was" : "s were"} due soon, so ${res.slaKept === 1 ? "its" : "their"} SLA deadline stays as it was.`,
+            `${res.slaKept} ticket${res.slaKept === 1 ? "" : "s"} kept ${res.slaKept === 1 ? "its" : "their"} SLA deadline`,
+            {
+              description: `${res.slaKept === 1 ? "It was" : "They were"} due soon, so the original deadline stays as it was.`,
+            },
           );
         }
         if ("failed" in res && res.failed) {
           toast.warning(
-            `${res.failed} ticket${res.failed === 1 ? "" : "s"} couldn't be updated. The rest were.`,
+            `${res.failed} ticket${res.failed === 1 ? "" : "s"} couldn't be updated`,
+            { description: "The rest of the selected tickets were updated." },
           );
         }
         // The bulk actions' revalidatePath refreshes the list.
@@ -302,14 +330,18 @@ export default function TicketsTable({
         setBulkError(res.error || "Failed to update tickets.");
         // The confirm dialog covers the inline error; say it there too.
         if (action === "priority")
-          toast.error(res.error || "Failed to update tickets.");
+          toast.error("Couldn't update the tickets", {
+            description: res.error,
+          });
       }
     } catch {
       // Thrown inside a transition this would reach error.tsx and replace
       // the whole list; keep it inline like any other failure.
       setBulkError("Couldn't reach the server. Try again.");
       if (action === "priority")
-        toast.error("Couldn't reach the server. Try again.");
+        toast.error("Couldn't update the tickets", {
+          description: "Couldn't reach the server. Try again.",
+        });
     } finally {
       setBulkAction(null);
     }
@@ -359,18 +391,13 @@ export default function TicketsTable({
     const key = status?.toLowerCase() as TicketStatus;
     if (!(key in STATUS_BADGE)) {
       return (
-        <Badge variant="outline" className="h-6 rounded-full px-2.5 text-xs">
+        <Badge variant="outline" className="h-6 rounded-md px-2 text-xs">
           {status}
         </Badge>
       );
     }
     return (
-      <Badge
-        className={cn(
-          "h-6 rounded-full px-2.5 text-xs border-none font-semibold",
-          STATUS_BADGE[key],
-        )}
-      >
+      <Badge className={cn(PILL, STATUS_BADGE[key])}>
         {TICKET_STATUS_LABELS[key]}
       </Badge>
     );
@@ -380,12 +407,7 @@ export default function TicketsTable({
   const getPriorityBadge = (priority: string) => {
     const style = PRIORITY_STYLES[priority?.toLowerCase()];
     return (
-      <Badge
-        className={cn(
-          "h-6 gap-1.5 rounded-full border-none px-2.5 text-xs font-semibold",
-          style?.badge ?? "bg-slate-100 text-slate-700",
-        )}
-      >
+      <Badge className={cn(PILL, style?.badge ?? TONE.muted)}>
         <span
           className={cn(
             "size-1.5 shrink-0 rounded-full",
@@ -476,6 +498,12 @@ export default function TicketsTable({
       "sla",
     ] as ColumnKey[]
   ).find((c) => visibleColumns[c]);
+  // In a narrow card (a laptop with the sidebar open) the requester folds
+  // under the subject instead of taking a column of its own.
+  const foldRequester = Boolean(
+    visibleColumns?.subject && visibleColumns?.requester,
+  );
+  const REQUESTER_COL = foldRequester ? "hidden @5xl:table-cell" : "";
 
   // No tickets at all (not just none matching a search or filter): the
   // tabs, columns, search and filters show but are disabled, as there is
@@ -491,30 +519,33 @@ export default function TicketsTable({
 
   return (
     <div className="h-full overflow-y-auto p-4 font-sans sm:p-6 lg:p-8">
-      <div className="flex flex-col gap-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold tracking-[0.08em] text-brand-700 uppercase">
+              <TicketIcon className="size-3.5" strokeWidth={2} aria-hidden />
+              Workspace
+            </span>
+            <h1 className="font-heading text-[1.75rem] leading-tight font-bold tracking-tight text-foreground sm:text-[2rem]">
               Tickets
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            <p className="max-w-2xl text-sm leading-relaxed text-slate-500 tabular-nums sm:text-[15px]">
               {totalCount} total tickets ·{" "}
-              <span className="text-slate-700 font-medium">
+              <span className="font-medium text-slate-700 dark:text-slate-300">
                 Tenant: {tenant}
               </span>
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  size="sm"
                   disabled={queueEmpty}
-                  className="h-10 gap-1.5 px-3 text-sm font-semibold"
+                  className={cn(DASHBOARD_BUTTON, "gap-2 bg-card")}
                 >
-                  <Columns className="w-3.5 h-3.5" />
+                  <Columns className="size-4" aria-hidden />
                   Columns
                 </Button>
               </DropdownMenuTrigger>
@@ -576,142 +607,160 @@ export default function TicketsTable({
             </DropdownMenu>
 
             <Button
-              size="sm"
               onClick={() => setIsSheetOpen(true)}
-              className="h-10 bg-brand-accent px-4 text-sm font-semibold text-white hover:bg-brand-accent/90"
+              className={cn(
+                DASHBOARD_BUTTON,
+                "bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90",
+              )}
             >
               New ticket
             </Button>
           </div>
         </div>
 
-        <Suspense fallback={<TicketViewTabsSkeleton />}>
-          <TicketViewTabs
-            tabs={viewTabs}
-            activeViewId={activeViewId}
-            onOpen={openViewTab}
-            disabled={queueEmpty}
-          />
-        </Suspense>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-4">
-          <div className="w-full sm:w-64 md:w-80 space-y-1">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Search
-            </label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="text"
-                value={searchQuery}
-                disabled={queueEmpty}
-                placeholder="Search this view"
-                onChange={(e) => {
-                  // One navigation once typing stops, replacing the entry,
-                  // instead of a server render and a history step per key.
-                  const value = e.target.value;
-                  setSearchQuery(value);
-                  if (searchTimer.current) clearTimeout(searchTimer.current);
-                  // Built from the live URL when it fires: a filter picked in
-                  // the meantime must not be overwritten by this render's copy.
-                  searchTimer.current = setTimeout(() => {
-                    const params = new URLSearchParams(window.location.search);
-                    if (value) params.set("search", value);
-                    else params.delete("search");
-                    params.set("page", "1");
-                    setSentSearch(value);
-                    startTransition(() => {
-                      router.replace(`${pathname}?${params.toString()}`);
-                    });
-                  }, 300);
-                }}
-                className="pl-8 h-10 bg-white border-slate-200"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:flex sm:space-x-4">
-            <div className="space-y-1 w-full sm:w-36">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Priority
-              </label>
-              <Select
-                value={searchParams?.get("priority") || "all"}
-                onValueChange={(val) => updateQueryParam("priority", val)}
-                disabled={queueEmpty}
-              >
-                <SelectTrigger className="h-10 min-h-10 w-full bg-white border-slate-200">
-                  <SelectValue placeholder="All priorities" />
-                </SelectTrigger>
-                <SelectContent
-                  side="bottom"
-                  align="start"
-                  position="popper"
-                  className="p-1"
-                >
-                  <SelectItem value="all" className="cursor-pointer p-2">
-                    All priorities
-                  </SelectItem>
-                  {TICKET_PRIORITIES.map((p) => (
-                    <SelectItem
-                      key={p}
-                      value={p}
-                      className="cursor-pointer p-2"
-                    >
-                      {TICKET_PRIORITY_LABELS[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className={cn(DASHBOARD_CARD, "@container p-3")}>
+          <div className="flex flex-col gap-3 @[72rem]:flex-row @[72rem]:items-center @[72rem]:justify-between">
+            <div className="min-w-0">
+              <Suspense fallback={<TicketViewTabsSkeleton />}>
+                <TicketViewTabs
+                  tabs={viewTabs}
+                  activeViewId={activeViewId}
+                  onOpen={openViewTab}
+                  disabled={queueEmpty}
+                />
+              </Suspense>
             </div>
 
-            <div className="space-y-1 w-full sm:w-36">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Status
-              </label>
-              <Select
-                value={searchParams?.get("status") || "all"}
-                onValueChange={(val) => updateQueryParam("status", val)}
-                disabled={queueEmpty}
-              >
-                <SelectTrigger className="h-10 min-h-10 w-full bg-white border-slate-200">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent
-                  side="bottom"
-                  align="start"
-                  position="popper"
-                  className="p-1"
+            <div className="grid grid-cols-2 gap-3 @[40rem]:flex @[40rem]:items-center @[40rem]:justify-end @[72rem]:flex-1">
+              <div className="col-span-2 @[40rem]:order-last @[40rem]:w-64 @[48rem]:w-72">
+                <label htmlFor="ticket-search" className="sr-only">
+                  Search
+                </label>
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    id="ticket-search"
+                    type="text"
+                    value={searchQuery}
+                    disabled={queueEmpty}
+                    placeholder="Search this view"
+                    onChange={(e) => {
+                      // One navigation once typing stops, replacing the entry,
+                      // instead of a server render and a history step per key.
+                      const value = e.target.value;
+                      setSearchQuery(value);
+                      if (searchTimer.current)
+                        clearTimeout(searchTimer.current);
+                      // Built from the live URL when it fires: a filter picked in
+                      // the meantime must not be overwritten by this render's copy.
+                      searchTimer.current = setTimeout(() => {
+                        const params = new URLSearchParams(
+                          window.location.search,
+                        );
+                        if (value) params.set("search", value);
+                        else params.delete("search");
+                        params.set("page", "1");
+                        setSentSearch(value);
+                        startTransition(() => {
+                          router.replace(`${pathname}?${params.toString()}`);
+                        });
+                      }, 300);
+                    }}
+                    className="h-10 rounded-lg bg-card pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="w-full @[40rem]:w-40">
+                <Select
+                  value={searchParams?.get("priority") || "all"}
+                  onValueChange={(val) => updateQueryParam("priority", val)}
+                  disabled={queueEmpty}
                 >
-                  <SelectItem value="all" className="cursor-pointer p-2">
-                    All statuses
-                  </SelectItem>
-                  {TICKET_STATUSES.map((st) => (
-                    <SelectItem
-                      key={st}
-                      value={st}
-                      className="cursor-pointer p-2"
-                    >
-                      {TICKET_STATUS_LABELS[st]}
+                  <SelectTrigger
+                    aria-label="Priority"
+                    className="h-10! min-h-10 w-full rounded-lg bg-card"
+                  >
+                    <SelectValue placeholder="All priorities" />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    position="popper"
+                    className="p-1"
+                  >
+                    <SelectItem value="all" className="cursor-pointer p-2">
+                      All priorities
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    {TICKET_PRIORITIES.map((p) => (
+                      <SelectItem
+                        key={p}
+                        value={p}
+                        className="cursor-pointer p-2"
+                      >
+                        {TICKET_PRIORITY_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full @[40rem]:w-40">
+                <Select
+                  value={searchParams?.get("status") || "all"}
+                  onValueChange={(val) => updateQueryParam("status", val)}
+                  disabled={queueEmpty}
+                >
+                  <SelectTrigger
+                    aria-label="Status"
+                    className="h-10! min-h-10 w-full rounded-lg bg-card"
+                  >
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    position="popper"
+                    className="p-1"
+                  >
+                    <SelectItem value="all" className="cursor-pointer p-2">
+                      All statuses
+                    </SelectItem>
+                    {TICKET_STATUSES.map((st) => (
+                      <SelectItem
+                        key={st}
+                        value={st}
+                        className="cursor-pointer p-2"
+                      >
+                        {TICKET_STATUS_LABELS[st]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
 
         {selectedTicketIds.length > 0 && (
-          <div className="flex flex-col gap-4 rounded-xl border border-teal-100 bg-linear-to-r from-teal-50/80 to-emerald-50/40 px-4 py-4 shadow-sm sm:px-5 xl:flex-row xl:items-center xl:justify-between dark:border-teal-900/60 dark:from-teal-950/40 dark:to-teal-950/20">
-            <div className="flex min-w-0 items-center gap-4">
+          <div
+            className={cn(
+              DASHBOARD_CARD,
+              "flex flex-col gap-4 border-brand-accent/25! bg-brand-soft/60 px-4 py-4 sm:px-5 xl:flex-row xl:items-center xl:justify-between",
+            )}
+          >
+            <div className="flex min-w-0 items-center gap-3">
               <span
                 aria-hidden
-                className="flex size-8 shrink-0 items-center justify-center rounded-md bg-teal-700 text-white shadow-xs"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-accent text-brand-accent-foreground"
               >
-                <Check className="size-5" strokeWidth={3} />
+                <Check className="size-5" strokeWidth={2.5} />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-semibold text-slate-900 dark:text-foreground">
+                <p className="font-heading text-base font-bold tracking-tight text-foreground tabular-nums">
                   {selectedTicketIds.length}{" "}
                   {selectedTicketIds.length === 1 ? "item" : "items"} selected
                 </p>
@@ -735,15 +784,12 @@ export default function TicketsTable({
                   variant="outline"
                   onClick={handleAssignToMe}
                   disabled={bulkAction !== null || isPending}
-                  className={cn(
-                    BULK_ACTION_BUTTON,
-                    "hover:border-teal-100 hover:bg-teal-50 hover:text-slate-900 dark:hover:bg-teal-950/50",
-                  )}
+                  className={BULK_ACTION_BUTTON}
                 >
                   {bulkAction === "assign" ? (
-                    <Loader2 className="size-4 animate-spin text-teal-700" />
+                    <Loader2 className="size-4 animate-spin text-brand-accent" />
                   ) : (
-                    <UserRound className="size-4.5 fill-teal-700 text-teal-700" />
+                    <UserRound className="size-4 text-brand-accent" />
                   )}
                   Assign to me
                 </Button>
@@ -758,10 +804,10 @@ export default function TicketsTable({
                   aria-label="Set priority"
                   className={cn(
                     BULK_ACTION_BUTTON,
-                    "gap-2.5 font-medium text-slate-500 hover:border-amber-100 hover:bg-amber-50 hover:text-amber-700 data-[size=default]:h-10 dark:hover:bg-amber-950/40 [&>svg:last-child]:text-slate-500 hover:[&>svg:last-child]:text-amber-700",
+                    "gap-2 data-[size=default]:h-10 [&>svg:last-child]:text-slate-500",
                   )}
                 >
-                  <Flag className="size-4.5 fill-amber-400 text-amber-500" />
+                  <Flag className="size-4 text-amber-600" />
                   Set priority
                 </SelectTrigger>
                 <SelectContent
@@ -786,38 +832,38 @@ export default function TicketsTable({
                 variant="outline"
                 onClick={handleMarkSolved}
                 disabled={bulkAction !== null || isPending}
-                className={cn(
-                  BULK_ACTION_BUTTON,
-                  "hover:border-emerald-100 hover:bg-emerald-50 hover:text-slate-900 dark:hover:bg-emerald-950/40",
-                )}
+                className={BULK_ACTION_BUTTON}
               >
                 {bulkAction === "solved" ? (
-                  <Loader2 className="size-4 animate-spin text-teal-700" />
+                  <Loader2 className="size-4 animate-spin text-brand-accent" />
                 ) : (
-                  <CircleCheck className="size-4.5 fill-teal-700 text-white" />
+                  <CircleCheck className="size-4 text-emerald-600" />
                 )}
                 Mark resolved
               </Button>
 
               <span
                 aria-hidden
-                className="mx-1 hidden h-8 w-px bg-slate-300 sm:block dark:bg-border"
+                className="mx-1 hidden h-8 w-px bg-slate-200 sm:block dark:bg-border"
               />
 
               <Button
                 onClick={() => setSelectedTicketIds([])}
                 disabled={bulkAction !== null || isPending}
-                className="h-10 gap-2 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white shadow-xs hover:bg-teal-900"
+                className={cn(
+                  DASHBOARD_BUTTON,
+                  "gap-2 bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90",
+                )}
               >
-                <BrushCleaning className="size-4.5" />
+                <BrushCleaning className="size-4" />
                 Clear selection
               </Button>
             </div>
           </div>
         )}
 
-        <Card className=" border-slate-200/80 overflow-hidden p-0 ring-0">
-          <CardContent className="p-0">
+        <div className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+          <div>
             {initialTickets.length === 0 ? (
               <TicketsEmptyState
                 {...(queueEmpty && {
@@ -828,33 +874,35 @@ export default function TicketsTable({
                 onAction={() => setIsSheetOpen(true)}
               />
             ) : (
-              <div className="overflow-x-auto rounded-[14px] border border-border bg-card">
-                <Table>
-                  <TableHeader className="bg-slate-50/50 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground border-b border-slate-200/80">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-12 px-4 text-center align-middle">
+              /* Fixed layout with set column widths, so the subject takes what
+                 is left and ends in "…" rather than pushing the table wider
+                 than the card. Below 832px (phones, tablets) it scrolls sideways,
+                 which keeps about 13rem for the subject instead of a few letters. */
+              <div className="@container overflow-x-auto">
+                <Table className="min-w-208 table-fixed">
+                  <TableHeader className="bg-slate-50/80 dark:bg-muted/40 [&_tr]:border-b-0">
+                    <TableRow className="shadow-[inset_0_-1px_0_var(--border)] hover:bg-transparent">
+                      <TableHead className="h-10 w-11 px-3 text-center align-middle">
                         <Checkbox
                           checked={isAllSelected}
                           onCheckedChange={(checked) =>
                             handleSelectAll(Boolean(checked))
                           }
                           aria-label="Select all tickets on this page"
-                          className="h-4 w-4 rounded-xl border-[1.5px] border-slate-400 dark:border-slate-500 data-[state=checked]:bg-brand-accent data-[state=checked]:text-white"
+                          className="size-4 rounded-[5px] border-[1.5px] border-slate-300! data-[state=checked]:border-brand-accent! data-[state=checked]:bg-brand-accent data-[state=checked]:text-white dark:border-slate-500!"
                         />
                       </TableHead>
 
                       {visibleColumns?.id && (
-                        <TableHead className="w-24 px-4 text-left font-bold text-slate-500">
-                          TICKET
-                        </TableHead>
+                        <TableHead className={cn(TH, "w-18")}>TICKET</TableHead>
                       )}
 
                       {visibleColumns?.subject && (
-                        <TableHead className="px-4 text-left font-bold text-slate-500">
+                        <TableHead className={TH}>
                           <button
                             type="button"
                             onClick={handleSortToggle}
-                            className="inline-flex items-center gap-1 cursor-pointer select-none text-slate-500 hover:text-slate-800 transition-colors font-bold uppercase"
+                            className="inline-flex cursor-pointer items-center gap-1 font-semibold text-slate-500 uppercase transition-colors select-none hover:text-foreground"
                           >
                             <span>SUBJECT</span>
                             {currentSort === "subject" && (
@@ -867,38 +915,42 @@ export default function TicketsTable({
                       )}
 
                       {visibleColumns?.requester && (
-                        <TableHead className="w-48 px-4 text-left font-bold text-slate-500">
+                        <TableHead
+                          className={cn(TH, "w-44 @6xl:w-52", REQUESTER_COL)}
+                        >
                           REQUESTER
                         </TableHead>
                       )}
 
                       {visibleColumns?.priority && (
-                        <TableHead className="w-28 px-4 text-left font-bold text-slate-500">
+                        <TableHead className={cn(TH, "w-26")}>
                           PRIORITY
                         </TableHead>
                       )}
 
                       {visibleColumns?.assignee && (
-                        <TableHead className="w-44 px-4 text-left font-bold text-slate-500">
+                        <TableHead
+                          className={cn(TH, "w-36 @5xl:w-40 @6xl:w-48")}
+                        >
                           ASSIGNEE
                         </TableHead>
                       )}
 
                       {visibleColumns?.status && (
-                        <TableHead className="w-28 px-4 text-left font-bold text-slate-500">
-                          STATUS
-                        </TableHead>
+                        <TableHead className={cn(TH, "w-28")}>STATUS</TableHead>
                       )}
 
                       {visibleColumns?.sla && (
-                        <TableHead className="w-36 px-4 text-right font-bold text-slate-500">
+                        <TableHead
+                          className={cn(TH, "w-36 @6xl:w-40 text-right")}
+                        >
                           SLA
                         </TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
 
-                  <TableBody className="divide-y divide-slate-100 text-sm">
+                  <TableBody className="text-sm">
                     {initialTickets.map((ticket) => {
                       const isSelected = selectedTicketIds.includes(ticket.id);
                       const ticketHref = tenantPath(
@@ -938,13 +990,15 @@ export default function TicketsTable({
                               router.push(ticketHref);
                             }
                           }}
-                          className={`transition-colors cursor-pointer group hover:bg-slate-50/50 ${
-                            isSelected ? "bg-teal-50/30" : ""
-                          }`}
+                          className={cn(
+                            "group cursor-pointer transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/40",
+                            isSelected &&
+                              "bg-brand-soft/50 hover:bg-brand-soft/70",
+                          )}
                         >
                           <TableCell
                             data-row-select
-                            className="px-4 text-center align-middle"
+                            className="px-3 py-3 text-center align-middle"
                           >
                             <Checkbox
                               checked={isSelected}
@@ -952,38 +1006,49 @@ export default function TicketsTable({
                                 handleSelectRow(ticket.id, Boolean(checked))
                               }
                               aria-label={`Select ticket #${ticket.number ?? ticket.id}`}
-                              className="h-4 w-4 rounded-md border-[1.5px] border-slate-400 dark:border-slate-500 data-[state=checked]:bg-brand-accent data-[state=checked]:text-white"
+                              className="size-4 rounded-[5px] border-[1.5px] border-slate-300! data-[state=checked]:border-brand-accent! data-[state=checked]:bg-brand-accent data-[state=checked]:text-white dark:border-slate-500!"
                             />
                           </TableCell>
 
                           {visibleColumns?.id && (
-                            <TableCell className="px-4 align-middle text-sm font-medium text-muted-foreground tabular-nums">
+                            <TableCell className="px-3 py-3 align-middle text-sm font-medium text-slate-500 tabular-nums">
                               {cell(
                                 "id",
-                                "block py-1 hover:text-slate-600",
+                                "block py-1 hover:text-foreground",
                                 <>#{ticket.number ?? "-"}</>,
                               )}
                             </TableCell>
                           )}
 
                           {visibleColumns?.subject && (
-                            <TableCell className="px-4 align-middle">
+                            <TableCell className="px-3 py-3 align-middle">
                               {cell(
                                 "subject",
-                                "block py-1",
+                                "block min-w-0 py-1",
                                 <>
-                                  <span className="block truncate font-semibold text-slate-900">
+                                  <span
+                                    title={ticket.subject ?? undefined}
+                                    className="block truncate font-semibold text-foreground"
+                                  >
                                     {ticket.subject
                                       ? ticket.subject.charAt(0).toUpperCase() +
                                         ticket.subject.slice(1)
                                       : ""}
                                   </span>
+                                  {foldRequester && (
+                                    <span className="mt-0.5 block truncate text-xs text-slate-500 @5xl:hidden">
+                                      {ticket.customers?.full_name ||
+                                        "Customer"}
+                                      {ticket.customers?.company &&
+                                        ` · ${ticket.customers.company}`}
+                                    </span>
+                                  )}
                                   {ticket.tags && ticket.tags.length > 0 && (
                                     <span className="mt-1 flex flex-wrap gap-1">
                                       {ticket.tags.slice(0, 3).map((tag) => (
                                         <span
                                           key={tag.id}
-                                          className="rounded-full bg-slate-100 px-1.5 py-px text-[11px] font-medium text-slate-600"
+                                          className="rounded-md bg-slate-100 px-1.5 py-px text-[11px] font-medium text-slate-600 ring-1 ring-slate-500/10 ring-inset"
                                         >
                                           {tag.name}
                                         </span>
@@ -1001,16 +1066,21 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.requester && (
-                            <TableCell className="px-4 align-middle">
+                            <TableCell
+                              className={cn(
+                                "px-3 py-3 align-middle",
+                                REQUESTER_COL,
+                              )}
+                            >
                               {cell(
                                 "requester",
                                 "block py-1",
                                 <>
-                                  <div className="text-sm font-semibold text-foreground leading-snug">
+                                  <div className="truncate text-sm font-semibold text-foreground leading-snug">
                                     {ticket.customers?.full_name || "Customer"}
                                   </div>
                                   {ticket.customers?.company && (
-                                    <div className="text-xs text-muted-foreground leading-snug">
+                                    <div className="truncate text-xs leading-snug text-slate-500">
                                       {ticket.customers.company}
                                     </div>
                                   )}
@@ -1020,7 +1090,7 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.priority && (
-                            <TableCell className="px-4 align-middle text-left">
+                            <TableCell className="px-3 py-3 text-left align-middle">
                               {cell(
                                 "priority",
                                 "inline-flex py-1",
@@ -1030,25 +1100,30 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.assignee && (
-                            <TableCell className="px-4 align-middle text-sm text-foreground">
+                            <TableCell className="px-3 py-3 align-middle text-sm text-foreground">
                               {cell(
                                 "assignee",
                                 "block py-1",
                                 ticket.assignee_name ? (
-                                  <span className="inline-flex items-center gap-2 font-medium whitespace-nowrap">
+                                  <span
+                                    title={ticket.assignee_name}
+                                    className="flex min-w-0 items-center gap-2 font-medium whitespace-nowrap"
+                                  >
                                     {ticket.assignee_initials && (
                                       <PersonAvatar
                                         src={ticket.assignee_avatar_url}
                                         initials={ticket.assignee_initials}
-                                        className="size-5"
-                                        fallbackClassName="bg-slate-200 text-slate-700 text-[10px]"
+                                        className="size-5 shrink-0"
+                                        fallbackClassName="bg-slate-100 text-[10px] font-semibold text-slate-600"
                                       />
                                     )}
-                                    {ticket.assignee_name}
+                                    <span className="truncate">
+                                      {ticket.assignee_name}
+                                    </span>
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-2 text-slate-500 font-medium whitespace-nowrap">
-                                    <span className="w-5 h-5 shrink-0 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-400">
                                       -
                                     </span>
                                     Unassigned
@@ -1059,7 +1134,7 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.status && (
-                            <TableCell className="px-4 align-middle text-left">
+                            <TableCell className="px-3 py-3 text-left align-middle">
                               {cell(
                                 "status",
                                 "inline-flex py-1",
@@ -1069,7 +1144,7 @@ export default function TicketsTable({
                           )}
 
                           {visibleColumns?.sla && (
-                            <TableCell className="px-4 align-middle text-right text-xs">
+                            <TableCell className="px-3 py-3 text-right align-middle text-xs">
                               {cell(
                                 "sla",
                                 "inline-flex w-full justify-end py-1",
@@ -1084,78 +1159,81 @@ export default function TicketsTable({
                 </Table>
               </div>
             )}
-          </CardContent>
-        </Card>
-        {initialTickets.length > 0 && (
-          <div className="px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-            <div className="flex items-center space-x-2">
-              <span>
-                Showing {initialTickets.length} of {totalCount}
-              </span>
-              <span className="hidden sm:inline-block ml-4">Rows per page</span>
-              <Select
-                value={String(currentLimit)}
-                onValueChange={(val) => updateQueryParam("limit", val)}
-              >
-                <SelectTrigger className="h-8 min-h-8 w-18 bg-white border-slate-200 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent
-                  side="bottom"
-                  align="start"
-                  position="popper"
-                  className="p-1"
-                >
-                  {TICKET_PAGE_SIZES.map((size) => (
-                    <SelectItem
-                      key={size}
-                      value={String(size)}
-                      className="cursor-pointer p-2"
-                    >
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center space-x-1">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={currentPage <= 1}
-                onClick={() =>
-                  updateQueryParam("page", String(currentPage - 1))
-                }
-                aria-label="Previous page"
-                className="size-8"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" aria-hidden />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Page ${currentPage}`}
-                aria-current="page"
-                className="h-8 min-w-8 px-2.5 bg-teal-50 text-teal-800 font-bold border-teal-200"
-              >
-                {currentPage}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={currentPage >= totalPages || totalPages === 0}
-                onClick={() =>
-                  updateQueryParam("page", String(currentPage + 1))
-                }
-                aria-label="Next page"
-                className="size-8"
-              >
-                <ChevronRight className="w-3.5 h-3.5" aria-hidden />
-              </Button>
-            </div>
           </div>
-        )}
+          {initialTickets.length > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-3 py-3 text-sm text-slate-500 sm:flex-row dark:bg-muted/30">
+              <div className="flex items-center gap-2 tabular-nums">
+                <span>
+                  Showing {initialTickets.length} of {totalCount}
+                </span>
+                <span className="ml-3 hidden text-muted-foreground sm:inline-block">
+                  Rows per page
+                </span>
+                <Select
+                  value={String(currentLimit)}
+                  onValueChange={(val) => updateQueryParam("limit", val)}
+                >
+                  <SelectTrigger className="h-9 min-h-9 w-20 rounded-lg bg-card">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    position="popper"
+                    className="p-1"
+                  >
+                    {TICKET_PAGE_SIZES.map((size) => (
+                      <SelectItem
+                        key={size}
+                        value={String(size)}
+                        className="cursor-pointer p-2"
+                      >
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={currentPage <= 1}
+                  onClick={() =>
+                    updateQueryParam("page", String(currentPage - 1))
+                  }
+                  aria-label="Previous page"
+                  className="size-9 rounded-lg bg-card shadow-none"
+                >
+                  <ChevronLeft className="size-4" aria-hidden />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Page ${currentPage}`}
+                  aria-current="page"
+                  className="h-9 min-w-9 rounded-lg border-brand-accent/30! bg-brand-soft px-3 font-semibold text-brand-ink tabular-nums shadow-none hover:bg-brand-soft hover:text-brand-ink"
+                >
+                  {currentPage}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={currentPage >= totalPages || totalPages === 0}
+                  onClick={() =>
+                    updateQueryParam("page", String(currentPage + 1))
+                  }
+                  aria-label="Next page"
+                  className="size-9 rounded-lg bg-card shadow-none"
+                >
+                  <ChevronRight className="size-4" aria-hidden />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <CreateTicketSheet
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}

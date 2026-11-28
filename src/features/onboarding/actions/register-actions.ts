@@ -9,6 +9,7 @@ import {
   checkSlugAvailability,
 } from "../services/onboarding.service";
 import { getPlatformSettings } from "@/features/platform-admin/services/platform-settings.service";
+import { userErrorMessage } from "@/lib/user-error";
 
 export async function registerOnboardingAction(payload: RegisterInput) {
   try {
@@ -50,10 +51,10 @@ export async function registerOnboardingAction(payload: RegisterInput) {
 
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "An unexpected error occurred during setup.",
+      error: userErrorMessage(
+        error,
+        "An unexpected error occurred during setup.",
+      ),
     };
   }
 }
@@ -72,8 +73,7 @@ export async function getTimezonesAction() {
     return {
       success: false,
       data: [],
-      error:
-        error instanceof Error ? error.message : "Failed to load timezones.",
+      error: userErrorMessage(error, "Failed to load timezones."),
     };
   }
 }
@@ -121,10 +121,7 @@ export async function checkSlugAvailabilityAction(slug: string) {
 
     return {
       available: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to check portal address.",
+      error: userErrorMessage(error, "Failed to check portal address."),
     };
   }
 }

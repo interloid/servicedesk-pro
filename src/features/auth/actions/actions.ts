@@ -32,6 +32,7 @@ import {
   UpdatePasswordValues,
   updatePasswordSchema,
 } from "../schemas/reset-password";
+import { userErrorMessage } from "@/lib/user-error";
 
 const LOGIN_ATTEMPT_LIMIT = { limit: 10, windowMs: 5 * 60_000 };
 const RESET_REQUEST_LIMIT = { limit: 5, windowMs: 15 * 60_000 };
@@ -82,7 +83,15 @@ export async function loginAction(
     const sessionUser = await login(parsed.data);
 
     // A platform operator needs no workspace: the console is their landing.
-    if (!sessionUser.tenantId && isPlatformAdminEmail(sessionUser.email)) {
+    // That holds when the address also has a customer account on some
+    // tenant's portal (it signed in there, or was invited as a requester): a
+    // customer membership is not a workspace, and without this the operator
+    // landed in that tenant's support portal instead of the console. An
+    // operator who is staff in a workspace still goes to it.
+    if (
+      isPlatformAdminEmail(sessionUser.email) &&
+      (!sessionUser.tenantId || sessionUser.role === "customer")
+    ) {
       return {
         success: true,
         data: { ...sessionUser, redirectTo: PLATFORM_HOME },
@@ -248,17 +257,11 @@ export async function resetTenantPasswordAction(
   return { success: true };
 }
 
-export async function updatePasswordAction(values: UpdatePasswordValues) {
-  const validatedFields = updatePasswordSchema.safeParse(values);
-
-  if (!validatedFields.success) {
-    return {
-      success: false,
-      error: "Invalid fields provided.",
-    };
-  }
-
-  return await updatePassword(validatedFields.data);
+export async function updatePasswordAction(
+  values: UpdatePasswordValues,
+): Promise<TenantPasswordAccessResult> {
+  // updatePassword validates the fields itself.
+  return await updatePassword(values);
 }
 
 export async function updateTenantPasswordAction(
@@ -393,9 +396,10 @@ export async function exchangeConfirmationCodeAction(
         if (error instanceof AuthError) throw error;
 
         throw new AuthError(
-          error instanceof Error
-            ? error.message
-            : "This email link is invalid or has expired. Request a new one.",
+          userErrorMessage(
+            error,
+            "This email link is invalid or has expired. Request a new one.",
+          ),
           { status: 400, code: "unknown" },
         );
       }

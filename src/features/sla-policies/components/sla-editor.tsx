@@ -146,11 +146,20 @@ interface SlaEditorProps {
 }
 
 const CONTROL = "h-10 border-slate-200 text-sm";
-/** shadcn Card at the page's 20px padding, with a border instead of its ring. */
+/**
+ * shadcn Card with a border instead of its ring, laid out like the billing
+ * cards: a header strip over a divider, then a roomy body.
+ */
 const CARD =
-  "gap-4 border border-slate-200/80 bg-white shadow-xs ring-0 [--card-spacing:--spacing(5)]";
+  "gap-0 rounded-2xl border border-border bg-card py-0 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0 transition-shadow duration-200 hover:shadow-[0_6px_20px_-8px_rgba(15,23,42,0.12)] [--card-spacing:--spacing(5)]";
+const CARD_HEADER =
+  "flex items-center gap-3 border-b border-border px-5 py-4 sm:px-6";
+const CARD_BODY = "px-5 py-5 sm:px-6";
+const CARD_TITLE =
+  "font-heading text-[15px] leading-snug font-bold tracking-tight text-foreground";
+const CARD_HINT = "text-xs leading-relaxed text-slate-500";
 /** A table set inside a card: its own rounded border, header tinted. */
-const INSET_TABLE = "overflow-hidden rounded-xl border border-slate-200";
+const INSET_TABLE = "overflow-hidden rounded-xl border border-border";
 /**
  * The holidays table is always three rows tall (40px header + 3 × 52px rows +
  * borders = 199px), locked or not; more holidays scroll inside it under a
@@ -158,11 +167,12 @@ const INSET_TABLE = "overflow-hidden rounded-xl border border-slate-200";
  */
 const HOLIDAY_TABLE_SCROLL =
   "[&_[data-slot=table-container]]:h-[199px] [&_[data-slot=table-container]]:overflow-y-auto";
-const TABLE_HEAD_ROW = "border-slate-200 bg-slate-50/70 hover:bg-slate-50/70";
-const TH = "px-3 text-xs font-semibold text-slate-600";
+const TABLE_HEAD_ROW = "border-border bg-slate-50/80 hover:bg-slate-50/80";
+const TH =
+  "h-10 px-3 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-slate-500 uppercase";
 /** Same as the billing page's in-card buttons (e.g. "Refresh"). */
 const CARD_BUTTON =
-  "h-10 gap-2 rounded-lg px-4 text-sm font-semibold duration-200 ease-out motion-safe:active:scale-[0.98]";
+  "h-10 gap-2 rounded-lg px-4 text-sm font-semibold shadow-none duration-200 ease-out hover:bg-slate-50 hover:text-foreground motion-safe:active:scale-[0.98]";
 
 /* ── Number + unit durations ─────────────────────────────────────────── */
 
@@ -336,10 +346,14 @@ export default function SlaEditor({
     const result = await removeHolidayAction(tenant, calendarId, holiday.id);
     setRemovingHolidayId(null);
     if (!result.success) {
-      toast.error(result.error ?? "Couldn't remove the holiday.");
+      toast.error(`Couldn't remove ${holiday.name}`, {
+        description: result.error,
+      });
       return;
     }
-    toast.success(`Removed ${holiday.name}.`);
+    toast.success(`${holiday.name} removed`, {
+      description: "The SLA clock no longer skips this day.",
+    });
     replaceCalendar(result.businessHours);
   };
 
@@ -486,11 +500,20 @@ export default function SlaEditor({
 
       if (!result.success) {
         setFormError(result.error ?? "Something went wrong.");
-        toast.error(result.error ?? "Something went wrong.");
+        toast.error(
+          mode === "new"
+            ? "Couldn't create the SLA policy"
+            : "Couldn't save the SLA policy",
+          { description: result.error ?? "Something went wrong." },
+        );
         return;
       }
 
-      toast.success(mode === "new" ? "Policy created." : "Policy saved.");
+      toast.success(
+        mode === "new"
+          ? `${payload.name} policy created`
+          : `${payload.name} policy saved`,
+      );
       router.push(`/${tenant}/sla`);
       router.refresh();
     });
@@ -499,26 +522,36 @@ export default function SlaEditor({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
+        <div className="min-w-0 space-y-4">
           <Link
             href={`/${tenant}/sla`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-accent transition-colors hover:text-brand-accent/80"
+            className="group/back inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors hover:text-brand-accent"
           >
-            <ArrowLeft className="size-4" aria-hidden />
+            <ArrowLeft
+              className="size-4 transition-transform group-hover/back:-translate-x-0.5"
+              aria-hidden
+            />
             SLA policies
           </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="truncate text-2xl capitalize font-bold tracking-tight text-slate-900">
-              {mode === "new"
-                ? "Create SLA policy"
-                : initial.name || "Edit SLA policy"}
-            </h1>
-            {mode === "edit" && <StatusBadge status={initial.status} />}
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-ink ring-1 ring-brand-accent/10 sm:flex">
+              <Clock className="size-6" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="truncate font-heading text-[1.6rem] leading-tight font-bold tracking-tight text-foreground capitalize sm:text-[1.85rem]">
+                  {mode === "new"
+                    ? "Create SLA policy"
+                    : initial.name || "Edit SLA policy"}
+                </h1>
+                {mode === "edit" && <StatusBadge status={initial.status} />}
+              </div>
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
+                Define how quickly your team should respond to and resolve
+                customer tickets.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-slate-500">
-            Define how quickly your team should respond to and resolve customer
-            tickets.
-          </p>
         </div>
 
         <div
@@ -545,7 +578,7 @@ export default function SlaEditor({
               asChild
               variant="outline"
               size="sm"
-              className="h-10 gap-2 rounded-lg bg-white px-4 text-sm font-semibold shadow-none"
+              className="h-10 gap-2 rounded-lg bg-card px-4 text-sm font-semibold shadow-none hover:bg-slate-50 hover:text-foreground"
             >
               <Link href={`/${tenant}/sla`}>Cancel</Link>
             </Button>
@@ -554,7 +587,7 @@ export default function SlaEditor({
       </div>
 
       {readOnly && (
-        <p className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
+        <p className="flex items-start gap-2 rounded-xl border border-border bg-slate-50 px-4 py-3 text-sm text-slate-700">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
           You can view this policy. Only tenant admins and managers can change
           it.
@@ -562,14 +595,14 @@ export default function SlaEditor({
       )}
 
       {inUse && !readOnly && (
-        <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <p className="flex items-start gap-2 rounded-xl border border-amber-200! bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
           {POLICY_IN_USE_MESSAGE}
         </p>
       )}
 
       {formError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+        <p className="rounded-xl border border-red-200! bg-red-50 px-4 py-3 text-sm text-red-700">
           {formError}
         </p>
       )}
@@ -743,8 +776,8 @@ export default function SlaEditor({
                                 error && "border-b-0",
                               )}
                             >
-                              <TableCell className="px-3 py-1.5 font-medium text-slate-900">
-                                <span className="inline-flex items-center gap-2">
+                              <TableCell className="px-3 py-2 font-medium text-slate-900">
+                                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold">
                                   <span
                                     className={cn(
                                       "size-2 rounded-full",
@@ -957,140 +990,146 @@ export default function SlaEditor({
 
             <fieldset className="min-w-0">
               <IconCard icon={Bell} title="Notifications" optional solid>
-                <div className="grid grid-cols-1 items-center gap-x-6 gap-y-3 sm:grid-cols-[auto_1fr]">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="notify-breach"
-                      checked={draft.notifyBeforeBreach}
-                      onCheckedChange={(v) =>
-                        setDraft((p) => ({ ...p, notifyBeforeBreach: v }))
-                      }
-                      className="data-[state=checked]:bg-brand-accent"
-                    />
-                    <Label
-                      htmlFor="notify-breach"
-                      className="cursor-pointer text-sm font-semibold text-slate-800"
-                    >
-                      Notify assignee before breach
-                    </Label>
+                <div className="flex flex-col gap-3">
+                  <div className="rounded-xl border border-border bg-slate-50/40 p-4 transition-colors has-[[data-state=checked]]:border-brand-accent/30 has-[[data-state=checked]]:bg-brand-soft/30 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="notify-breach"
+                        checked={draft.notifyBeforeBreach}
+                        onCheckedChange={(v) =>
+                          setDraft((p) => ({ ...p, notifyBeforeBreach: v }))
+                        }
+                        className="data-[state=checked]:bg-brand-accent"
+                      />
+                      <Label
+                        htmlFor="notify-breach"
+                        className="cursor-pointer text-sm font-semibold text-slate-800"
+                      >
+                        Notify assignee before breach
+                      </Label>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Input
+                          inputMode="numeric"
+                          className="h-9 w-16 border-slate-200 text-sm"
+                          value={notifyLead.amount}
+                          disabled={!draft.notifyBeforeBreach}
+                          aria-label="How long before the target to warn the assignee"
+                          aria-invalid={
+                            Boolean(errors.notifyBefore) || undefined
+                          }
+                          onChange={(e) =>
+                            setNotifyLead((n) => ({
+                              ...n,
+                              amount: toDigits(e.target.value),
+                            }))
+                          }
+                        />
+                        <Select
+                          value={notifyLead.unit}
+                          disabled={!draft.notifyBeforeBreach}
+                          onValueChange={(v) =>
+                            setNotifyLead((n) => ({ ...n, unit: v as Unit }))
+                          }
+                        >
+                          <SelectTrigger
+                            className="min-h-9 w-28 border-slate-200 text-sm"
+                            aria-label="Lead time unit"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent
+                            side="bottom"
+                            align="start"
+                            position="popper"
+                            className="p-1"
+                          >
+                            {(["minutes", "hours"] as Unit[]).map((u) => (
+                              <SelectItem
+                                key={u}
+                                value={u}
+                                className="p-2 cursor-pointer"
+                              >
+                                {unitLabel(u, notifyLead.amount)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-slate-500">
+                          Before the SLA deadline
+                        </p>
+                      </div>
+                      {errors.notifyBefore && (
+                        <p className="text-xs text-red-600">
+                          {errors.notifyBefore}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Input
-                        inputMode="numeric"
-                        className="h-9 w-16 border-slate-200 text-sm"
-                        value={notifyLead.amount}
-                        disabled={!draft.notifyBeforeBreach}
-                        aria-label="How long before the target to warn the assignee"
-                        aria-invalid={Boolean(errors.notifyBefore) || undefined}
-                        onChange={(e) =>
-                          setNotifyLead((n) => ({
-                            ...n,
-                            amount: toDigits(e.target.value),
+
+                  <div className="rounded-xl border border-border bg-slate-50/40 p-4 transition-colors has-[[data-state=checked]]:border-brand-accent/30 has-[[data-state=checked]]:bg-brand-soft/30 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="escalate-breach"
+                        checked={draft.escalateOnBreach}
+                        onCheckedChange={(v) =>
+                          setDraft((p) => ({
+                            ...p,
+                            escalateOnBreach: v,
                           }))
                         }
+                        className="data-[state=checked]:bg-brand-accent"
                       />
+
+                      <Label
+                        htmlFor="escalate-breach"
+                        className="cursor-pointer text-sm font-semibold text-slate-800"
+                      >
+                        Escalate on breach
+                      </Label>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <Select
-                        value={notifyLead.unit}
-                        disabled={!draft.notifyBeforeBreach}
+                        value={draft.escalateToRole}
                         onValueChange={(v) =>
-                          setNotifyLead((n) => ({ ...n, unit: v as Unit }))
+                          setDraft((p) => ({
+                            ...p,
+                            escalateToRole: v as EscalationRole,
+                          }))
                         }
+                        disabled={!draft.escalateOnBreach}
                       >
                         <SelectTrigger
-                          className="min-h-9 w-28 border-slate-200 text-sm"
-                          aria-label="Lead time unit"
+                          className="min-h-9 w-44 border-slate-200 text-sm"
+                          aria-label="Escalate to"
                         >
                           <SelectValue />
                         </SelectTrigger>
+
                         <SelectContent
                           side="bottom"
                           align="start"
                           position="popper"
                           className="p-1"
                         >
-                          {(["minutes", "hours"] as Unit[]).map((u) => (
+                          {ESCALATION_ROLES.map((role) => (
                             <SelectItem
-                              key={u}
-                              value={u}
-                              className="p-2 cursor-pointer"
+                              key={role.value}
+                              value={role.value}
+                              className="min-h-9 cursor-pointer p-2"
                             >
-                              {unitLabel(u, notifyLead.amount)}
+                              {role.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+
                       <p className="text-xs text-slate-500">
-                        Before the SLA deadline
+                        Automatically escalate the ticket if SLA is breached.
                       </p>
                     </div>
-                    {errors.notifyBefore && (
-                      <p className="text-xs text-red-600">
-                        {errors.notifyBefore}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="escalate-breach"
-                      checked={draft.escalateOnBreach}
-                      onCheckedChange={(v) =>
-                        setDraft((p) => ({
-                          ...p,
-                          escalateOnBreach: v,
-                        }))
-                      }
-                      className="data-[state=checked]:bg-brand-accent"
-                    />
-
-                    <Label
-                      htmlFor="escalate-breach"
-                      className="cursor-pointer text-sm font-semibold text-slate-800"
-                    >
-                      Escalate on breach
-                    </Label>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <Select
-                      value={draft.escalateToRole}
-                      onValueChange={(v) =>
-                        setDraft((p) => ({
-                          ...p,
-                          escalateToRole: v as EscalationRole,
-                        }))
-                      }
-                      disabled={!draft.escalateOnBreach}
-                    >
-                      <SelectTrigger
-                        className="min-h-9 w-44 border-slate-200 text-sm"
-                        aria-label="Escalate to"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent
-                        side="bottom"
-                        align="start"
-                        position="popper"
-                        className="p-1"
-                      >
-                        {ESCALATION_ROLES.map((role) => (
-                          <SelectItem
-                            key={role.value}
-                            value={role.value}
-                            className="min-h-9 cursor-pointer p-2"
-                          >
-                            {role.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <p className="text-xs text-slate-500">
-                      Automatically escalate the ticket if SLA is breached.
-                    </p>
                   </div>
                 </div>
               </IconCard>
@@ -1148,9 +1187,18 @@ export default function SlaEditor({
             >
               <AlertDialogHeader className="block px-6 pt-5 pb-4 text-left">
                 <div className="flex items-center justify-between gap-4">
-                  <AlertDialogTitle className="text-xl font-bold text-foreground">
-                    Remove holiday
-                  </AlertDialogTitle>
+                  <div className="flex items-center gap-3.5">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/40">
+                      <Trash2
+                        className="size-5"
+                        strokeWidth={1.75}
+                        aria-hidden
+                      />
+                    </span>
+                    <AlertDialogTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                      Remove holiday
+                    </AlertDialogTitle>
+                  </div>
                   <AlertDialogCancel
                     disabled={removingHolidayId !== null}
                     className="
@@ -1192,10 +1240,10 @@ export default function SlaEditor({
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex flex-col-reverse gap-2 px-6 pb-6 sm:flex-row sm:justify-end">
+              <AlertDialogFooter className="flex flex-col-reverse gap-3 border-t border-border bg-slate-50/60 px-6 py-4 sm:flex-row sm:justify-end">
                 <AlertDialogCancel
                   disabled={removingHolidayId !== null}
-                  className="h-10 px-4"
+                  className="h-10 rounded-lg px-5 font-semibold shadow-none"
                 >
                   Cancel
                 </AlertDialogCancel>
@@ -1206,7 +1254,7 @@ export default function SlaEditor({
                     await removeHoliday(holidayToDelete);
                     setHolidayToDelete(null);
                   }}
-                  className="h-10 px-4 border-red-600 bg-background text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-600 disabled:border-red-300 disabled:bg-background disabled:text-red-300 disabled:opacity-100 dark:hover:bg-red-950/30"
+                  className="h-10 rounded-lg px-5 font-semibold shadow-none border-red-200! bg-background text-red-600 hover:border-red-300! hover:bg-red-50 hover:text-red-600 disabled:border-red-300 disabled:bg-background disabled:text-red-300 disabled:opacity-100 dark:hover:bg-red-950/30"
                 >
                   Remove
                 </AlertDialogAction>
@@ -1234,12 +1282,12 @@ function Section({
 }) {
   return (
     <Card className={CARD}>
-      <CardHeader className="flex items-start gap-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-accent text-sm font-bold text-brand-accent-foreground">
+      <CardHeader className={cn(CARD_HEADER, hint && "items-start")}>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-sm font-bold text-brand-ink tabular-nums">
           {step}
         </span>
-        <div className="space-y-0.5">
-          <CardTitle className="text-base font-semibold  text-slate-900">
+        <div className="min-w-0 space-y-0.5">
+          <CardTitle className={CARD_TITLE}>
             {title}
             {optional && (
               <span className="ml-1 text-xs font-normal text-slate-500">
@@ -1248,13 +1296,11 @@ function Section({
             )}
           </CardTitle>
           {hint && (
-            <CardDescription className="text-xs text-slate-500">
-              {hint}
-            </CardDescription>
+            <CardDescription className={CARD_HINT}>{hint}</CardDescription>
           )}
         </div>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={CARD_BODY}>{children}</CardContent>
     </Card>
   );
 }
@@ -1281,8 +1327,8 @@ function AppliesToOption({
         disabled
           ? "cursor-not-allowed border-slate-200 opacity-60"
           : selected
-            ? "cursor-pointer border-brand-accent bg-brand-accent/5"
-            : "cursor-pointer border-slate-200 hover:bg-slate-50",
+            ? "cursor-pointer border-brand-accent! bg-brand-accent/5 ring-1 ring-brand-accent/20"
+            : "cursor-pointer border-border hover:bg-slate-50",
       )}
     >
       <RadioGroupItem
@@ -1335,7 +1381,9 @@ function DefaultSlaCheckbox({
     <div
       className={cn(
         "rounded-xl border p-3.5 transition-colors",
-        checked ? "border-brand-accent bg-brand-accent/5" : "border-slate-200",
+        checked
+          ? "border-brand-accent! bg-brand-accent/5 ring-1 ring-brand-accent/20"
+          : "border-border",
       )}
     >
       <label
@@ -1387,7 +1435,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-sm font-medium text-slate-800">
+      <Label className="gap-0.5 text-sm font-semibold text-slate-800">
         {label}
         {required && <span className="text-red-500">*</span>}
       </Label>
@@ -1423,25 +1471,29 @@ function ChoiceCard({
       className={cn(
         "flex items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         selected
-          ? "border-brand-accent bg-brand-accent/5"
-          : "border-slate-200 hover:bg-slate-50",
+          ? "border-brand-accent! bg-brand-accent/5 ring-1 ring-brand-accent/20"
+          : "border-border hover:bg-slate-50",
       )}
     >
       <span
         className={cn(
-          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2",
-          selected ? "border-brand-accent" : "border-slate-300",
+          "mt-2 flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+          selected ? "border-brand-accent!" : "border-slate-300!",
         )}
       >
         {selected && <span className="size-2.5 rounded-full bg-brand-accent" />}
       </span>
-      <Icon
+      <span
         className={cn(
-          "mt-0.5 size-6 shrink-0",
-          selected ? "text-brand-accent" : "text-slate-500",
+          "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+          selected
+            ? "bg-brand-accent text-brand-accent-foreground"
+            : "bg-slate-100 text-slate-500",
         )}
-      />
-      <span className="space-y-1">
+      >
+        <Icon className="size-4.5" />
+      </span>
+      <span className="min-w-0 space-y-1">
         <span className="block text-sm font-semibold text-slate-900">
           {title}
         </span>
@@ -1466,9 +1518,11 @@ function Fact({
 }) {
   return (
     <div className={cn("flex items-center gap-3", !bare && "px-4 py-3")}>
-      <Icon className="size-5 shrink-0 text-slate-500" />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+        <Icon className="size-4" />
+      </span>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
         <p className="truncate text-xs text-slate-500">{value}</p>
       </div>
     </div>
@@ -1548,27 +1602,29 @@ function IconCard({
 }) {
   return (
     <Card ref={ref} className={cn(CARD, "scroll-mt-6")}>
-      <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+      <CardHeader
+        className={cn(CARD_HEADER, "flex-wrap justify-between gap-y-3")}
+      >
         <div
           className={cn(
-            "flex min-w-0 items-start gap-3",
+            "flex min-w-0 flex-1 items-center gap-3",
             locked && "opacity-50",
           )}
         >
           <span
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg",
+              "flex size-8 shrink-0 items-center justify-center rounded-lg",
               locked
                 ? "bg-slate-100 text-slate-500"
                 : solid
                   ? "bg-brand-accent text-brand-accent-foreground"
-                  : "bg-brand-accent/10 text-brand-accent",
+                  : "bg-brand-soft text-brand-ink",
             )}
           >
-            <Icon className="size-5" />
+            <Icon className="size-4" />
           </span>
           <div className="min-w-0 space-y-0.5">
-            <CardTitle className="text-base font-semibold text-slate-900">
+            <CardTitle className={CARD_TITLE}>
               {title}
               {optional && (
                 <span className="ml-1 text-xs font-normal text-slate-500">
@@ -1577,15 +1633,13 @@ function IconCard({
               )}
             </CardTitle>
             {hint && (
-              <CardDescription className="text-xs text-slate-500">
-                {hint}
-              </CardDescription>
+              <CardDescription className={CARD_HINT}>{hint}</CardDescription>
             )}
           </div>
         </div>
-        {action && <CardAction>{action}</CardAction>}
+        {action && <CardAction className="self-center">{action}</CardAction>}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={CARD_BODY}>{children}</CardContent>
     </Card>
   );
 }
@@ -1616,12 +1670,12 @@ function BusinessHoursSummary({
   onManageHolidays?: () => void;
 }) {
   return (
-    <Card className="gap-0 border border-slate-200 py-0 shadow-none ring-0">
-      <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+    <Card className="gap-0 rounded-xl border border-border py-0 shadow-none ring-0">
+      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         <Fact icon={CalendarDays} label="Working days" value={workingDays} />
         <Fact icon={Clock} label="Working hours" value={workingHours} />
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-t border-border bg-slate-50/60 px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <TreePalm className="size-4" aria-hidden />
           {holidayCount} holiday{holidayCount !== 1 ? "s" : ""} configured
@@ -1686,12 +1740,12 @@ function HolidaysTable({
   return (
     <div className={cn(INSET_TABLE, HOLIDAY_TABLE_SCROLL)}>
       <Table className="min-w-120">
-        <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--color-slate-200)] [&_tr]:border-b-0">
+        <TableHeader className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0">
           <TableRow className={TABLE_HEAD_ROW}>
             <TableHead className={cn(TH, "px-4")}>Holiday name</TableHead>
             <TableHead className={cn(TH, "px-4")}>Date</TableHead>
             <TableHead className={cn(TH, "px-4")}>Repeat</TableHead>
-            <TableHead className="w-20 px-4">
+            <TableHead className={cn(TH, "w-24 px-4 text-right")}>
               <span className="">Actions</span>
             </TableHead>
           </TableRow>
@@ -1709,14 +1763,17 @@ function HolidaysTable({
             </TableRow>
           ) : (
             sorted.map((h) => (
-              <TableRow key={h.id} className="border-slate-100">
-                <TableCell className="max-w-40 truncate px-4 py-3 font-semibold text-slate-900">
+              <TableRow
+                key={h.id}
+                className="border-border transition-colors hover:bg-slate-50/60"
+              >
+                <TableCell className="max-w-40 truncate px-4 py-2.5 font-semibold text-foreground">
                   {h.name}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-slate-700">
+                <TableCell className="px-4 py-2.5 text-slate-600">
                   {formatHolidayDate(h)}
                 </TableCell>
-                <TableCell className="px-4 py-3">
+                <TableCell className="px-4 py-2.5">
                   <Badge
                     className={cn(
                       BADGE,
@@ -1726,14 +1783,14 @@ function HolidaysTable({
                     {h.repeatsYearly ? "Yearly" : "Once"}
                   </Badge>
                 </TableCell>
-                <TableCell className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
+                <TableCell className="px-4 py-2">
+                  <div className="flex items-center justify-end gap-1.5">
                     <button
                       type="button"
                       onClick={() => onEdit?.(h)}
                       disabled={locked}
                       aria-label={`Edit ${h.name}`}
-                      className="rounded-md p-1.5 text-brand-accent transition-colors hover:bg-brand-accent/10 disabled:pointer-events-none disabled:opacity-40"
+                      className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-slate-500 transition-colors hover:bg-slate-50 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                     >
                       <Pencil className="size-4" />
                     </button>
@@ -1742,7 +1799,7 @@ function HolidaysTable({
                       onClick={() => onRemove?.(h)}
                       disabled={locked || removingId === h.id}
                       aria-label={`Remove ${h.name}`}
-                      className="rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-40"
+                      className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-40"
                     >
                       <Trash2 className="size-4" />
                     </button>

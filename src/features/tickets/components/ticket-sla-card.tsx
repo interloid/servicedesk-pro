@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, PauseCircle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { AlertTriangle, Clock, PauseCircle, Timer } from "lucide-react";
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
 import {
@@ -35,33 +35,37 @@ const BADGE: Record<
   { badge: string; dot: string; bar: string }
 > = {
   running: {
-    badge: "bg-[#0e7adf]/10 text-[#0e7adf]",
-    dot: "bg-[#0e7adf]",
-    bar: "bg-[#0e7adf]",
+    badge:
+      "bg-sky-50 text-sky-700 ring-sky-600/15 dark:bg-sky-950/60 dark:text-sky-300",
+    dot: "bg-sky-500",
+    bar: "bg-sky-500",
   },
   warning: {
-    badge: "bg-amber-100 text-amber-900",
-    dot: "bg-amber-600",
+    badge:
+      "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/60 dark:text-amber-300",
+    dot: "bg-amber-500",
     bar: "bg-amber-400",
   },
   waiting: {
-    badge: "bg-slate-100 text-slate-600",
+    badge: "bg-slate-100 text-slate-600 ring-slate-500/15",
     dot: "bg-slate-400",
-    bar: "bg-[#0e7adf]",
+    bar: "bg-sky-500",
   },
   paused: {
-    badge: "bg-slate-100 text-slate-600",
+    badge: "bg-slate-100 text-slate-600 ring-slate-500/15",
     dot: "bg-slate-400",
     bar: "bg-slate-300",
   },
   breached: {
-    badge: "bg-rose-100 text-rose-800",
-    dot: "bg-rose-500",
+    badge:
+      "bg-red-50 text-red-700 ring-red-600/15 dark:bg-red-950/60 dark:text-red-300",
+    dot: "bg-red-500",
     bar: "bg-red-400",
   },
   met: {
-    badge: "bg-emerald-100 text-emerald-800",
-    dot: "bg-emerald-600",
+    badge:
+      "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-950/60 dark:text-emerald-300",
+    dot: "bg-emerald-500",
     bar: "bg-emerald-400",
   },
 };
@@ -148,7 +152,7 @@ function ClockBadge({
     <span
       suppressHydrationWarning
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums",
+        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums ring-1 ring-inset",
         style.badge,
         className,
       )}
@@ -200,6 +204,61 @@ export function SlaHeadlineBadge({
   );
 }
 
+/**
+ * A red strip under the ticket title while any SLA clock is breached, so a
+ * missed target can't be overlooked. Reads the same clocks as the badges;
+ * renders nothing while every target is on track.
+ */
+export function SlaBreachBanner({
+  events,
+  policy,
+}: {
+  events: SlaEvent[];
+  policy?: TicketSlaPolicy | null;
+}) {
+  const now = useSlaNow(events, policy?.calendar);
+  const mounted = useMounted();
+  const breached = events.filter(
+    (ev) =>
+      computeSlaClock(
+        ev,
+        now,
+        policy?.warn_before_mins,
+        policy?.calendar,
+        policy?.day_mins,
+      ).state === "breached",
+  );
+  if (breached.length === 0) return null;
+  const names = breached.map((ev) => LABELS[ev.type]).join(" and ");
+  const first = breached[0];
+
+  return (
+    <div
+      role="status"
+      suppressHydrationWarning
+      className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+    >
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300">
+        <AlertTriangle className="size-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="font-semibold">
+          {names} SLA {breached.length > 1 ? "targets" : "target"} breached
+        </p>
+        <p
+          className="mt-0.5 text-xs text-red-800/90 dark:text-red-300/90"
+          suppressHydrationWarning
+        >
+          {mounted
+            ? `Was due ${formatClock(first.breached_at ?? first.due_at)}. `
+            : ""}
+          Reply or update the ticket as soon as possible.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface TicketSlaCardProps {
   events: SlaEvent[];
   /**
@@ -225,19 +284,24 @@ export function TicketSlaCard({
   const paused = events.some((e) => e.status === "pending" && e.paused_at);
 
   return (
-    <Card className="gap-0 py-0 shadow-sm border-slate-200 bg-white ring-0">
-      <CardContent className="p-4 space-y-3 text-xs">
-        <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-400">
+    <section className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+      {/* Same header strip as the ticket page's other sidebar cards. */}
+      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink">
+          <Timer className="size-3.5" strokeWidth={2} aria-hidden />
+        </span>
+        <h2 className="font-heading text-sm font-bold tracking-tight text-foreground">
           SLA
-        </h4>
-
+        </h2>
+      </div>
+      <div className="space-y-3 p-4 text-xs">
         <div className="grid gap-1">
           <p className="flex min-w-0 items-baseline gap-1.5 text-xs">
             <span className="shrink-0 font-semibold text-slate-700">
               Policy:
             </span>
             <span
-              className="min-w-0 truncate font-medium text-slate-900"
+              className="min-w-0 truncate font-medium text-foreground"
               title={policy?.name}
             >
               {policy?.name ?? "No SLA"}
@@ -292,7 +356,7 @@ export function TicketSlaCard({
               <div
                 key={ev.id}
                 className={cn(
-                  "space-y-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5 transition-opacity",
+                  "space-y-2 rounded-lg border border-slate-200/70! bg-slate-50/60 px-3 py-2.5 transition-opacity dark:border-border! dark:bg-muted/30",
                   updating && "opacity-50",
                 )}
               >
@@ -339,7 +403,7 @@ export function TicketSlaCard({
             );
           })
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

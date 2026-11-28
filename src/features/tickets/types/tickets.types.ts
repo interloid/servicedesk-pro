@@ -1,9 +1,10 @@
+import type { Database } from "@/lib/supabase/database.types";
 import type { ViewFilter } from "@/features/saved-view/filters";
 import type { SlaCalendar } from "@/features/tickets/lib/sla-calendar";
 import type { DurationUnit } from "@/features/sla-policies/duration";
 
-export type TicketStatus =
-  "new" | "open" | "pending" | "on_hold" | "resolved" | "closed";
+/** From the database enum, so a new status reaches every switch on it. */
+export type TicketStatus = Database["public"]["Enums"]["ticket_status"];
 export type TicketPriority = "urgent" | "high" | "normal" | "low";
 export type SlaStatus = "warning" | "breached" | "normal";
 

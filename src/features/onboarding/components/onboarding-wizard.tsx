@@ -17,6 +17,8 @@ import { landingUrlForSlug } from "@/lib/tenancy";
 import { APP_ROUTES } from "@/lib/routes";
 import { toast } from "sonner";
 import { registerOnboardingAction } from "../actions/register-actions";
+import { AUTH_CARD_CLASS } from "@/features/auth/components/auth-styles";
+import { cn } from "@/lib/utils";
 
 const subscribeNever = () => () => {};
 
@@ -127,26 +129,30 @@ export function OnboardingWizard({ timezones = [] }: OnboardingWizardProps) {
       if (response.requiresEmailConfirmation) {
         setPendingEmail(formData.workEmail);
         setIsSubmitting(false);
-        toast.success(
-          "Almost there - verify your email to activate your workspace",
-        );
+        toast.success("Almost there", {
+          description: "Verify your email to activate your workspace.",
+        });
         return;
       }
 
-      toast.success("Organization created successfully");
+      toast.success("Workspace created", {
+        description: "Taking you to your tickets.",
+      });
       window.location.assign(
         landingUrlForSlug(response.data!.tenant.slug, "/tickets"),
       );
     } else {
       setIsSubmitting(false);
       setErrorMessage(response.error || "Failed to complete setup.");
-      toast.error(response.error || "Failed to complete setup.");
+      toast.error("Couldn't finish setting up your workspace", {
+        description: response.error || "Failed to complete setup.",
+      });
     }
   };
 
   if (pendingEmail) {
     return (
-      <div className="w-full max-w-xl mx-auto rounded-3xl bg-white p-6 sm:p-8 shadow-xl border border-slate-100 text-center">
+      <div className={cn(AUTH_CARD_CLASS, "text-center")}>
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-accent/10">
           <MailCheck className="h-7 w-7 text-brand-accent" aria-hidden />
         </div>
@@ -176,8 +182,11 @@ export function OnboardingWizard({ timezones = [] }: OnboardingWizardProps) {
   }
 
   return (
-    <div className="w-full max-w-xl mx-auto rounded-3xl bg-white p-6 sm:p-8 shadow-xl border border-slate-100 flex flex-col max-h-[calc(100dvh-9rem)] overflow-hidden text-left">
-      <div className="shrink-0 pb-4 border-b border-slate-100">
+    <div className={cn(AUTH_CARD_CLASS, "flex flex-col text-left")}>
+      {/* The page scrolls (no inner scroll box, whose scrollbar used to take
+          width from the fields); the step header sticks so the stepper stays
+          in view on long steps. -mt-3/pt-3 keeps it off the viewport edge. */}
+      <div className="sticky top-0 z-10 -mt-3 shrink-0 border-b border-slate-100 bg-card pt-3 pb-4">
         {currentStep <= 2 ? (
           <div>
             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-brand-accent">
@@ -214,7 +223,7 @@ export function OnboardingWizard({ timezones = [] }: OnboardingWizardProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pt-6 px-1 pr-4">
+      <div className="flex-1 pt-6">
         {errorMessage && (
           <div className="mb-4 rounded-xl bg-red-50 p-3 sm:p-4 text-xs text-red-600 border border-red-100">
             {errorMessage}

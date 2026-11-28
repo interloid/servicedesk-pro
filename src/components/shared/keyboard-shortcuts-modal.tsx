@@ -1,13 +1,23 @@
 "use client";
 
 import * as React from "react";
+import { Keyboard } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  TEAM_DIALOG_CONTENT,
+  TEAM_DIALOG_FOOTER,
+  TEAM_MODAL_BUTTON,
+  TEAM_MODAL_BUTTON_PRIMARY,
+} from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 import { Button } from "@/components/ui/button";
 import { shortcutAccess } from "@/components/shared/layout/global-shortcuts";
 
@@ -53,14 +63,18 @@ export function KeyboardShortcutsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-140 max-h-[85vh] flex flex-col rounded-2xl p-4 sm:p-6 [&>button]:top-4 sm:[&>button]:top-6 [&>button]:right-4 sm:[&>button]:right-6">
-        <DialogHeader className="mb-2 sm:mb-4 shrink-0 text-left">
-          <DialogTitle className="text-lg sm:text-xl font-bold text-slate-900">
-            Keyboard shortcuts
-          </DialogTitle>
-        </DialogHeader>
+      {/* The platform console's popup: icon header, roomy body, banded footer. */}
+      <DialogContent
+        className={`flex max-h-[85vh] flex-col sm:max-w-130 ${TEAM_DIALOG_CONTENT}`}
+      >
+        <DialogIconHeader
+          icon={Keyboard}
+          title="Keyboard shortcuts"
+          description="Move around the workspace without reaching for the mouse."
+          className="shrink-0"
+        />
 
-        <div className="overflow-y-auto min-h-0 flex-1 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-y-auto min-h-0 flex-1 divide-y divide-border rounded-xl border border-border bg-card">
           {shortcuts.map((shortcut, index) => (
             <div
               key={index}
@@ -92,13 +106,18 @@ export function KeyboardShortcutsModal({
           ))}
         </div>
 
-        <div className="mt-3 sm:mt-4 flex justify-end shrink-0">
+        <DialogFooter
+          className={`shrink-0 ${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}
+        >
           <DialogClose asChild>
-            <Button className="h-10 w-full px-5 text-sm font-semibold sm:w-auto">
+            <Button
+              size="sm"
+              className={`${TEAM_MODAL_BUTTON} ${TEAM_MODAL_BUTTON_PRIMARY}`}
+            >
               Done
             </Button>
           </DialogClose>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -15,6 +15,7 @@ import {
   setPlatformSupportStatus,
   type PlatformSupportDetail,
 } from "../services/platform-support.service";
+import { userErrorMessage } from "@/lib/user-error";
 
 type ActionResult = { success: true } | { success: false; message: string };
 
@@ -65,8 +66,7 @@ export async function replyPlatformSupportAction(
     console.error("[platform] support reply failed:", error);
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : "Couldn't send the reply.",
+      message: userErrorMessage(error, "Couldn't send the reply."),
     };
   }
 
@@ -98,8 +98,7 @@ export async function setPlatformSupportStatusAction(
     console.error("[platform] support status failed:", error);
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : "Couldn't update the status.",
+      message: userErrorMessage(error, "Couldn't update the status."),
     };
   }
 

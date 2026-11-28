@@ -361,6 +361,38 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     return response;
   }
 
+  // On a tenant subdomain, central pages are not this workspace's. Checked
+  // before the central block below, which would otherwise serve them here:
+  // /login goes to the workspace's own sign-in, the rest to the apex domain.
+  const subdomainSlug = SUBDOMAIN_ROUTING_AVAILABLE
+    ? tenantLabelFromHost(hostHeader)
+    : null;
+
+  if (subdomainSlug && isCentralPath(pathname)) {
+    if (pathname === APP_ROUTES.LOGIN) {
+      const next = url.searchParams.get("next");
+
+      return withSessionCookies(
+        NextResponse.redirect(
+          new URL(tenantLoginPath(subdomainSlug, next), request.url),
+        ),
+        response,
+      );
+    }
+
+    if (process.env.NEXT_PUBLIC_APP_DOMAIN) {
+      return withSessionCookies(
+        NextResponse.redirect(
+          new URL(
+            `${pathname}${url.search}`,
+            `${url.protocol}//${process.env.NEXT_PUBLIC_APP_DOMAIN}`,
+          ),
+        ),
+        response,
+      );
+    }
+  }
+
   if (isCentralPath(pathname)) {
     if (user) {
       const sessionTenant = await resolveSessionTenant(supabase);
@@ -559,145 +591,36 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (SUBDOMAIN_ROUTING_AVAILABLE) {
-    const slugFromSubdomain = tenantLabelFromHost(hostHeader);
+  if (subdomainSlug) {
+    const slugFromSubdomain = subdomainSlug;
 
-    if (slugFromSubdomain) {
-      if (isCentralPath(pathname)) {
-        const scheme = url.protocol.replace(":", "");
+    const maintenance = await maintenanceGate(pathname, request, response);
 
-        return withSessionCookies(
-          NextResponse.redirect(
-            new URL(
-              `${pathname}${url.search}`,
-              `${scheme}://${process.env.NEXT_PUBLIC_APP_DOMAIN}`,
-            ),
-          ),
-          response,
-        );
-      }
+    if (maintenance) {
+      return maintenance;
+    }
 
-      const maintenance = await maintenanceGate(pathname, request, response);
+    const blocked = await workspaceGate(
+      slugFromSubdomain,
+      pathname,
+      request,
+      response,
+    );
 
-      if (maintenance) {
-        return maintenance;
-      }
+    if (blocked) {
+      return blocked;
+    }
 
-      const blocked = await workspaceGate(
-        slugFromSubdomain,
-        pathname,
-        request,
-        response,
-      );
-
-      if (blocked) {
-        return blocked;
-      }
-
-      if (isPortalPath(pathname)) {
-        // The same staff check as the path-prefix branch above, and now the
-        // same helper: without it this rewrite hands a staff session the
-        // customer magic-link screen.
-        if (user) {
-          const sessionTenant = await resolveSessionTenant(supabase);
-
-          if (isStaffSession(sessionTenant)) {
-            return redirectStaffHome(sessionTenant, request, response);
-          }
-        }
-
-        const requestHeaders = new Headers(request.headers);
-
-        requestHeaders.set("x-tenant-slug", slugFromSubdomain);
-
-        return withSessionCookies(
-          NextResponse.rewrite(
-            new URL(
-              tenantPath(slugFromSubdomain, `${pathname}${url.search}`),
-              request.url,
-            ),
-            {
-              request: {
-                headers: requestHeaders,
-              },
-              headers: response.headers,
-            },
-          ),
-          response,
-        );
-      }
-
-      let sessionTenant: SessionTenant | undefined;
-
+    if (isPortalPath(pathname)) {
+      // The same staff check as the path-prefix branch above, and now the
+      // same helper: without it this rewrite hands a staff session the
+      // customer magic-link screen.
       if (user) {
-        sessionTenant = await resolveSessionTenant(supabase);
+        const sessionTenant = await resolveSessionTenant(supabase);
 
-        if (
-          isValidTenantSlug(sessionTenant?.slug) &&
-          sessionTenant!.slug !== slugFromSubdomain
-        ) {
-          return withSessionCookies(
-            NextResponse.redirect(
-              new URL(
-                sessionTenantDestination(
-                  sessionTenant!.slug,
-                  pathname,
-                  sessionTenant?.role,
-                ),
-                request.url,
-              ),
-            ),
-            response,
-          );
+        if (isStaffSession(sessionTenant)) {
+          return redirectStaffHome(sessionTenant, request, response);
         }
-      }
-
-      // Same as the path-prefix branch: a customer goes to their portal.
-      if (
-        user &&
-        isCustomerSession(sessionTenant) &&
-        !isTenantPublicPath(pathname)
-      ) {
-        return withSessionCookies(
-          NextResponse.redirect(new URL(PORTAL_PATH_PREFIX, request.url)),
-          response,
-        );
-      }
-
-      if (!user && !isTenantPublicPath(pathname)) {
-        const loginUrl = new URL("/login", request.url);
-
-        if (pathname !== ROOT_PATH) {
-          loginUrl.searchParams.set("next", `${pathname}${url.search}`);
-        }
-
-        return withSessionCookies(NextResponse.redirect(loginUrl), response);
-      }
-      if (
-        user &&
-        !isCustomerSession(sessionTenant) &&
-        (pathname === ROOT_PATH ||
-          (isTenantPublicPath(pathname) && !allowsExistingSession(pathname)))
-      ) {
-        return withSessionCookies(
-          NextResponse.redirect(
-            new URL(defaultTenantLanding(sessionTenant?.role), request.url),
-          ),
-          response,
-        );
-      }
-
-      if (
-        user &&
-        sessionTenant &&
-        !isTenantRouteAllowed(sessionTenant.role, pathname)
-      ) {
-        return withSessionCookies(
-          NextResponse.redirect(
-            new URL(defaultTenantLanding(sessionTenant.role), request.url),
-          ),
-          response,
-        );
       }
 
       const requestHeaders = new Headers(request.headers);
@@ -720,6 +643,102 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
         response,
       );
     }
+
+    let sessionTenant: SessionTenant | undefined;
+
+    if (user) {
+      sessionTenant = await resolveSessionTenant(supabase);
+
+      if (
+        isValidTenantSlug(sessionTenant?.slug) &&
+        sessionTenant!.slug !== slugFromSubdomain
+      ) {
+        return withSessionCookies(
+          NextResponse.redirect(
+            new URL(
+              sessionTenantDestination(
+                sessionTenant!.slug,
+                pathname,
+                sessionTenant?.role,
+              ),
+              request.url,
+            ),
+          ),
+          response,
+        );
+      }
+    }
+
+    // Same as the path-prefix branch: a customer goes to their portal.
+    if (
+      user &&
+      isCustomerSession(sessionTenant) &&
+      !isTenantPublicPath(pathname)
+    ) {
+      return withSessionCookies(
+        NextResponse.redirect(new URL(PORTAL_PATH_PREFIX, request.url)),
+        response,
+      );
+    }
+
+    if (!user && !isTenantPublicPath(pathname)) {
+      // The workspace's own sign-in, not the central /login.
+      const loginUrl = new URL(
+        tenantLoginPath(
+          slugFromSubdomain,
+          pathname === ROOT_PATH ? null : `${pathname}${url.search}`,
+        ),
+        request.url,
+      );
+
+      return withSessionCookies(NextResponse.redirect(loginUrl), response);
+    }
+    if (
+      user &&
+      !isCustomerSession(sessionTenant) &&
+      (pathname === ROOT_PATH ||
+        (isTenantPublicPath(pathname) && !allowsExistingSession(pathname)))
+    ) {
+      return withSessionCookies(
+        NextResponse.redirect(
+          new URL(defaultTenantLanding(sessionTenant?.role), request.url),
+        ),
+        response,
+      );
+    }
+
+    if (
+      user &&
+      sessionTenant &&
+      !isTenantRouteAllowed(sessionTenant.role, pathname)
+    ) {
+      return withSessionCookies(
+        NextResponse.redirect(
+          new URL(defaultTenantLanding(sessionTenant.role), request.url),
+        ),
+        response,
+      );
+    }
+
+    const requestHeaders = new Headers(request.headers);
+
+    requestHeaders.set("x-tenant-slug", slugFromSubdomain);
+
+    return withSessionCookies(
+      NextResponse.rewrite(
+        new URL(
+          tenantPath(slugFromSubdomain, `${pathname}${url.search}`),
+          request.url,
+        ),
+        {
+          request: {
+            headers: requestHeaders,
+          },
+          headers: response.headers,
+        },
+      ),
+      response,
+    );
   }
 
   if (pathname === ROOT_PATH) {

@@ -16,7 +16,7 @@ export function ChatProfileCard({ profile }: { profile: ChatProfile }) {
 
   return (
     <div className="w-full max-w-sm overflow-hidden rounded-2xl border bg-background shadow-xs">
-      <div className="h-14 bg-gradient-to-br from-brand-accent/80 via-brand-accent/50 to-brand-accent/20" />
+      <div className="h-14 bg-muted" />
 
       <div className="-mt-9 px-4 pb-4">
         <div className="flex items-end gap-3">

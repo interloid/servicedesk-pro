@@ -6,6 +6,7 @@ import {
   canManageTenantBilling,
   getTenantIdBySlug,
 } from "@/features/tenancy/services/tenant-resolver";
+import { userErrorMessage } from "@/lib/user-error";
 
 function formatFeatureLabel(key: string): string {
   let label = key.replace(/_/g, " ");
@@ -201,7 +202,6 @@ export async function changeTenantPlan(
         error:
           errorBody?.message ??
           errorBody?.error ??
-          error.message ??
           "Failed to create subscription.",
       };
     }
@@ -227,7 +227,7 @@ export async function changeTenantPlan(
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
+      error: userErrorMessage(error, "Something went wrong."),
     };
   }
 }
@@ -317,7 +317,6 @@ export async function abortPlanSwitch(
         error:
           errorBody?.message ??
           errorBody?.error ??
-          error.message ??
           "Failed to restore your plan.",
       };
     }
@@ -340,7 +339,7 @@ export async function abortPlanSwitch(
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
+      error: userErrorMessage(error, "Something went wrong."),
     };
   }
 }
@@ -404,10 +403,7 @@ export async function resumeUpgradeApproval(tenantSlug: string): Promise<{
       return {
         success: false,
         error:
-          errorBody?.message ??
-          errorBody?.error ??
-          error.message ??
-          "Could not reach PayPal.",
+          errorBody?.message ?? errorBody?.error ?? "Could not reach PayPal.",
       };
     }
 
@@ -428,7 +424,7 @@ export async function resumeUpgradeApproval(tenantSlug: string): Promise<{
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
+      error: userErrorMessage(error, "Something went wrong."),
     };
   }
 }
@@ -500,7 +496,6 @@ export async function captureOrderPayment(
         error:
           errorBody?.message ??
           errorBody?.error ??
-          error.message ??
           "Failed to capture payment.",
       };
     }
@@ -525,7 +520,7 @@ export async function captureOrderPayment(
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
+      error: userErrorMessage(error, "Something went wrong."),
     };
   }
 }
@@ -592,7 +587,6 @@ export async function activateTenantSubscription(
         error:
           errorBody?.message ??
           errorBody?.error ??
-          error.message ??
           "Failed to activate subscription.",
       };
     }
@@ -615,7 +609,7 @@ export async function activateTenantSubscription(
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
+      error: userErrorMessage(error, "Something went wrong."),
     };
   }
 }
@@ -685,7 +679,6 @@ export async function cancelSubscription(
         error:
           errorBody?.message ??
           errorBody?.error ??
-          error.message ??
           "Failed to cancel subscription.",
       };
     }
@@ -707,7 +700,7 @@ export async function cancelSubscription(
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
+      error: userErrorMessage(error, "Something went wrong."),
     };
   }
 }

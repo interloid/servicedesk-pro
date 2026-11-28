@@ -15,14 +15,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { TimePickerPopover } from "./time-picker-popover";
-
-export interface Timezone {
-  id: string;
-  display_name?: string;
-  label?: string;
-  cities?: string;
-  utc_offset?: string;
-}
+import type { Timezone } from "../services/onboarding.service";
 
 interface StepProps {
   data: OnboardingState;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { isChatbotEnabled } from "@/features/chatbot/providers";
 import { PortalRequestsList } from "@/features/portal/components/portal-requests-list";
 import {
   isPortalRequestSort,
@@ -96,6 +97,8 @@ export default async function PortalRequestsPage({
     <PortalRequestsList
       tenantSlug={tenantSlug}
       tenantName={identity.tenant.name}
+      customerName={identity.customer.fullName}
+      chatEnabled={isChatbotEnabled()}
       result={result}
       search={search}
       state={state}

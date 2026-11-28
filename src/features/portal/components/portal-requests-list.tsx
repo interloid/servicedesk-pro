@@ -4,14 +4,19 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  BookOpen,
   ChevronLeft,
+  ArrowRight,
   ChevronRight,
   Clock3,
   FileText,
+  Hourglass,
   Inbox,
+  MessageCircle,
   Plus,
   Search,
   SearchX,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,15 +38,15 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { rememberThreadHint } from "@/features/portal/thread-hint";
 import { capitalizeFirst } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
+import { PORTAL_CHAT_OPEN_EVENT } from "@/features/chatbot/chatbot";
 
 const STATE_FILTERS: Array<{ value: string; label: string }> = [
-  { value: "all", label: "All statuses" },
+  { value: "all", label: "All" },
   { value: "open", label: "Open" },
   { value: "waiting_on_you", label: "Waiting on you" },
   { value: "resolved", label: "Resolved" },
@@ -55,12 +60,27 @@ const STATE_BADGE: Record<PortalRequestState, string> = {
     "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
 };
 
+/** The side panel's key to the status badges on each request. */
+const STATE_GUIDE: Array<{ state: PortalRequestState; meaning: string }> = [
+  { state: "open", meaning: "Our team has it and is working on it." },
+  {
+    state: "waiting_on_you",
+    meaning: "We've replied and need something from you to carry on.",
+  },
+  {
+    state: "resolved",
+    meaning: "Answered or fixed. Not sorted? Reopen it from the request.",
+  },
+];
+
 const PORTAL_SORT_ITEM_CLASS =
   "p-2 cursor-pointer data-highlighted:bg-brand-accent/10! data-highlighted:text-brand-accent! data-highlighted:**:text-brand-accent! data-[state=checked]:text-brand-accent! data-[state=checked]:**:text-brand-accent!";
 
 export function PortalRequestsList({
   tenantSlug,
   tenantName,
+  customerName = "",
+  chatEnabled = false,
   result,
   search,
   state,
@@ -68,6 +88,10 @@ export function PortalRequestsList({
 }: {
   tenantSlug: string;
   tenantName: string;
+  /** For the greeting over the list. */
+  customerName?: string;
+  /** The chat widget is on the page: offer the "Ask the assistant" tile. */
+  chatEnabled?: boolean;
   result: PortalRequestPage;
   search: string;
   state: string;
@@ -223,164 +247,243 @@ export function PortalRequestsList({
   }
 
   const isFiltered = Boolean(search) || state !== "all";
+  const firstName = customerName.trim().split(/\s+/)[0] ?? "";
+  const openChat = () =>
+    window.dispatchEvent(new Event(PORTAL_CHAT_OPEN_EVENT));
 
   // Nothing raised yet: a search box and a status filter over an empty list
   // are controls with nothing to act on, so the empty state stands alone.
   const showFilters = total > 0 || isFiltered;
 
   return (
-    <div className="mx-auto w-full max-w-7xl md:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
-            Your requests
-          </h1>
-          <p className="text-sm leading-[1.6] text-muted-foreground">
-            Track and manage everything you&apos;ve raised with {tenantName},
-            and reply without leaving this page.
-          </p>
-        </div>
+    // The list, with a narrow help column beside it from lg (under it on
+    // smaller screens).
+    <div className="mx-auto grid w-full max-w-7xl gap-8 md:px-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="min-w-0">
+        {/* Welcome banner: who this is for, the main action, and three
+            shortcuts into what the portal already offers. */}
+        <section className="rounded-2xl border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="text-sm font-semibold text-brand-ink">
+                Welcome back{firstName ? `, ${firstName}` : ""}{" "}
+                <span role="img" aria-label="waving hand">
+                  👋
+                </span>
+              </p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
+                Your requests
+              </h1>
+              <p className="max-w-xl text-sm leading-[1.6] text-muted-foreground">
+                Track and manage everything you&apos;ve raised with {tenantName}
+                , and reply without leaving this page.
+              </p>
+            </div>
 
-        <Button asChild size="lg" className="h-11 px-5 font-semibold">
-          <Link href={portalPath(tenantSlug, PORTAL_ROUTES.NEW_REQUEST)}>
-            <Plus aria-hidden className="size-4" />
-            New request
-          </Link>
-        </Button>
-      </div>
-
-      {showFilters ? (
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <div className="relative min-w-0 flex-1">
-            <label htmlFor="portal-search" className="sr-only">
-              Search your requests
-            </label>
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              id="portal-search"
-              type="search"
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="Search your requests…"
-              className="h-12 rounded-xl bg-card pl-11 text-sm shadow-xs"
-            />
+            <Button
+              asChild
+              size="lg"
+              className="h-11 w-full px-5 font-semibold sm:w-auto"
+            >
+              <Link href={portalPath(tenantSlug, PORTAL_ROUTES.NEW_REQUEST)}>
+                <Plus aria-hidden className="size-4" />
+                New request
+              </Link>
+            </Button>
           </div>
 
-          <label htmlFor="portal-state" className="sr-only">
-            Status
-          </label>
-          <Select value={state} onValueChange={onStateChange}>
-            <SelectTrigger
-              id="portal-state"
-              className="min-h-12 w-full rounded-xl bg-card px-4 text-sm shadow-xs focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/25 sm:w-52"
-            >
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-
-            <SelectContent
-              side="bottom"
-              align="end"
-              position="popper"
-              className="p-1"
-            >
-              {STATE_FILTERS.map((option) => (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                  className={PORTAL_SORT_ITEM_CLASS}
-                >
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : null}
-
-      {total > 0 ? (
-        <div className="mt-6 flex items-center justify-between gap-3">
-          <p
-            aria-live="polite"
-            className="text-sm font-medium text-muted-foreground"
+          <ul
+            className={cn(
+              "mt-6 grid grid-cols-1 gap-3",
+              chatEnabled ? "sm:grid-cols-3" : "sm:grid-cols-2",
+            )}
           >
-            {/* The total, not the length of the page: "87 requests" is what the
+            <li>
+              <QuickAction
+                icon={Hourglass}
+                title="Waiting on you"
+                body="Requests that need your reply"
+                active={state === "waiting_on_you"}
+                onClick={() => onStateChange("waiting_on_you")}
+              />
+            </li>
+            <li>
+              <QuickAction
+                icon={BookOpen}
+                title="Help centre"
+                body="Answers to common questions"
+                href={portalPath(tenantSlug, PORTAL_ROUTES.HELP)}
+              />
+            </li>
+            {chatEnabled ? (
+              <li>
+                <QuickAction
+                  icon={MessageCircle}
+                  title="Ask the assistant"
+                  body="Instant answers, any time"
+                  onClick={openChat}
+                />
+              </li>
+            ) : null}
+          </ul>
+        </section>
+
+        {showFilters ? (
+          <div className="mt-6 flex flex-col gap-3 lg:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <label htmlFor="portal-search" className="sr-only">
+                Search your requests
+              </label>
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                id="portal-search"
+                type="search"
+                value={term}
+                onChange={(event) => setTerm(event.target.value)}
+                placeholder="Search your requests…"
+                className="h-12 rounded-xl bg-card pl-11 text-sm shadow-xs"
+              />
+            </div>
+
+            {/* Chips rather than a dropdown: four choices, all visible, one tap. */}
+            <div
+              role="group"
+              aria-label="Status"
+              className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-xs scrollbar-none"
+            >
+              {STATE_FILTERS.map((option) => {
+                const selected = state === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => onStateChange(option.value)}
+                    className={cn(
+                      "flex h-full shrink-0 items-center rounded-lg px-3.5 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/30",
+                      selected
+                        ? "bg-brand-accent font-semibold text-brand-accent-foreground shadow-xs"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {total > 0 ? (
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <p
+              aria-live="polite"
+              className="text-sm font-medium text-muted-foreground"
+            >
+              {/* The total, not the length of the page: "87 requests" is what the
                 reader is choosing between, and it is the number that has to
                 change when a filter narrows the list. */}
-            {total === 1 ? "1 request" : `${total} requests`}
-          </p>
+              {total === 1 ? "1 request" : `${total} requests`}
+            </p>
 
-          <Select value={sort} onValueChange={onSortChange}>
-            <SelectTrigger
-              aria-label="Sort requests"
-              className="h-8 w-auto gap-1.5 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
-            >
-              <span>
-                Sort by:{" "}
-                <span className="font-semibold text-foreground">
-                  {PORTAL_REQUEST_SORTS[sort]}
+            <Select value={sort} onValueChange={onSortChange}>
+              <SelectTrigger
+                aria-label="Sort requests"
+                className="h-8 w-auto gap-1.5 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                <span>
+                  Sort by:{" "}
+                  <span className="font-semibold text-foreground">
+                    {PORTAL_REQUEST_SORTS[sort]}
+                  </span>
                 </span>
-              </span>
-            </SelectTrigger>
+              </SelectTrigger>
 
-            <SelectContent
-              side="bottom"
-              align="end"
-              position="popper"
-              className="p-1"
-            >
-              {Object.entries(PORTAL_REQUEST_SORTS).map(([value, label]) => (
-                <SelectItem
-                  key={value}
-                  value={value}
-                  className={PORTAL_SORT_ITEM_CLASS}
-                >
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : null}
+              <SelectContent
+                side="bottom"
+                align="end"
+                position="popper"
+                className="p-1"
+              >
+                {Object.entries(PORTAL_REQUEST_SORTS).map(([value, label]) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    className={PORTAL_SORT_ITEM_CLASS}
+                  >
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
 
-      <div
-        ref={listRef}
-        // scroll-mt-20, because the portal header is sticky: without it the
-        // page-change scroll parks the first row underneath the header.
-        className={cn(
-          "scroll-mt-20 flex flex-col gap-3 transition-opacity",
-          total > 0 ? "mt-3" : "mt-5",
-          isPending && "opacity-60",
-        )}
-      >
-        {requests.length === 0 ? (
-          <EmptyState
-            tenantSlug={tenantSlug}
-            isFiltered={isFiltered}
-            onClearFilters={clearFilters}
-          />
-        ) : (
-          requests.map((request) => (
-            <RequestRow
-              key={request.id}
+        <div
+          ref={listRef}
+          // scroll-mt-20, because the portal header is sticky: without it the
+          // page-change scroll parks the first row underneath the header.
+          className={cn(
+            "scroll-mt-20 flex flex-col gap-3 transition-opacity",
+            total > 0 ? "mt-3" : "mt-5",
+            isPending && "opacity-60",
+          )}
+        >
+          {requests.length === 0 ? (
+            <EmptyState
               tenantSlug={tenantSlug}
-              request={request}
+              isFiltered={isFiltered}
+              onClearFilters={clearFilters}
             />
-          ))
-        )}
+          ) : (
+            requests.map((request) => (
+              <RequestRow
+                key={request.id}
+                tenantSlug={tenantSlug}
+                request={request}
+              />
+            ))
+          )}
+        </div>
+
+        {totalPages > 1 ? (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            perPage={perPage}
+            onChange={goToPage}
+          />
+        ) : null}
       </div>
 
-      {totalPages > 1 ? (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          perPage={perPage}
-          onChange={goToPage}
-        />
-      ) : null}
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start">
+        <section className="rounded-xl border bg-card p-4">
+          <h2 className="text-sm font-semibold text-foreground">
+            What the statuses mean
+          </h2>
+          <dl className="mt-3 flex flex-col gap-3">
+            {STATE_GUIDE.map(({ state: key, meaning }) => (
+              <div key={key} className="flex flex-col items-start gap-1">
+                <dt
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    STATE_BADGE[key],
+                  )}
+                >
+                  {PORTAL_STATE_LABEL[key]}
+                </dt>
+                <dd className="text-xs leading-relaxed text-muted-foreground">
+                  {meaning}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </aside>
     </div>
   );
 }
@@ -469,6 +572,64 @@ function Pagination({
   );
 }
 
+/** A shortcut tile in the welcome banner: a link or a button. */
+function QuickAction({
+  icon: Icon,
+  title,
+  body,
+  href,
+  onClick,
+  active = false,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  href?: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  const className = cn(
+    "group flex h-full w-full items-center gap-3 rounded-xl border bg-background p-3.5 text-left text-foreground transition-all outline-none",
+    "hover:-translate-y-px hover:border-brand-accent/40 hover:text-foreground hover:shadow-[0_6px_18px_rgba(15,23,42,0.06)] focus-visible:ring-2 focus-visible:ring-brand-accent/30",
+    active && "border-brand-accent/50 bg-brand-accent/5",
+  );
+  const content = (
+    <>
+      <span
+        aria-hidden
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent"
+      >
+        <Icon className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {body}
+        </span>
+      </span>
+      <ArrowRight
+        aria-hidden
+        className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-accent"
+      />
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active || undefined}
+      className={className}
+    >
+      {content}
+    </button>
+  );
+}
+
 function RequestRow({
   tenantSlug,
   request,
@@ -492,14 +653,24 @@ function RequestRow({
       // when this row knows there is one.
       onClick={() => rememberThreadHint(request.id, request.hasTeamReply)}
       className={cn(
-        "group relative flex items-start gap-4 rounded-2xl border bg-card p-4 text-foreground shadow-xs transition-all sm:p-5",
-        "hover:-translate-y-0.5 hover:border-brand-accent/40 hover:text-foreground hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)]",
+        "group relative flex items-start gap-4 rounded-xl border bg-card p-4 text-foreground transition-colors sm:p-5",
+        "hover:border-foreground/20 hover:bg-muted/30 hover:text-foreground",
         "focus-visible:ring-2 focus-visible:ring-(--brand-accent)/30 focus-visible:outline-none",
+        request.state === "waiting_on_you" &&
+          "border-amber-200 bg-amber-50/30 dark:border-amber-900/50 dark:bg-amber-950/10",
       )}
     >
+      {/* A request waiting on the customer gets an amber edge, so the ones
+          that need them stand out in a long list. */}
+      {request.state === "waiting_on_you" ? (
+        <span
+          aria-hidden
+          className="absolute inset-y-4 left-0 w-1 rounded-r-full bg-amber-400"
+        />
+      ) : null}
       <span
         aria-hidden
-        className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent sm:flex"
+        className="hidden size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground sm:flex"
       >
         <FileText className="size-5" />
       </span>
@@ -536,7 +707,7 @@ function RequestRow({
             is ignored on a flex container, so the old `flex items-center` clipped
             the number hard against the badge instead of ellipsising it. The line
             is the height of the bar either way, so nothing else moves. */}
-        <p className="block h-6 truncate pe-28 text-xs font-medium leading-6 text-muted-foreground">
+        <p className="block h-6 truncate pe-28 text-xs font-medium leading-6 text-muted-foreground tabular-nums">
           #{request.number ?? "-"}
         </p>
 
@@ -571,10 +742,10 @@ function EmptyState({
   const Icon = isFiltered ? SearchX : Inbox;
 
   return (
-    <div className="flex flex-col items-center rounded-2xl border bg-card px-5 py-14 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.05)] sm:py-20">
+    <div className="flex flex-col items-center rounded-xl border bg-card px-5 py-14 text-center sm:py-20">
       <span
         aria-hidden
-        className="flex size-16 items-center justify-center rounded-full bg-brand-accent/10 text-brand-accent ring-8 ring-brand-accent/5"
+        className="flex size-14 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground"
       >
         <Icon className="size-7" />
       </span>

@@ -2,8 +2,7 @@
 
 import { use, type ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SavedViewTab } from "@/features/saved-view/filters";
 
@@ -16,19 +15,20 @@ interface TabButtonProps {
 
 function TabButton({ active, onClick, disabled, children }: TabButtonProps) {
   return (
-    <Button
-      variant="ghost"
-      size="sm"
+    <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
       disabled={disabled}
-      className={`h-8 whitespace-nowrap border ${
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
         active
-          ? "border-transparent bg-brand-accent font-semibold text-primary-foreground hover:bg-brand-hover hover:text-primary-foreground"
-          : "border-transparent bg-white text-slate-500 hover:text-slate-800"
-      }`}
+          ? "bg-white font-semibold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 dark:bg-card dark:ring-border"
+          : "text-slate-500 hover:text-foreground",
+      )}
     >
       {children}
-    </Button>
+    </button>
   );
 }
 
@@ -43,16 +43,18 @@ const FALLBACK_ALL_TAB: SavedViewTab = {
   isAll: true,
 };
 
+/** A segmented control, as the platform tables' FilterTabs. */
 const TAB_BAR_CLASS =
-  "flex items-center space-x-1 overflow-x-auto border-b border-slate-200 pb-3 text-xs font-medium scrollbar-none";
+  "flex h-10 w-fit max-w-full shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-slate-100/70 p-1 scrollbar-none dark:bg-muted/50";
 
 /** While the tabs stream in; the table above and below is already live. */
 export function TicketViewTabsSkeleton() {
   return (
     <div className={TAB_BAR_CLASS}>
+      <Skeleton className="h-8 w-20 rounded-md" />
       <Skeleton className="h-8 w-24 rounded-md" />
       <Skeleton className="h-8 w-28 rounded-md" />
-      <Skeleton className="h-8 w-24 rounded-md" />
+      <Skeleton className="h-8 w-20 rounded-md" />
     </div>
   );
 }
@@ -80,7 +82,7 @@ export function TicketViewTabs({
   const shown = fallback ? [FALLBACK_ALL_TAB] : loaded;
 
   return (
-    <div className={TAB_BAR_CLASS}>
+    <nav aria-label="Ticket views" className={TAB_BAR_CLASS}>
       {shown.map((tab) => {
         const active = activeViewId ? tab.id === activeViewId : tab.isAll;
 
@@ -93,19 +95,20 @@ export function TicketViewTabs({
           >
             {tab.name}
             {!fallback && (
-              <Badge
-                className={`ml-1 rounded-full px-1.5 py-0 text-[10px] ${
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-px text-[11px] tabular-nums",
                   active
-                    ? "border-0 bg-primary-foreground/20 text-primary-foreground"
-                    : "border-0 bg-brand-accent text-brand-accent-foreground"
-                }`}
+                    ? "bg-brand-soft text-brand-ink"
+                    : "bg-white/70 text-slate-500 dark:bg-card/60",
+                )}
               >
                 {tab.count}
-              </Badge>
+              </span>
             )}
           </TabButton>
         );
       })}
-    </div>
+    </nav>
   );
 }

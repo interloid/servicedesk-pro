@@ -61,6 +61,12 @@ export type ChatReply = {
 /** Messages per customer per day. Shown in the chat, enforced on the server. */
 export const CHAT_DAILY_LIMIT = 100;
 
+/**
+ * A window event that opens the assistant from elsewhere on the page (the
+ * "Ask the assistant" shortcut on the requests list).
+ */
+export const PORTAL_CHAT_OPEN_EVENT = "portal-chat:open";
+
 /** Offered before the customer has typed anything. */
 export const STARTER_SUGGESTIONS = [
   "Show my open requests",

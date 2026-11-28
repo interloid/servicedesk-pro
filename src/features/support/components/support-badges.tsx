@@ -8,7 +8,9 @@ import {
   type SupportStatus,
 } from "../support";
 
-const SIZE = "h-6 px-2.5 text-xs font-semibold";
+// The platform tables' badge: soft fill with a hairline ring in the same hue.
+const SIZE =
+  "h-6 rounded-md px-2 text-xs font-semibold ring-1 ring-current/15 ring-inset";
 
 export function SupportStatusBadge({
   status,

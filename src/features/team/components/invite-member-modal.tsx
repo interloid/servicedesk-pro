@@ -11,10 +11,7 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -30,11 +27,15 @@ import {
 import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_FOOTER,
-  TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
   TEAM_MODAL_BUTTON_PRIMARY,
   TEAM_MODAL_CONTROL,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+  DialogSectionLabel,
+} from "@/features/team/components/dialog-icon-header";
 import {
   inviteMemberSchema,
   type InviteMemberValues,
@@ -126,23 +127,23 @@ export function InviteMemberModal({
         const result = await inviteMemberAction(values);
 
         if (!result.ok) {
-          toast.error(
-            result.message ?? `We couldn't send the invite to ${values.email}.`,
-            { id: toastId },
-          );
+          toast.error(`Couldn't invite ${values.email}`, {
+            id: toastId,
+            description: result.message,
+          });
           return;
         }
 
-        toast.success(
-          `Invite sent to ${values.email}. They'll join as ${roleWithArticle(roleName)} once they accept.`,
-          { id: toastId },
-        );
+        toast.success(`${values.email} invited`, {
+          id: toastId,
+          description: `They'll join as ${roleWithArticle(roleName)} once they accept.`,
+        });
       } catch (error) {
         console.error("[team] inviteMemberAction failed", error);
-        toast.error(
-          `We couldn't send the invite to ${values.email}. Check your connection and try again.`,
-          { id: toastId },
-        );
+        toast.error(`Couldn't invite ${values.email}`, {
+          id: toastId,
+          description: "Check your connection and try again.",
+        });
       }
     });
   };
@@ -162,15 +163,16 @@ export function InviteMemberModal({
       </DialogTrigger>
 
       <DialogContent className={`sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Invite a member
-          </DialogTitle>
-          <DialogDescription>
-            They&apos;ll receive an email invitation. The link expires in 1 hour
-            - use Resend invite if they miss it.
-          </DialogDescription>
-        </DialogHeader>
+        <DialogIconHeader
+          icon={UserPlus}
+          title="Invite a member"
+          description={
+            <>
+              They&apos;ll receive an email invitation. The link expires in 1
+              hour - use Resend invite if they miss it.
+            </>
+          }
+        />
 
         {!seatsLeft && (
           <ModalNotice
@@ -191,6 +193,7 @@ export function InviteMemberModal({
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-4"
         >
+          <DialogSectionLabel>Member details</DialogSectionLabel>
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-sm font-semibold">
               Email address
@@ -200,7 +203,7 @@ export function InviteMemberModal({
               type="email"
               autoComplete="off"
               placeholder="name@company.com"
-              className={TEAM_MODAL_CONTROL}
+              className={`rounded-lg ${TEAM_MODAL_CONTROL}`}
               aria-invalid={Boolean(errors.email)}
               {...register("email")}
             />
@@ -234,7 +237,10 @@ export function InviteMemberModal({
                         if (option) setValue("role", option.base);
                       }}
                     >
-                      <SelectTrigger id="role" className="w-full min-h-10">
+                      <SelectTrigger
+                        id="role"
+                        className="min-h-10 w-full rounded-lg"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent
@@ -256,7 +262,7 @@ export function InviteMemberModal({
                     </Select>
 
                     {selected && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-slate-500">
                         {roleOptionDescription(selected)}
                       </p>
                     )}
@@ -280,7 +286,7 @@ export function InviteMemberModal({
           </ModalNotice>
         )}
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
           <DialogClose asChild>
             <Button
               type="button"

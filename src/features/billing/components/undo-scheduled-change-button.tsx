@@ -57,7 +57,9 @@ export function UndoScheduledChangeButton({
       const result = await abortPlanSwitchAction(tenantSlug);
 
       if (!result.success) {
-        toast.error(result.error || "Failed to undo the scheduled change.");
+        toast.error("Couldn't undo the scheduled change", {
+          description: result.error || undefined,
+        });
         return;
       }
 
@@ -75,9 +77,14 @@ export function UndoScheduledChangeButton({
       toast.success(
         result.restored
           ? result.planName
-            ? `You're back on ${result.planName}. Nothing is scheduled to change.`
-            : "Your plan has been restored."
-          : "There was no scheduled change left to undo.",
+            ? `Back on ${result.planName}`
+            : "Plan restored"
+          : "Nothing to undo",
+        {
+          description: result.restored
+            ? "Nothing is scheduled to change."
+            : "There was no scheduled change left to undo.",
+        },
       );
 
       router.refresh();

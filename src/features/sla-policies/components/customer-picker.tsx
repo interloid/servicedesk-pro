@@ -83,7 +83,7 @@ export function CustomerPicker({
             variant="outline"
             aria-expanded={open}
             aria-invalid={invalid || undefined}
-            className="h-10 w-full justify-between border-slate-200 px-3 text-left text-sm font-normal shadow-none hover:bg-transparent"
+            className="h-10 w-full justify-between rounded-lg border-border bg-card px-3 text-left text-sm font-normal shadow-none hover:bg-card hover:text-foreground"
           >
             <span className="flex min-w-0 items-center gap-2">
               <Users className="size-4 shrink-0 text-slate-500" aria-hidden />
@@ -103,7 +103,7 @@ export function CustomerPicker({
           align="start"
           className="w-(--radix-popover-trigger-width) min-w-72 p-0"
         >
-          <div className="relative border-b border-slate-100 p-2">
+          <div className="relative border-b border-border p-2">
             <Search
               className="pointer-events-none absolute top-1/2 left-4.5 size-4 -translate-y-1/2 text-slate-400"
               aria-hidden
@@ -192,7 +192,7 @@ export function CustomerPicker({
           </TooltipProvider>
 
           {value.length > 0 && (
-            <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
+            <div className="flex items-center justify-between border-t border-border bg-slate-50/60 px-3 py-2 text-xs text-slate-500">
               {value.length} selected
               <button
                 type="button"
@@ -211,14 +211,14 @@ export function CustomerPicker({
           {chips.map((c) => (
             <li
               key={c.id}
-              className="inline-flex max-w-full items-center gap-2 rounded-md border border-slate-200 bg-slate-50 py-0.5 pr-1 pl-2 text-xs text-slate-700"
+              className="inline-flex max-w-full items-center gap-2 rounded-md border-none bg-brand-50 py-0.5 pr-1 pl-2 text-xs font-medium text-brand-700 ring-1 ring-brand-700/15 ring-inset"
             >
               <span className="truncate">{c.name}</span>
               <button
                 type="button"
                 onClick={() => toggle(c.id)}
                 aria-label={`Remove ${c.name}`}
-                className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                className="rounded p-1 text-brand-700/60 hover:bg-brand-700/10 hover:text-brand-700"
               >
                 <X className="size-3" />
               </button>

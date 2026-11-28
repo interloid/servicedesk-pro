@@ -2,9 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  abortPlanSwitch,
+  activateTenantSubscription,
+  cancelSubscription,
+  captureOrderPayment,
   changeTenantPlan,
+  resumeUpgradeApproval,
   type AbortPlanSwitchOptions,
 } from "./services/billing.service";
+import {
+  canManageTenantBilling,
+  getTenantIdBySlug,
+} from "@/features/tenancy/services/tenant-resolver";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { userErrorMessage } from "@/lib/user-error";
 
 export async function changeTenantPlanAction(
   tenantSlug: string,
@@ -33,8 +44,7 @@ export async function changeTenantPlanAction(
       amountDue: result.amountDue ?? null,
     };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to change plan";
+    const message = userErrorMessage(error, "Failed to change plan");
     return { success: false, error: message };
   }
 }
@@ -44,7 +54,6 @@ export async function abortPlanSwitchAction(
   options?: AbortPlanSwitchOptions,
 ) {
   try {
-    const { abortPlanSwitch } = await import("./services/billing.service");
     const result = await abortPlanSwitch(tenantSlug, options);
     revalidatePath(`/${tenantSlug}/account/plans`);
     revalidatePath(`/${tenantSlug}/account/billing`);
@@ -53,8 +62,7 @@ export async function abortPlanSwitchAction(
     console.error("abortPlanSwitchAction error:", error);
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to restore your plan.",
+      error: userErrorMessage(error, "Failed to restore your plan."),
     };
   }
 }
@@ -64,7 +72,6 @@ export async function cancelSubscriptionAction(
   reason?: string,
 ) {
   try {
-    const { cancelSubscription } = await import("./services/billing.service");
     const result = await cancelSubscription(tenantSlug, reason);
     revalidatePath(`/${tenantSlug}/account/billing`);
     revalidatePath(`/${tenantSlug}/account/plans`);
@@ -73,10 +80,7 @@ export async function cancelSubscriptionAction(
     console.error("cancelSubscriptionAction error:", error);
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to cancel subscription.",
+      error: userErrorMessage(error, "Failed to cancel subscription."),
     };
   }
 }
@@ -100,7 +104,6 @@ export async function confirmOrderPaymentAction(
   }
 
   try {
-    const { captureOrderPayment } = await import("./services/billing.service");
     const result = await captureOrderPayment(tenantSlug, orderId);
     revalidatePath(`/${tenantSlug}/account/billing`);
     revalidatePath(`/${tenantSlug}/account/plans`);
@@ -108,7 +111,7 @@ export async function confirmOrderPaymentAction(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to activate plan",
+      error: userErrorMessage(error, "Failed to activate plan"),
     };
   }
 }
@@ -120,18 +123,16 @@ export async function resumeUpgradeApprovalAction(tenantSlug: string): Promise<{
   approvalUrl?: string | null;
 }> {
   try {
-    const { resumeUpgradeApproval } =
-      await import("./services/billing.service");
     const result = await resumeUpgradeApproval(tenantSlug);
     revalidatePath(`/${tenantSlug}/account/billing`);
     return result;
   } catch (error) {
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to resume the upgrade confirmation",
+      error: userErrorMessage(
+        error,
+        "Failed to resume the upgrade confirmation",
+      ),
     };
   }
 }
@@ -147,8 +148,6 @@ export async function confirmSubscriptionActivationAction(
   effectiveAt?: string | null;
 }> {
   try {
-    const { activateTenantSubscription } =
-      await import("./services/billing.service");
     const result = await activateTenantSubscription(tenantSlug, subscriptionId);
     revalidatePath(`/${tenantSlug}/account/billing`);
     revalidatePath(`/${tenantSlug}/account/plans`);
@@ -156,7 +155,7 @@ export async function confirmSubscriptionActivationAction(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to activate plan",
+      error: userErrorMessage(error, "Failed to activate plan"),
     };
   }
 }
@@ -175,8 +174,6 @@ export async function updatePaymentMethodAction(tenantSlug: string): Promise<{
   } | null;
 }> {
   try {
-    const { createSupabaseServerClient } =
-      await import("@/lib/supabase/server");
     const supabase = await createSupabaseServerClient();
 
     const {
@@ -187,9 +184,6 @@ export async function updatePaymentMethodAction(tenantSlug: string): Promise<{
     if (userError || !user) {
       return { success: false, error: "Unauthorized" };
     }
-
-    const { canManageTenantBilling, getTenantIdBySlug } =
-      await import("@/features/tenancy/services/tenant-resolver");
     const tenantId = await getTenantIdBySlug(tenantSlug);
 
     if (!tenantId) {
@@ -245,10 +239,7 @@ export async function updatePaymentMethodAction(tenantSlug: string): Promise<{
     console.error("updatePaymentMethodAction error:", error);
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to update payment method",
+      error: userErrorMessage(error, "Failed to update payment method"),
     };
   }
 }

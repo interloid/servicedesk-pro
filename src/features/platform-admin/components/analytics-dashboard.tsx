@@ -3,18 +3,23 @@
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  BarChart3,
   Building2,
   CircleDollarSign,
   Clock,
+  Headphones,
+  Layers,
+  LineChart,
   Percent,
   Smile,
   Ticket,
   TimerReset,
+  TrendingUp,
   UserMinus,
+  type LucideIcon,
 } from "lucide-react";
 
 import { ModalNotice } from "@/components/shared/modal-notice";
-import { cn } from "@/lib/utils";
 
 import { formatCurrency, formatNumber } from "../format";
 import {
@@ -25,18 +30,23 @@ import {
   type PlatformPlan,
 } from "../types";
 import { MonthlyBarChart } from "./monthly-bar-chart";
+import { CHART_COLORS } from "./chart-theme";
 import {
   DataTable,
   FilterSelect,
-  PLATFORM_CARD,
   PLATFORM_STAT_GRID,
   PlatformPageHeader,
+  PlatformSectionHeading,
+  PlatformPanel,
 } from "./platform-ui";
 import { StatCard } from "./stat-card";
 
-// Passed the palette validator against the card surface (light mode).
-const TEAL = "#0d9488";
-const RED = "#dc2626";
+// The console's shared chart palette (chart-theme.ts).
+const TEAL = CHART_COLORS.primary;
+const RED = CHART_COLORS.danger;
+
+/** Plan dot colours by list position (cheapest first), as on the plan cards. */
+const PLAN_DOTS = ["#94a3b8", TEAL, "#7c3aed", "#0284c7", "#d97706"];
 
 function formatDuration(minutes: number | null | undefined): string {
   if (minutes === null || minutes === undefined) return "—";
@@ -49,20 +59,18 @@ function formatDuration(minutes: number | null | undefined): string {
 function ChartCard({
   title,
   description,
+  icon,
   children,
 }: {
   title: string;
   description: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn(PLATFORM_CARD, "flex flex-col gap-4 p-4 sm:p-5")}>
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
+    <PlatformPanel title={title} description={description} icon={icon}>
       {children}
-    </section>
+    </PlatformPanel>
   );
 }
 
@@ -92,10 +100,13 @@ export function AnalyticsDashboard({
   const usedWorkspaces =
     liveWorkspaces?.filter((w) => w.tickets > 0).length ?? 0;
   const rangeLabel = ANALYTICS_RANGES[range].label.toLowerCase();
+  const totalMrr = plans.reduce((sum, plan) => sum + plan.mrr, 0);
 
   return (
     <div className="flex flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Billing &amp; product"
+        icon={BarChart3}
         title="Analytics & Reports"
         description="Revenue, growth and how workspaces use the product."
         action={
@@ -126,98 +137,137 @@ export function AnalyticsDashboard({
         </ModalNotice>
       )}
 
-      <div className={PLATFORM_STAT_GRID}>
-        <StatCard
-          label="Average revenue per paying workspace"
-          value={formatCurrency(Math.round(arpu * 100) / 100)}
-          hint={`${formatCurrency(metrics.mrr)} MRR`}
-          icon={CircleDollarSign}
+      <section className="flex flex-col gap-3">
+        <PlatformSectionHeading
+          icon={TrendingUp}
+          title="Revenue & growth"
+          description="Earnings, paid share and how many workspaces stay."
         />
-        <StatCard
-          label="Workspaces on a paid plan"
-          value={`${paidShare.toFixed(0)}%`}
-          hint={`${metrics.payingTenants} of ${metrics.activeTenants} live`}
-          icon={Percent}
-          iconClassName="bg-sky-50 text-sky-700"
-        />
-        <StatCard
-          label="Cancelled, last 12 months"
-          value={formatNumber(churned)}
-          hint={`${metrics.churnedThisMonth} this month`}
-          icon={UserMinus}
-          iconClassName="bg-red-50 text-red-600"
-        />
-        <StatCard
-          label={`Workspaces with tickets, ${rangeLabel}`}
-          value={
-            liveWorkspaces
-              ? `${usedWorkspaces} / ${liveWorkspaces.length}`
-              : "—"
-          }
-          icon={Building2}
-          iconClassName="bg-violet-50 text-violet-700"
-        />
-        <StatCard
-          label={`Tickets created, ${rangeLabel}`}
-          value={data ? formatNumber(data.tickets.created) : "—"}
-          hint={
-            data ? `${formatNumber(data.tickets.resolved)} resolved` : undefined
-          }
-          icon={Ticket}
-        />
-        <StatCard
-          label="Median first response"
-          value={formatDuration(data?.tickets.median_first_response_minutes)}
-          icon={Clock}
-          iconClassName="bg-sky-50 text-sky-700"
-        />
-        <StatCard
-          label="Median resolution time"
-          value={formatDuration(data?.tickets.median_resolution_minutes)}
-          icon={TimerReset}
-          iconClassName="bg-violet-50 text-violet-700"
-        />
-        <StatCard
-          label="Customer satisfaction"
-          value={data?.csat?.average != null ? `${data.csat.average} / 5` : "—"}
-          hint={
-            data?.csat ? `${formatNumber(data.csat.count)} ratings` : undefined
-          }
-          icon={Smile}
-          iconClassName="bg-emerald-50 text-emerald-700"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <ChartCard
-          title="Revenue collected"
-          description="Paid invoices by month, last 12 months."
-        >
-          <MonthlyBarChart
-            data={revenueSeries}
-            series={[{ key: "revenue", name: "Revenue", color: TEAL }]}
-            formatValue={(value) =>
-              `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+        <div className={PLATFORM_STAT_GRID}>
+          <StatCard
+            label="Average revenue per paying workspace"
+            value={formatCurrency(Math.round(arpu * 100) / 100)}
+            hint={`${formatCurrency(metrics.mrr)} MRR`}
+            icon={CircleDollarSign}
+            iconClassName="bg-emerald-50 text-emerald-600"
+          />
+          <StatCard
+            label="Workspaces on a paid plan"
+            value={`${paidShare.toFixed(0)}%`}
+            hint={`${metrics.payingTenants} of ${metrics.activeTenants} live`}
+            icon={Percent}
+            iconClassName="bg-brand-50 text-brand-700"
+          />
+          <StatCard
+            label="Cancelled, last 12 months"
+            value={formatNumber(churned)}
+            hint={`${metrics.churnedThisMonth} this month`}
+            icon={UserMinus}
+            iconClassName="bg-rose-50 text-rose-600"
+          />
+          <StatCard
+            label={`Workspaces with tickets, ${rangeLabel}`}
+            value={
+              liveWorkspaces
+                ? `${usedWorkspaces} / ${liveWorkspaces.length}`
+                : "—"
             }
+            icon={Building2}
+            iconClassName="bg-sky-50 text-sky-600"
           />
-        </ChartCard>
-
-        <ChartCard
-          title="New and cancelled workspaces"
-          description="By month, last 12 months."
-        >
-          <MonthlyBarChart
-            data={revenueSeries}
-            series={[
-              { key: "newTenants", name: "New", color: TEAL },
-              { key: "churned", name: "Cancelled", color: RED },
-            ]}
-          />
-        </ChartCard>
-      </div>
+        </div>
+      </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-bold text-foreground">Revenue by plan</h2>
+        <PlatformSectionHeading
+          icon={Headphones}
+          title="Support performance"
+          description={`How workspaces handle tickets, ${rangeLabel}.`}
+        />
+        <div className={PLATFORM_STAT_GRID}>
+          <StatCard
+            label={`Tickets created, ${rangeLabel}`}
+            value={data ? formatNumber(data.tickets.created) : "—"}
+            hint={
+              data
+                ? `${formatNumber(data.tickets.resolved)} resolved`
+                : undefined
+            }
+            icon={Ticket}
+            iconClassName="bg-brand-50 text-brand-700"
+          />
+          <StatCard
+            label="Median first response"
+            value={formatDuration(data?.tickets.median_first_response_minutes)}
+            icon={Clock}
+            iconClassName="bg-sky-50 text-sky-600"
+          />
+          <StatCard
+            label="Median resolution time"
+            value={formatDuration(data?.tickets.median_resolution_minutes)}
+            icon={TimerReset}
+            iconClassName="bg-violet-50 text-violet-600"
+          />
+          <StatCard
+            label="Customer satisfaction"
+            value={
+              data?.csat?.average != null ? `${data.csat.average} / 5` : "—"
+            }
+            hint={
+              data?.csat
+                ? `${formatNumber(data.csat.count)} ratings`
+                : undefined
+            }
+            icon={Smile}
+            iconClassName="bg-amber-50 text-amber-600"
+          />
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <PlatformSectionHeading
+          icon={LineChart}
+          title="Trends"
+          description="Month by month over the last 12 months."
+        />
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <ChartCard
+            icon={BarChart3}
+            title="Revenue collected"
+            description="Paid invoices by month, last 12 months."
+          >
+            <MonthlyBarChart
+              data={revenueSeries}
+              series={[{ key: "revenue", name: "Revenue", color: TEAL }]}
+              formatValue={(value) =>
+                `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+              }
+            />
+          </ChartCard>
+
+          <ChartCard
+            icon={Building2}
+            title="New and cancelled workspaces"
+            description="By month, last 12 months."
+          >
+            <MonthlyBarChart
+              data={revenueSeries}
+              series={[
+                { key: "newTenants", name: "New", color: TEAL },
+                { key: "churned", name: "Cancelled", color: RED },
+              ]}
+            />
+          </ChartCard>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <PlatformSectionHeading
+          icon={Layers}
+          title="Revenue by plan"
+          description="Where monthly recurring revenue comes from."
+        />
         <DataTable
           rows={plans}
           rowKey={(plan) => plan.id}
@@ -228,24 +278,70 @@ export function AnalyticsDashboard({
               header: "Plan",
               primary: true,
               cell: (plan) => (
-                <span className="font-semibold">{plan.name}</span>
+                <span className="flex items-center gap-2.5 font-semibold">
+                  <span
+                    aria-hidden
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{
+                      backgroundColor:
+                        PLAN_DOTS[plans.indexOf(plan) % PLAN_DOTS.length],
+                    }}
+                  />
+                  {plan.name}
+                </span>
               ),
             },
             {
               key: "workspaces",
               header: "Live workspaces",
-              cell: (plan) => formatNumber(plan.workspaces),
+              cell: (plan) => (
+                <span className="tabular-nums">
+                  {formatNumber(plan.workspaces)}
+                </span>
+              ),
             },
             {
               key: "price",
               header: "Price / month",
-              cell: (plan) => formatCurrency(plan.price),
+              cell: (plan) => (
+                <span className="text-slate-600 tabular-nums">
+                  {formatCurrency(plan.price)}
+                </span>
+              ),
+            },
+            {
+              key: "share",
+              header: "Share of MRR",
+              cell: (plan) => {
+                const share = totalMrr ? (plan.mrr / totalMrr) * 100 : 0;
+                return (
+                  <span className="flex min-w-32 items-center gap-2.5">
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <span
+                        className="block h-full rounded-full"
+                        style={{
+                          width: `${share}%`,
+                          backgroundColor:
+                            PLAN_DOTS[plans.indexOf(plan) % PLAN_DOTS.length],
+                        }}
+                      />
+                    </span>
+                    <span className="w-9 text-right text-xs text-slate-500 tabular-nums">
+                      {share.toFixed(0)}%
+                    </span>
+                  </span>
+                );
+              },
             },
             {
               key: "mrr",
               header: "MRR",
               align: "right",
-              cell: (plan) => formatCurrency(plan.mrr),
+              cell: (plan) => (
+                <span className="font-semibold tabular-nums">
+                  {formatCurrency(plan.mrr)}
+                </span>
+              ),
             },
           ]}
         />

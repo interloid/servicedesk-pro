@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import { cn } from "@/lib/utils";
 
 import {
@@ -48,9 +49,9 @@ function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center text-sm text-muted-foreground">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Icon className="size-4" aria-hidden />
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center text-sm text-slate-500">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-muted">
+        <Icon className="size-5" aria-hidden />
       </span>
       {children}
     </div>
@@ -127,16 +128,17 @@ export function MySupportRequests({
   return (
     <section
       className={cn(
-        "flex min-w-0 flex-col rounded-2xl border border-border bg-card p-4 shadow-xs sm:p-5",
+        DASHBOARD_CARD,
+        "flex min-w-0 flex-col overflow-hidden",
         className,
       )}
     >
-      {/* Pill tabs, matching the Notification Center's feed filter. */}
-      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Segmented tabs, matching the platform tables' filter bar. */}
+      <div className="flex flex-col gap-3 border-b border-border p-3 sm:flex-row sm:items-center sm:justify-between">
         <div
           aria-label="Filter requests"
           role="tablist"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0"
+          className="flex h-10 w-fit max-w-full shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-slate-100/70 p-1 scrollbar-none dark:bg-muted/50"
         >
           {TABS.map((item) => {
             const active = item.value === tab;
@@ -149,14 +151,21 @@ export function MySupportRequests({
                 aria-selected={active}
                 onClick={() => setTab(item.value)}
                 className={cn(
-                  "h-10 shrink-0 whitespace-nowrap rounded-full border px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "flex h-8 shrink-0 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                   active
-                    ? "border-primary! bg-primary/10 font-semibold text-primary"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-white font-semibold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 dark:bg-card dark:ring-border"
+                    : "text-slate-500 hover:text-foreground",
                 )}
               >
                 {item.label}{" "}
-                <span className="tabular-nums">({counts[item.value]})</span>
+                <span
+                  className={cn(
+                    "ml-1 tabular-nums",
+                    active ? "text-brand-700" : "text-slate-400",
+                  )}
+                >
+                  ({counts[item.value]})
+                </span>
               </button>
             );
           })}
@@ -173,7 +182,7 @@ export function MySupportRequests({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search subject or SR number"
               aria-label="Search support requests"
-              className="h-10 bg-card pl-9 text-sm"
+              className="h-10 rounded-lg bg-card pl-9 text-sm"
             />
           </div>
         )}
@@ -186,7 +195,7 @@ export function MySupportRequests({
           <div
             className={cn(
               ROW_GRID,
-              "mt-4 hidden rounded-lg bg-muted/60 px-3 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground",
+              "hidden h-10 bg-slate-50/80 px-4 text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase shadow-[inset_0_-1px_0_var(--border)] dark:bg-muted/40",
             )}
             aria-hidden
           >
@@ -203,11 +212,11 @@ export function MySupportRequests({
                   href={`${requestHref}/${request.id}`}
                   className={cn(
                     ROW_GRID,
-                    "flex flex-col gap-2 rounded-lg px-3 py-3.5 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none",
+                    "flex flex-col gap-2 px-4 py-3.5 transition-colors hover:bg-slate-50/60 focus-visible:bg-slate-50/60 focus-visible:outline-none dark:hover:bg-muted/30 dark:focus-visible:bg-muted/30",
                   )}
                 >
                   <span className="flex items-center justify-between gap-2 sm:contents">
-                    <span className="w-fit rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary tabular-nums">
+                    <span className="inline-flex h-6 w-fit items-center rounded-md bg-brand-50 px-2 text-xs font-semibold text-brand-700 tabular-nums ring-1 ring-brand-700/15 ring-inset dark:bg-brand-700/20 dark:text-brand-100">
                       {request.number}
                     </span>
                     <span className="sm:hidden">
@@ -216,18 +225,18 @@ export function MySupportRequests({
                   </span>
 
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-medium text-foreground">
+                    <span className="truncate text-sm font-semibold text-foreground">
                       {request.subject}
                     </span>
                     {request.accessActive && (
                       <Eye
-                        className="size-3.5 shrink-0 text-muted-foreground"
+                        className="size-3.5 shrink-0 text-brand-700"
                         aria-label="Support can access your workspace"
                       />
                     )}
                   </span>
 
-                  <span className="text-xs text-muted-foreground sm:text-sm">
+                  <span className="text-xs text-slate-500 tabular-nums sm:text-sm">
                     <span className="sm:hidden">Updated </span>
                     {formatSupportTime(request.updatedAt)}
                   </span>
@@ -237,7 +246,7 @@ export function MySupportRequests({
                   </span>
 
                   <ChevronRight
-                    className="hidden size-4 text-muted-foreground sm:block"
+                    className="hidden size-4 text-slate-400 sm:block"
                     aria-hidden
                   />
                 </Link>

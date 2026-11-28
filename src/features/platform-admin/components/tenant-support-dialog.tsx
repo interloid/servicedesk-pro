@@ -92,7 +92,7 @@ export function InPersonViewLink({
       variant="outline"
       size={compact ? "icon" : "default"}
       className={cn(
-        "border-emerald-300! bg-emerald-50 text-emerald-700 shadow-none hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800! dark:bg-emerald-950/40 dark:text-emerald-300",
+        "border-brand-300! bg-brand-50 text-brand-700 shadow-none hover:bg-brand-100 hover:text-brand-800 dark:border-brand-800! dark:bg-brand-950/40 dark:text-brand-300",
         compact ? "size-9 rounded-lg" : "h-10 gap-2 rounded-lg font-semibold",
         className,
       )}
@@ -161,12 +161,20 @@ function RequestDetail({
       });
 
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(`Couldn't update ${request.number}`, {
+          description: result.message,
+        });
         return;
       }
 
       toast.success(
-        `${request.number} ${status === "resolved" ? "resolved" : `set to ${SUPPORT_STATUS_LABELS_PLATFORM[status]}`}.`,
+        status === "resolved"
+          ? `${request.number} resolved`
+          : `${request.number} moved to ${SUPPORT_STATUS_LABELS_PLATFORM[status]}`,
+        {
+          description:
+            "The workspace sees the new status on its support request.",
+        },
       );
       await load();
       router.refresh();
@@ -386,8 +394,8 @@ export function TenantSupportDialog({
           </div>
 
           {accessActive && (
-            <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-900/60 dark:bg-emerald-950/30">
-              <p className="text-sm text-emerald-900 dark:text-emerald-100">
+            <div className="flex flex-col gap-3 rounded-lg border border-brand-200 bg-brand-50/60 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-brand-900/60 dark:bg-brand-950/30">
+              <p className="text-sm text-brand-900 dark:text-brand-100">
                 The workspace granted access for troubleshooting. View it, or
                 sign in as the admin who granted it. Everything is recorded in
                 their audit log.

@@ -3,6 +3,7 @@
 import React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  BarChart2,
   CalendarDays,
   ChartColumn,
   ChevronDown,
@@ -13,11 +14,16 @@ import {
   ListChecks,
   Loader2,
   Star,
-  type LucideIcon,
+  TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DASHBOARD_BUTTON,
+  DASHBOARD_CARD,
+  DashboardPageHeader,
+  StatCard,
+} from "@/components/shared/dashboard-ui";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +42,7 @@ import { exportReportsPdf } from "../lib/export-pdf";
 import { AgentPerformanceTable } from "./agent-performance-table";
 import { PrioritySlaCard } from "./priority-sla-card";
 import { ReportsSkeletonBody } from "./reports-skeleton";
-import { REPORT_CARD } from "./styles";
+import { REPORT_STAT_GRID } from "./styles";
 import { TicketPerformanceCard } from "./ticket-performance-card";
 
 interface ReportsDashboardProps {
@@ -45,50 +51,6 @@ interface ReportsDashboardProps {
 
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
-
-/**
- * A spreadsheet runs any cell starting with = + - @ (or a tab / CR) as a
- * formula, and agent names are typed by the agents themselves. A leading
- * apostrophe makes Excel and Sheets show the text as text.
- */
-interface StatCardProps {
-  icon: LucideIcon;
-  iconClassName: string;
-  title: string;
-  value: React.ReactNode;
-  caption: string;
-}
-
-function StatCard({
-  icon: Icon,
-  iconClassName,
-  title,
-  value,
-  caption,
-}: StatCardProps) {
-  return (
-    <Card className={cn(REPORT_CARD, "min-w-0")}>
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-lg",
-            iconClassName,
-          )}
-        >
-          <Icon className="size-5" />
-        </span>
-        <p className="min-w-0 text-sm font-semibold leading-tight text-foreground">
-          {title}
-        </p>
-      </div>
-      <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums text-foreground sm:mt-4 sm:text-3xl">
-        {value}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">{caption}</p>
-    </Card>
-  );
-}
 
 function RangePicker({
   range,
@@ -100,7 +62,10 @@ function RangePicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="h-10 gap-2 bg-card px-3 text-sm">
+        <Button
+          variant="outline"
+          className={cn(DASHBOARD_BUTTON, "gap-2 bg-card px-3.5")}
+        >
           <CalendarDays className="size-4 text-muted-foreground" />
           {REPORT_RANGES[range].label}
           <ChevronDown className="size-4 text-muted-foreground" />
@@ -115,7 +80,7 @@ function RangePicker({
             <DropdownMenuRadioItem
               key={key}
               value={key}
-              className="capitalize cursor-pointer"
+              className="cursor-pointer capitalize"
             >
               {REPORT_RANGES[key].label}
             </DropdownMenuRadioItem>
@@ -142,7 +107,9 @@ export default function ReportsDashboard({ data }: ReportsDashboardProps) {
       await exportReportsPdf(reportRef.current, data);
     } catch (error) {
       console.error("[reports] PDF export failed:", error);
-      toast.error("Couldn't export the report. Try again.");
+      toast.error("Couldn't export the report", {
+        description: "The PDF couldn't be generated. Try again.",
+      });
     } finally {
       setExporting(false);
     }
@@ -167,88 +134,97 @@ export default function ReportsDashboard({ data }: ReportsDashboardProps) {
 
   return (
     <div className="h-full overflow-x-hidden overflow-y-auto p-4 text-foreground sm:p-6 lg:p-8">
-      <div className="mx-auto space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Reports
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Analyze your support performance and team productivity.
-            </p>
-          </div>
-          {/* The picker stays even when the period is empty: hiding it left a
-              quiet "Last 7 days" with no way back short of editing the URL. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {hasData && (
-              <Button
-                variant="outline"
-                onClick={() => void exportPdf()}
-                disabled={exporting || isPending}
-                className="h-10 gap-2 bg-card px-3 text-sm"
-              >
-                {exporting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Download className="size-4" />
-                )}
-                {exporting ? "Exporting…" : "Export PDF"}
-              </Button>
-            )}
-            <RangePicker range={data.range} onChange={changeRange} />
-          </div>
-        </div>
+      <div className="mx-auto flex flex-col gap-6">
+        <DashboardPageHeader
+          eyebrow="Workspace"
+          icon={BarChart2}
+          title="Reports"
+          description="Analyze your support performance and team productivity."
+          action={
+            // The picker stays even when the period is empty: hiding it left a
+            // quiet "Last 7 days" with no way back short of editing the URL.
+            <div className="flex flex-wrap items-center gap-2">
+              {hasData && (
+                <Button
+                  variant="outline"
+                  onClick={() => void exportPdf()}
+                  disabled={exporting || isPending}
+                  className={cn(DASHBOARD_BUTTON, "gap-2 bg-card px-3.5")}
+                >
+                  {exporting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  {exporting ? "Exporting…" : "Export PDF"}
+                </Button>
+              )}
+              <RangePicker range={data.range} onChange={changeRange} />
+            </div>
+          }
+        />
 
-        <div ref={reportRef} aria-busy={isPending} className="space-y-6">
+        <div
+          ref={reportRef}
+          aria-busy={isPending}
+          className="flex flex-col gap-6"
+        >
           {/* A new period swaps the body for its skeleton, so the old numbers
               never sit under the new period's label. The heading and picker
               stay put. */}
           {isPending ? (
             <ReportsSkeletonBody />
           ) : !hasData ? (
-            <Card className="flex min-h-80 flex-col items-center justify-center gap-0 rounded-xl  bg-card px-6 py-16 text-center shadow-sm ring-1">
+            <div
+              className={cn(
+                DASHBOARD_CARD,
+                "flex min-h-80 flex-col items-center justify-center px-6 py-16 text-center",
+              )}
+            >
               <span
                 aria-hidden
-                className="flex size-16 items-center justify-center rounded-full bg-primary/10 ring-8 ring-primary/5"
+                className="flex size-14 items-center justify-center rounded-full bg-slate-100 text-slate-400"
               >
-                <ChartColumn className="size-6 text-primary" />
+                <ChartColumn className="size-6" strokeWidth={1.75} />
               </span>
-              <h2 className="mt-6 text-lg font-semibold text-foreground">
+              <h2 className="mt-5 font-heading text-lg font-bold tracking-tight text-foreground">
                 No ticket activity yet
               </h2>
-              <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+              <p className="mt-1.5 max-w-lg text-sm text-slate-500">
                 We couldn&rsquo;t find any ticket data yet.{" "}
                 <span className="sm:block">
                   Check back once tickets come in.
                 </span>
               </p>
-            </Card>
+            </div>
           ) : (
             <>
               {data.truncated && (
                 <p
                   role="status"
-                  className="rounded-lg bg-warning-soft px-4 py-3 text-sm text-warning-strong"
+                  className="flex items-start gap-2.5 rounded-xl border border-amber-200! bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60! dark:bg-amber-950/40 dark:text-amber-200"
                 >
-                  This period has too much activity to report on fully, so the
-                  figures below are partial. Pick a shorter range.
+                  <TriangleAlert
+                    aria-hidden
+                    className="mt-0.5 size-4 shrink-0 text-amber-600"
+                  />
+                  <span>
+                    This period has too much activity to report on fully, so the
+                    figures below are partial. Pick a shorter range.
+                  </span>
                 </p>
               )}
-              <div
-                data-pdf-block
-                data-pdf-row
-                className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5"
-              >
+              <div data-pdf-block data-pdf-row className={REPORT_STAT_GRID}>
                 <StatCard
                   icon={Crown}
-                  iconClassName="bg-success-soft text-success-strong"
-                  title="SLA Attainment"
+                  iconClassName="bg-brand-50 text-brand-700"
+                  label="SLA Attainment"
                   value={
                     summary.slaAttainment === null || data.truncated
                       ? "—"
                       : `${summary.slaAttainment}%`
                   }
-                  caption={
+                  hint={
                     data.truncated
                       ? "Partial data — pick a shorter range"
                       : summary.slaEligible === 0
@@ -259,9 +235,9 @@ export default function ReportsDashboard({ data }: ReportsDashboardProps) {
                 <StatCard
                   icon={Clock}
                   iconClassName="bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
-                  title="Median First Response"
+                  label="Median First Response"
                   value={summary.medianFirstResponse ?? "—"}
-                  caption={
+                  hint={
                     summary.firstResponseCount === 0
                       ? "No replies yet"
                       : `Across ${plural(summary.firstResponseCount, "ticket")}`
@@ -269,35 +245,28 @@ export default function ReportsDashboard({ data }: ReportsDashboardProps) {
                 />
                 <StatCard
                   icon={ListChecks}
-                  iconClassName="bg-info-soft text-info-strong"
-                  title="Tickets Solved"
-                  value={summary.ticketsSolved}
-                  caption={rangeLabel}
+                  iconClassName="bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300"
+                  label="Tickets Solved"
+                  value={String(summary.ticketsSolved)}
+                  hint={rangeLabel}
                 />
                 <StatCard
                   icon={FilePlus2}
-                  iconClassName="bg-warning-soft text-warning-strong"
-                  title="Tickets Created"
-                  value={summary.ticketsCreated}
-                  caption={rangeLabel}
+                  iconClassName="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  label="Tickets Created"
+                  value={String(summary.ticketsCreated)}
+                  hint={rangeLabel}
                 />
                 <StatCard
                   icon={Star}
-                  iconClassName="bg-destructive-soft text-destructive-strong"
-                  title="CSAT"
+                  iconClassName="bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
+                  label="CSAT"
                   value={
-                    summary.csatAverage === null ? (
-                      "—"
-                    ) : (
-                      <>
-                        {summary.csatAverage}
-                        <span className="text-xl font-semibold text-muted-foreground">
-                          /5
-                        </span>
-                      </>
-                    )
+                    summary.csatAverage === null
+                      ? "—"
+                      : `${summary.csatAverage} / 5`
                   }
-                  caption={
+                  hint={
                     summary.csatResponses === 0
                       ? "No ratings yet"
                       : `${plural(summary.csatResponses, "rating")} · ${summary.csatPositiveRate}% positive`

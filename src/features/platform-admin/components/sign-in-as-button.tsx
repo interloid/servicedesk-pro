@@ -55,7 +55,9 @@ export function SignInAsButton({
       const result = await startImpersonationAction({ requestId });
 
       if (result && !result.success) {
-        toast.error(result.message);
+        toast.error("Couldn't sign in to the workspace", {
+          description: result.message,
+        });
         setOpen(false);
       }
     });
@@ -73,7 +75,12 @@ export function SignInAsButton({
       </Button>
 
       <Dialog open={open} onOpenChange={(next) => !isPending && setOpen(next)}>
-        <DialogContent className={cn("sm:max-w-lg", TEAM_DIALOG_CONTENT)}>
+        <DialogContent
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg",
+            TEAM_DIALOG_CONTENT,
+          )}
+        >
           <DialogHeader>
             <DialogTitle className={TEAM_DIALOG_TITLE}>
               Sign in as {who}?

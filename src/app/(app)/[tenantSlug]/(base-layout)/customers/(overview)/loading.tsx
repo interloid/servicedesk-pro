@@ -1,3 +1,4 @@
+import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -110,34 +111,35 @@ export default function Loading() {
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
       <div className="mx-auto flex w-full flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-8 w-40" />
+        {/* The page header: eyebrow, title, description, and "Invite
+            customer" on the right for admins. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-44 sm:h-10" />
             <Skeleton className="h-5 w-80 max-w-full" />
           </div>
-
-          {/* The search field stands in the heading row on the real table, so
-              it stands there here too: a bar of its own would leave the table
-              64px lower than the page it replaces. Same width ramp as the real
-              field, so the right edge lands on the table's. */}
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-80 lg:w-96">
-              <Skeleton className="absolute top-1/2 left-3 size-4 -translate-y-1/2 rounded bg-slate-200/80" />
-              <div className="h-10 w-full rounded-lg border bg-card" />
-            </div>
-            {/* "Invite customer", which admins see beside the search. */}
-            <Skeleton className="h-10 w-full rounded-lg sm:w-40" />
-          </div>
+          <Skeleton className="h-10 w-full rounded-lg sm:w-40" />
         </div>
 
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className={cn(DASHBOARD_CARD, "overflow-hidden")}>
+          {/* The toolbar row: the count on the left, the search on the right,
+              with the same width ramp as the real field. */}
+          <div className="flex flex-col gap-3 border-b border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <Skeleton className="mx-1 h-5 w-48" />
+            <div className="relative w-full sm:w-80 lg:w-96">
+              <Skeleton className="absolute top-1/2 left-3 size-4 -translate-y-1/2 rounded bg-slate-200/80" />
+              <div className="h-10 w-full rounded-lg border border-border bg-card" />
+            </div>
+          </div>
+
           <div className="@container overflow-x-auto">
             <div className="flex min-w-md flex-col">
-              {/* The real header is 44px tall and every cell carries px-4, so
-                  the padding goes on the columns here rather than as a gap:
-                  a gap is added on top of the percentages, and the frame would
-                  be 80px wider than the table it stands in for. */}
-              <div className="flex h-11 items-center border-b">
+              {/* Every cell carries px-4, so the padding goes on the columns
+                  here rather than as a gap: a gap is added on top of the
+                  percentages, and the frame would be 80px wider than the
+                  table it stands in for. */}
+              <div className="flex h-10 items-center border-b border-border bg-slate-50/80">
                 {COLUMNS.map((column) => (
                   <div
                     key={column.id}
@@ -160,10 +162,10 @@ export default function Loading() {
 
               {ROWS.map((row) => (
                 /* The real row is the height of its 36px avatar between two
-                   12px cell paddings, which is 60px, not 64. */
+                   14px cell paddings, which is 64px. */
                 <div
                   key={row}
-                  className="flex h-15 items-center border-b border-muted last:border-0"
+                  className="flex h-16 items-center border-b border-muted last:border-0"
                 >
                   {COLUMNS.map((column, index) => (
                     <div
@@ -204,7 +206,7 @@ export default function Loading() {
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row">
             <Skeleton className="h-4 w-40" />
             <div className="flex gap-1.5">
               <Skeleton className="size-9 rounded-lg" />

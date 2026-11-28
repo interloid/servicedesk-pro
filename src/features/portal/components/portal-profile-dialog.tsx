@@ -4,18 +4,17 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, CircleAlert, Loader2, Lock } from "lucide-react";
+import { Camera, CircleAlert, Loader2, Lock, UserRound } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { TEAM_DIALOG_CONTENT } from "@/features/team/components/modal-buttons";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 import {
   Form,
   FormControl,
@@ -77,15 +76,14 @@ export function PortalProfileDialog({
       {/* The close button has no hover wash: it is the one control in here
           that is neither about the profile nor destructive, and the grey
           circle behind it read as a button waiting to be pressed. */}
-      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] gap-5 overflow-y-auto rounded-2xl p-5 sm:max-w-md sm:p-6 **:data-[slot=dialog-close]:hover:bg-transparent">
-        <DialogHeader className="gap-1 text-left">
-          <DialogTitle className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
-            Profile settings
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Your photo, name and the email you sign in with.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={`max-h-[90dvh] gap-5 overflow-y-auto sm:max-w-md ${TEAM_DIALOG_CONTENT}`}
+      >
+        <DialogIconHeader
+          icon={UserRound}
+          title="Profile settings"
+          description="Your photo, name and the email you sign in with."
+        />
 
         {/* Its own component so its state lives only while the dialog is
             open: Radix unmounts the content on close, so every opening starts
@@ -410,7 +408,9 @@ function ProfileForm({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 border-t pt-5 sm:flex sm:justify-end sm:gap-3">
+          <div
+            className={`-mx-5 -mb-5 mt-1 grid grid-cols-2 gap-3 border-t border-border p-5 sm:flex sm:justify-end ${DIALOG_FOOTER_BAND}`}
+          >
             <Button
               type="button"
               variant="outline"

@@ -125,7 +125,7 @@ export function NotificationMenu() {
           <PopoverTrigger asChild>
             <TooltipTrigger asChild>
               <div
-                className="relative flex size-10 sm:size-11 cursor-pointer items-center justify-center rounded-md"
+                className="relative flex size-10 cursor-pointer items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-muted hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=open]:bg-muted data-[state=open]:text-slate-900"
                 role="button"
                 tabIndex={0}
                 aria-label={`Notifications, ${unread} unread`}

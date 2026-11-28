@@ -45,9 +45,12 @@ function SectionHeading({
   descriptionWidth: string;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <Skeleton className={`h-5 ${titleWidth}`} />
-      <Skeleton className={`h-4 ${descriptionWidth} max-w-full`} />
+    <div className="flex items-start gap-3">
+      <Skeleton className="size-9 shrink-0 rounded-full" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Skeleton className={`h-5 ${titleWidth}`} />
+        <Skeleton className={`h-4 ${descriptionWidth} max-w-full`} />
+      </div>
     </div>
   );
 }
@@ -62,12 +65,12 @@ function Section({ children }: { children: React.ReactNode }) {
 
 function SettingsCard() {
   return (
-    <div className="@container flex min-w-0 flex-col rounded-[14px] border border-border bg-card p-4 sm:p-5 xl:overflow-y-auto">
+    <div className="@container flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5 xl:overflow-y-auto">
       {/* Logo */}
       <Section>
         <SectionHeading titleWidth="w-12" descriptionWidth="w-96" />
         <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
-          <div className="relative flex items-center gap-3 rounded-[12px] border border-border p-3.5">
+          <div className="relative flex items-center gap-3 rounded-xl border border-border p-3.5">
             <Skeleton className={`size-14 shrink-0 rounded-[10px] ${ACCENT}`} />
             <div className="flex min-w-0 flex-1 flex-col gap-1.5 pr-24">
               <Skeleton className="h-3 w-20" />
@@ -81,7 +84,7 @@ function SettingsCard() {
             </div>
           </div>
 
-          <div className="flex min-h-22 flex-col items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-border bg-muted/40 p-3.5">
+          <div className="flex min-h-22 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-slate-50/60 p-3.5">
             <Skeleton className={`size-5 rounded ${SOFT}`} />
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-3 w-36" />
@@ -201,12 +204,12 @@ function ScreenCard({ index }: { index: number }) {
 
 function PreviewCard() {
   return (
-    <div className="flex min-w-0 flex-col gap-4 rounded-[14px] border border-border bg-card p-4 sm:p-5 xl:overflow-hidden">
+    <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5 xl:overflow-hidden">
       <div className="flex items-start gap-3">
-        <Skeleton className={`size-11 shrink-0 rounded-[10px] ${SOFT}`} />
+        <Skeleton className={`size-9 shrink-0 rounded-full ${SOFT}`} />
         <div className="flex flex-col gap-1.5">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-4 w-72 max-w-full" />
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-72 max-w-full" />
         </div>
       </div>
 
@@ -247,10 +250,11 @@ export default function Loading() {
   return (
     <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8 xl:overflow-hidden">
       <div className="mx-auto flex w-full flex-col gap-6 xl:h-full">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-5 w-80 max-w-full" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-40 sm:h-10" />
+            <Skeleton className="h-5 w-96 max-w-full" />
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-3 *:flex-1 sm:w-auto sm:*:flex-none">

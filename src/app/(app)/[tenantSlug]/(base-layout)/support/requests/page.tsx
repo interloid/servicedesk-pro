@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageSquarePlus } from "lucide-react";
+import { LifeBuoy, MessageSquarePlus } from "lucide-react";
 
 import { BackLink } from "@/components/shared/back-link";
 import { Button } from "@/components/ui/button";
+import {
+  DASHBOARD_BUTTON,
+  DashboardPageHeader,
+} from "@/components/shared/dashboard-ui";
+import { cn } from "@/lib/utils";
 import { MySupportRequests } from "@/features/support/components/my-support-requests";
 import {
   getSupportActor,
@@ -25,31 +30,32 @@ export default async function MySupportRequestsPage({
   const requests = await listMySupportRequests();
 
   return (
-    <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8">
+    <div className="h-full overflow-y-auto p-4 font-sans text-slate-900 sm:p-6 lg:p-8 dark:text-foreground">
       <div className="mx-auto flex w-full flex-col gap-6">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
           <BackLink href={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.HOME)}>
             Help & Support
           </BackLink>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold tracking-tight">
-                My support requests
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Every request your workspace has sent to platform support.
-              </p>
-            </div>
-            <Button
-              asChild
-              className="h-10 w-full gap-2 rounded-lg bg-brand-accent px-4 text-sm font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90 sm:w-auto"
-            >
-              <Link href={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.NEW)}>
-                <MessageSquarePlus className="size-4" aria-hidden />
-                Create support request
-              </Link>
-            </Button>
-          </div>
+          <DashboardPageHeader
+            eyebrow="Account"
+            icon={LifeBuoy}
+            title="My support requests"
+            description="Every request your workspace has sent to platform support."
+            action={
+              <Button
+                asChild
+                className={cn(
+                  DASHBOARD_BUTTON,
+                  "w-full gap-2 bg-brand-accent text-sm text-brand-accent-foreground hover:bg-brand-accent/90 sm:w-auto",
+                )}
+              >
+                <Link href={tenantPath(tenantSlug, TENANT_ROUTES.SUPPORT.NEW)}>
+                  <MessageSquarePlus className="size-4" aria-hidden />
+                  Create support request
+                </Link>
+              </Button>
+            }
+          />
         </div>
 
         <MySupportRequests

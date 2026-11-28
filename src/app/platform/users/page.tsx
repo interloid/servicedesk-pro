@@ -1,3 +1,4 @@
+import { Users } from "lucide-react";
 import type { Metadata } from "next";
 
 import { requirePlatformAdmin } from "@/features/platform-admin/services/platform-access";
@@ -22,6 +23,8 @@ export default async function PlatformUsersPage() {
     // Exactly the height the shell leaves, so only the table's rows scroll.
     <div data-no-page-scrollbar className="flex h-full min-h-0 flex-col gap-6">
       <PlatformPageHeader
+        eyebrow="Manage platform"
+        icon={Users}
         title="Users"
         description="Every staff membership across all workspaces. Customers are not listed."
       />

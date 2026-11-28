@@ -62,7 +62,7 @@ import { ShellIdentity } from "@/types/shell-identity";
 import { planIncludesReports } from "@/features/reports/types/types";
 import { planIncludesBranding } from "@/features/branding/branding";
 
-interface NavItem {
+export interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
@@ -71,35 +71,21 @@ interface NavItem {
   locked?: boolean;
 }
 
-interface NavSection {
+export interface NavSection {
   title: string | null;
   items: NavItem[];
 }
 
-export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
-  const pathname = usePathname();
-  const params = useParams();
-
-  const { isMobile, setOpenMobile } = useSidebar();
-
-  // identity.user.role is a plain string and can hold a value that is not a
-  // real membership role (the JWT claim is absent for a member whose row was
-  // not active when the token was minted). Checking it rather than casting is
-  // what keeps an unknown role from filtering every nav item away.
-  const userRole: MembershipRole = isMembershipRole(identity?.user.role)
-    ? identity.user.role
-    : "customer";
-
-  // org.name is a display name ("CloudNova Systems"), never a URL slug, so the
-  // path is the only safe fallback for the route parameter.
-  const tenantSlug =
-    (params?.tenantSlug as string | undefined) ??
-    stripTenantPrefix(pathname)?.slug ??
-    "";
-
-  const navSections: NavSection[] = [
+/**
+ * The workspace navigation, shared by the sidebar and the header breadcrumb.
+ * Not filtered by role here; the sidebar drops what the role cannot open.
+ */
+export function workspaceNavSections(
+  identity: ShellIdentity | null,
+): NavSection[] {
+  return [
     {
-      title: null,
+      title: "Workspace",
       items: [
         {
           label: "Ticket queue",
@@ -227,6 +213,62 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
       ],
     },
   ];
+}
+
+/** "SETTINGS" -> "Settings", for the header breadcrumb. */
+export function sectionLabel(title: string): string {
+  return title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
+}
+
+/** Whether a nav item's page (or one below it) is the current path. */
+export function isNavItemActive(
+  pathname: string,
+  tenantSlug: string,
+  href: string,
+): boolean {
+  const targetPath = tenantSlug ? tenantPath(tenantSlug, href) : href;
+  return (
+    pathname === targetPath ||
+    (href !== "/" && pathname.startsWith(`${targetPath}/`))
+  );
+}
+
+const NAV_BUTTON_CLASS = cn(
+  "h-10 w-full gap-3 rounded-lg px-3 text-sm font-medium text-slate-600 [&_svg]:text-slate-600",
+  "transition-colors hover:bg-slate-100 hover:text-slate-900 hover:[&_svg]:text-slate-900",
+  // Active: a light wash of the brand teal, a 3px accent on the leading edge
+  // (dropped when the sidebar collapses to icons), brand icon. Same as the
+  // platform console's sidebar.
+  "data-[active=true]:bg-brand-700/10 data-[active=true]:font-semibold data-[active=true]:text-brand-800 data-[active=true]:hover:bg-brand-700/10 data-[active=true]:hover:text-brand-800 data-[active=true]:shadow-[inset_3px_0_0_var(--brand-700)] data-[active=true]:[&_svg]:text-brand-700 data-[active=true]:hover:[&_svg]:text-brand-700",
+  "group-data-[collapsible=icon]:data-[active=true]:shadow-none",
+  "group-data-[collapsible=icon]:h-10",
+  "group-data-[collapsible=icon]:w-10",
+  "group-data-[collapsible=icon]:justify-center",
+  "group-data-[collapsible=icon]:p-0",
+);
+
+export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
+  const pathname = usePathname();
+  const params = useParams();
+
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // identity.user.role is a plain string and can hold a value that is not a
+  // real membership role (the JWT claim is absent for a member whose row was
+  // not active when the token was minted). Checking it rather than casting is
+  // what keeps an unknown role from filtering every nav item away.
+  const userRole: MembershipRole = isMembershipRole(identity?.user.role)
+    ? identity.user.role
+    : "customer";
+
+  // org.name is a display name ("CloudNova Systems"), never a URL slug, so the
+  // path is the only safe fallback for the route parameter.
+  const tenantSlug =
+    (params?.tenantSlug as string | undefined) ??
+    stripTenantPrefix(pathname)?.slug ??
+    "";
+
+  const navSections = workspaceNavSections(identity);
 
   const hasAccess = (itemRoles: MembershipRole[]) =>
     itemRoles.includes(userRole);
@@ -241,74 +283,18 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
     .filter((section) => section.items.length > 0);
 
   return (
-    <Sidebar
-      collapsible="icon"
-      className="
-        select-none
-        border-r
-        border-slate-200/80
-        bg-white
-        text-slate-700
-      "
-    >
-      <SidebarHeader
-        className="
-          border-b
-          border-sidebar-border
-          p-3.5
-          group-data-[collapsible=icon]:px-2
-          group-data-[collapsible=icon]:py-3
-        "
-      >
-        <div
-          className="
-            flex
-            items-center
-            gap-2.5
-            group-data-[collapsible=icon]:flex-col
-            group-data-[collapsible=icon]:gap-2
-          "
-        >
-          <div
-            className="
-              flex
-              size-8
-              shrink-0
-              items-center
-              justify-center
-              rounded-md
-              bg-sidebar-primary
-              text-sm
-              font-extrabold
-              text-sidebar-primary-foreground
-            "
-          >
+    <Sidebar collapsible="icon" className="select-none border-r">
+      <SidebarHeader className="h-15 shrink-0 justify-center border-b border-sidebar-border px-3.5 py-0 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+        <div className="flex items-center gap-2.5 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-extrabold text-sidebar-primary-foreground">
             {identity?.org.initial ?? "T"}
           </div>
 
           <TooltipProvider>
-            <div
-              className="
-      flex
-      min-w-0
-      flex-1
-      flex-col
-      group-data-[collapsible=icon]:hidden
-    "
-            >
+            <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span
-                    className="
-            block
-            min-w-0
-            truncate
-            text-sm
-            font-bold
-            text-foreground
-            capitalize
-          "
-                  >
+                  <span className="block min-w-0 truncate font-sans text-sm font-bold tracking-tight text-foreground capitalize">
                     {identity?.org.name ?? "Tenant Workspace"}
                   </span>
                 </TooltipTrigger>
@@ -320,15 +306,7 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span
-                    className="
-            block
-            min-w-0
-            truncate
-            text-xs
-            text-muted-foreground
-          "
-                  >
+                  <span className="block min-w-0 truncate text-xs text-muted-foreground">
                     {identity?.org.planSummary ?? "Active Plan"}
                   </span>
                 </TooltipTrigger>
@@ -342,56 +320,25 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
 
           <SidebarTrigger
             icon={<PanelLeft />}
-            className="
-          hidden
-          size-8
-          shrink-0
-          border
-          border-border
-          bg-card
-          text-muted-foreground
-          hover:bg-muted
-          md:flex
-        "
+            className="hidden size-8 shrink-0 border border-border bg-card text-muted-foreground hover:bg-muted md:flex"
           />
         </div>
       </SidebarHeader>
 
-      <SidebarContent
-        className="
-          gap-3.5
-          px-2.5
-          py-3
-          group-data-[collapsible=icon]:px-2
-          group-data-[collapsible=icon]:py-3
-        "
-      >
+      <SidebarContent className="gap-5 px-3 py-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
         {visibleSections.map((group, index) => (
           <SidebarGroup
             key={group.title ?? `group-${index}`}
             className="gap-1 p-0"
           >
             {group.title && (
-              <SidebarGroupLabel
-                className="
-                  h-auto
-                  px-3
-                  pt-1.5
-                  pb-1
-                  text-xs
-                  font-bold
-                  uppercase
-                  tracking-widest
-                  text-muted-foreground/80
-                  group-data-[collapsible=icon]:hidden
-                "
-              >
+              <SidebarGroupLabel className="h-auto px-3 pb-2 text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase group-data-[collapsible=icon]:hidden">
                 {group.title}
               </SidebarGroupLabel>
             )}
 
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
+              <SidebarMenu className="gap-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
 
@@ -399,33 +346,22 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
                     ? tenantPath(tenantSlug, item.href)
                     : item.href;
 
-                  const isActive =
-                    pathname === targetPath ||
-                    (item.href !== "/" &&
-                      pathname.startsWith(`${targetPath}/`));
+                  const isActive = isNavItemActive(
+                    pathname,
+                    tenantSlug,
+                    item.href,
+                  );
 
                   return (
                     <SidebarMenuItem
                       key={item.href}
-                      className="
-                        group-data-[collapsible=icon]:flex
-                        group-data-[collapsible=icon]:justify-center
-                      "
+                      className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
                     >
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
                         tooltip={item.label}
-                        className={cn(
-                          "h-10 w-full rounded-md px-2.5 text-sm font-medium text-slate-600",
-                          "transition-colors hover:bg-slate-100/80 hover:text-slate-900",
-                          isActive &&
-                            "bg-slate-100/80 font-semibold text-slate-900",
-                          "group-data-[collapsible=icon]:h-10",
-                          "group-data-[collapsible=icon]:w-10",
-                          "group-data-[collapsible=icon]:justify-center",
-                          "group-data-[collapsible=icon]:p-0",
-                        )}
+                        className={NAV_BUTTON_CLASS}
                       >
                         <Link
                           href={targetPath}
@@ -434,15 +370,12 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
                               setOpenMobile(false);
                             }
                           }}
-                          className="
-      flex
-      min-w-0
-      items-center
-      gap-2.5
-      group-data-[collapsible=icon]:justify-center
-    "
+                          className="flex min-w-0 items-center gap-3 group-data-[collapsible=icon]:justify-center"
                         >
-                          <Icon className="size-4 shrink-0 text-current" />
+                          <Icon
+                            className="size-[18px] shrink-0"
+                            strokeWidth={1.75}
+                          />
 
                           <span className="truncate group-data-[collapsible=icon]:hidden">
                             {item.label}
@@ -451,7 +384,7 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
                           {item.locked && (
                             <Lock
                               aria-label="Upgrade to unlock"
-                              className="ml-auto size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
+                              className="ml-auto size-3.5 shrink-0 text-slate-400! group-data-[collapsible=icon]:hidden"
                             />
                           )}
                         </Link>
@@ -465,35 +398,15 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter
-        className="
-          border-t
-          border-sidebar-border
-          p-3
-          group-data-[collapsible=icon]:px-2
-          group-data-[collapsible=icon]:py-3
-        "
-      >
-        <div
-          className="
-            flex
-            items-center
-            gap-2.5
-            group-data-[collapsible=icon]:justify-center
-          "
-        >
-          <Avatar
-            className="
-              size-8
-              shrink-0
-            "
-          >
+      <SidebarFooter className="border-t border-sidebar-border p-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
+        <div className="flex items-center gap-2.5 rounded-lg bg-slate-50 p-2 ring-1 ring-slate-200/70 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:ring-0">
+          <Avatar className="size-8 shrink-0">
             <AvatarImage
               src={identity?.user.avatarUrl}
               alt={identity?.user.name ?? "Unknown user"}
             />
 
-            <AvatarFallback className="bg-foreground text-xs font-bold text-background">
+            <AvatarFallback className="bg-brand-700 text-xs font-bold text-white">
               {identity?.user.initials ? (
                 identity.user.initials
               ) : (
@@ -502,33 +415,12 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
             </AvatarFallback>
           </Avatar>
 
-          <div
-            className="
-              flex
-              min-w-0
-              flex-col
-              group-data-[collapsible=icon]:hidden
-            "
-          >
-            <span
-              className="
-                truncate
-                text-sm
-                font-semibold
-                text-foreground
-              "
-            >
+          <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-semibold text-foreground">
               {identity?.user.name ?? "Unknown user"}
             </span>
 
-            <span
-              className="
-                truncate
-                text-xs
-                capitalize
-                text-muted-foreground
-              "
-            >
+            <span className="truncate text-xs capitalize text-muted-foreground">
               {userRole.replace("_", " ")}
             </span>
           </div>

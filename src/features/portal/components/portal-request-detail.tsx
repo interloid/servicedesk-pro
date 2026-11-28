@@ -400,15 +400,16 @@ export function PortalRequestDetailView({
             Reply to this request
           </label>
 
-          {/* One field, as WhatsApp or Teams draw it: the paperclip, the text
-              and Send share a single rounded box, and attached files sit on
-              top of it as chips. The text grows with what is typed, one line
-              to start, up to roughly ten lines before it scrolls. The
-              picker's wrapper is `contents`, so its icon and file list are
-              items of this box directly. */}
+          {/* One box in two parts, as email and support apps draw it: the
+              text on top with room to write, and a toolbar under it with the
+              paperclip and its limits on the left and Send on the right.
+              Attached files sit above the text as chips. The picker's wrapper
+              is `contents`, so its paperclip and file list are items of this
+              box directly; `order` puts each in its row. */}
           <div
             className={cn(
-              "flex flex-wrap items-end gap-1 rounded-3xl border border-input bg-background p-1.5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+              "flex flex-wrap items-center overflow-hidden rounded-xl border bg-background shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+              "[&>div.contents>[data-slot=button]]:order-2 [&>div.contents>[data-slot=button]]:my-1.5 [&>div.contents>[data-slot=button]]:ml-1.5 [&>div.contents>[data-slot=button]]:size-9 [&>div.contents>[data-slot=button]]:rounded-lg",
               busy && "opacity-80",
             )}
           >
@@ -420,7 +421,7 @@ export function PortalRequestDetailView({
               className="contents"
               // Two rows of chips at most; more scroll inside the box, so a
               // full set of files never pushes the thread off the screen.
-              listClassName="order-first max-h-24 basis-full overflow-y-auto overscroll-contain px-1 pt-0.5 pb-1"
+              listClassName="order-first max-h-24 basis-full overflow-y-auto overscroll-contain px-3 pt-3"
             />
 
             <Textarea
@@ -431,27 +432,45 @@ export function PortalRequestDetailView({
               onPaste={onReplyPaste}
               maxLength={PORTAL_REPLY_MAX}
               disabled={busy}
-              rows={1}
+              rows={2}
               placeholder="Write a reply or attach a file…"
-              className="max-h-[min(15rem,35dvh)] min-h-10 min-w-0 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-1.5 py-2 text-sm leading-6 shadow-none focus-visible:ring-0 disabled:bg-transparent dark:bg-transparent dark:disabled:bg-transparent"
+              // Important: a global style otherwise draws its own border and
+              // shadow inside this box, which already has one.
+              className="order-1 max-h-[min(15rem,35dvh)] min-h-16 min-w-0 basis-full resize-none overflow-y-auto rounded-none border-0! bg-transparent px-3.5 pt-3 pb-1 text-sm leading-6 shadow-none! focus-visible:ring-0 disabled:bg-transparent dark:bg-transparent dark:disabled:bg-transparent"
             />
 
-            <Button
-              type="button"
-              size="icon"
-              className="size-10 shrink-0 rounded-full"
-              onClick={() => void sendReply()}
-              disabled={busy || !canSend}
-            >
-              {isSending ? (
-                <Loader2 aria-hidden className="size-4.5 animate-spin" />
-              ) : (
-                <SendHorizontal aria-hidden className="size-4.5" />
-              )}
-              <span className="sr-only">
-                {isSending ? "Sending…" : "Send reply"}
+            <span className="order-2 ml-1 hidden text-xs text-muted-foreground sm:inline">
+              Up to {MAX_ATTACHMENTS_PER_MESSAGE} files · 20 MB each
+            </span>
+
+            <div className="order-3 my-1.5 mr-1.5 ml-auto flex items-center gap-3">
+              <span
+                aria-hidden
+                className="hidden text-xs text-muted-foreground md:inline"
+              >
+                <kbd className="rounded border bg-muted/60 px-1 py-px font-sans text-[11px]">
+                  Enter
+                </kbd>{" "}
+                to send ·{" "}
+                <kbd className="rounded border bg-muted/60 px-1 py-px font-sans text-[11px]">
+                  Shift+Enter
+                </kbd>{" "}
+                new line
               </span>
-            </Button>
+              <Button
+                type="button"
+                className="h-9 gap-1.5 rounded-lg px-4 font-semibold"
+                onClick={() => void sendReply()}
+                disabled={busy || !canSend}
+              >
+                {isSending ? (
+                  <Loader2 aria-hidden className="size-4 animate-spin" />
+                ) : (
+                  <SendHorizontal aria-hidden className="size-4" />
+                )}
+                {isSending ? "Sending…" : "Send reply"}
+              </Button>
+            </div>
           </div>
 
           <CharacterCount
@@ -462,13 +481,9 @@ export function PortalRequestDetailView({
 
           {/* Hidden on a phone, where every line here is a line taken from
               the thread; the request is just as private without the note. */}
-          <p className="mt-2 hidden items-center gap-1.5 px-2 text-xs text-muted-foreground sm:flex">
+          <p className="mt-2 hidden items-center gap-1.5 px-1 text-xs text-muted-foreground sm:flex">
             <Lock aria-hidden className="size-3.5 shrink-0" />
             Only you and the {tenantName} team can see this
-            <span aria-hidden className="ml-auto">
-              Enter to send · Shift+Enter for a new line · Paste or attach up to{" "}
-              {MAX_ATTACHMENTS_PER_MESSAGE} files
-            </span>
           </p>
         </footer>
       </section>

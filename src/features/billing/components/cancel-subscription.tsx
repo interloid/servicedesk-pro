@@ -34,8 +34,10 @@ import { ModalNotice } from "@/components/shared/modal-notice";
 
 // Matches the destructive confirm on the downgrade dialog: outlined red rather
 // than solid, so the dismissive action stays the visually quieter one.
+// Important borders: globals.css sets border-border on everything, outside any
+// layer.
 const CONFIRM_DANGER =
-  "border-red-600 bg-background text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-600 disabled:border-red-300 disabled:bg-background disabled:text-red-300 disabled:opacity-100 dark:hover:bg-red-950/30";
+  "border-red-200! bg-card text-red-600 hover:border-red-300! hover:bg-red-50 hover:text-red-700 disabled:opacity-60 dark:border-red-900/50! dark:hover:bg-red-950/30";
 
 interface CancelSubscriptionDialogProps {
   tenantSlug: string;
@@ -127,13 +129,13 @@ export function CancelSubscriptionDialog({
         }
 
         if (result.scheduled) {
-          toast.success(
-            `Subscription cancelled. Your ${plan.name} plan stays active until ${renewalDate}.`,
-          );
+          toast.success("Subscription cancelled", {
+            description: `Your ${plan.name} plan stays active until ${renewalDate}.`,
+          });
         } else {
-          toast.success(
-            "Subscription cancelled. You are now on the Free plan.",
-          );
+          toast.success("Subscription cancelled", {
+            description: "You're now on the Free plan.",
+          });
         }
 
         onOpenChange(false);
@@ -218,20 +220,38 @@ export function CancelSubscriptionDialog({
             w-[calc(100%-2rem)]
             data-[size=default]:max-w-120
             data-[size=default]:sm:max-w-145
-            rounded-2xl
+            rounded-xl
             border
             border-border
             bg-background
             p-0
-            shadow-xl
+            shadow-[0_24px_48px_-16px_rgba(15,23,42,0.25)]
+            ring-0
             overflow-hidden
           "
       >
-        <AlertDialogHeader className="block px-6 pt-5 pb-4 text-left">
-          <div className="flex w-full items-center justify-between gap-4">
-            <AlertDialogTitle className="text-xl font-bold text-foreground">
-              {title}
-            </AlertDialogTitle>
+        <AlertDialogHeader className="block px-5 pt-5 pb-4 text-left">
+          <div className="flex w-full items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <span
+                aria-hidden
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-full",
+                  blockedState
+                    ? "bg-slate-100 text-slate-600 dark:bg-muted dark:text-slate-300"
+                    : "bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300",
+                )}
+              >
+                {blockedState ? (
+                  <CalendarClock className="size-5" strokeWidth={1.75} />
+                ) : (
+                  <AlertTriangle className="size-5" strokeWidth={1.75} />
+                )}
+              </span>
+              <AlertDialogTitle className="font-heading text-lg font-bold tracking-tight text-foreground">
+                {title}
+              </AlertDialogTitle>
+            </div>
 
             <button
               type="button"
@@ -381,7 +401,10 @@ export function CancelSubscriptionDialog({
                   </ModalNotice>
 
                   <div className="rounded-xl border border-border px-4 py-3.5">
-                    <p className="text-sm font-semibold text-foreground">
+                    <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
+                      Feedback
+                    </p>
+                    <p className="mt-1.5 text-sm font-semibold text-foreground">
                       What&apos;s the reason for cancelling?
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -407,7 +430,7 @@ export function CancelSubscriptionDialog({
                             data-state={
                               cancelReason === reason ? "checked" : "unchecked"
                             }
-                            className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-normal text-foreground transition-colors hover:border-slate-300 data-[state=checked]:border-brand-accent data-[state=checked]:bg-accent/50"
+                            className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-normal text-foreground transition-colors hover:bg-slate-50/60 data-[state=checked]:border-brand-700/50! data-[state=checked]:bg-brand-700/5 data-[state=checked]:ring-1 data-[state=checked]:ring-brand-700/30"
                           >
                             <RadioGroupItem value={reason} id={id} />
                             {reason}
@@ -456,16 +479,16 @@ export function CancelSubscriptionDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter className="mx-0 mb-0 gap-3 px-4 py-4 sm:justify-end">
+        <AlertDialogFooter className="mx-0 mb-0 gap-3 border-t border-border bg-slate-50/60 px-5 py-4 sm:justify-end dark:bg-muted/30">
           {blockedState ? (
-            <AlertDialogCancel className={cn(MODAL_BUTTON, "mt-0")}>
+            <AlertDialogCancel className={cn(MODAL_BUTTON, "mt-0 bg-card")}>
               Close
             </AlertDialogCancel>
           ) : step === "confirm" ? (
             <>
               <AlertDialogCancel
                 disabled={isPending}
-                className={cn(MODAL_BUTTON, "mt-0")}
+                className={cn(MODAL_BUTTON, "mt-0 bg-card")}
               >
                 Keep my plan
               </AlertDialogCancel>
@@ -489,7 +512,7 @@ export function CancelSubscriptionDialog({
                   event.preventDefault();
                   setStep("confirm");
                 }}
-                className={cn(MODAL_BUTTON, "mt-0")}
+                className={cn(MODAL_BUTTON, "mt-0 bg-card")}
               >
                 Go back
               </AlertDialogCancel>
@@ -521,7 +544,7 @@ export function CancelSubscriptionDialog({
 
 function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+    <div className="rounded-lg border border-red-200! bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50! dark:bg-red-950/30 dark:text-red-300">
       {children}
     </div>
   );

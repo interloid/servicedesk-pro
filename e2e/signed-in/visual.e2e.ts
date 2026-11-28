@@ -74,7 +74,7 @@ const GROUPS: [AccountName, Screen[]][] = [
           path: `/${T}/tickets`,
           open: (page) =>
             page.getByRole("button", { name: "New ticket" }).click(),
-          element: '[role="dialog"][data-slot="sheet-content"]',
+          element: '[role="dialog"][data-slot="dialog-content"]',
         },
         { name: "tenant-admin/sla-new", path: `/${T}/sla/new` },
         { name: "tenant-admin/sla-detail", path: policyPath },

@@ -15,6 +15,19 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  /* Type system: Plus Jakarta Sans for headings, Inter for everything else
+     (body, controls, navigation) including every number and figure, set with
+     tabular-nums so digits line up. JetBrains Mono (font-mono) is only for
+     code-like text: IDs, keys, tokens, paths and log lines. In the base layer, so a
+     heading's own tracking-* or font-* class still wins. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+  }
+
   a {
     @apply text-primary no-underline;
   }
@@ -28,7 +41,7 @@
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-jakarta), var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -95,6 +108,19 @@
   --color-brand-hover: var(--brand-hover);
   --color-brand-pressed: var(--brand-pressed);
 
+  /* The brand teal as a full scale (bg-brand-50 … bg-brand-950). */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -107,17 +133,43 @@
 
 :root {
   --radius: 0.625rem;
-  --brand-base: #166534;
-  /* Brand green for marks on a light surface -- active tab underline, a
+
+  /*
+   * One brand colour: teal, anchored on #0f766e (the primary button, the
+   * sign-in/sign-up panel, the landing page). Every default brand token below
+   * comes from this scale, so menus, selected states, badges, focus rings and
+   * charts all agree. Status colours (success/warning/info/destructive) stay
+   * separate on purpose: "Active" green means a state, not the brand.
+   *
+   * BrandTheme re-points --brand-base/-accent/-hover/... for a tenant's own
+   * colours. The numbered scale is not re-themed, so use it on central screens
+   * (landing, auth, platform console); inside tenant UI use brand-accent,
+   * brand-soft and brand-ink, which follow the tenant's brand.
+   */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-900: #134e4a;
+  --brand-950: #0b3b36;
+
+  --brand-base: var(--brand-700);
+  /* Brand colour for marks on a light surface -- active tab underline, a
      selected row. Not --brand-base: that one is a button background, and it
      is too dark to read as a mark once the page goes dark. */
   --brand-strong: var(--brand-base);
-  --brand-hover: #0d9488;
-  --brand-pressed: #115e59;
-  --brand-accent: #0f766e;
+  /* Hover darkens (white on #0d9488 is only 3.7:1; on #115e59 it is 7.6:1). */
+  --brand-hover: var(--brand-800);
+  --brand-pressed: var(--brand-900);
+  --brand-accent: var(--brand-700);
   --brand-accent-foreground: #ffffff;
-  --brand-badge: #dcfce7;
-  --brand-badge-foreground: #166534;
+  --brand-badge: var(--brand-100);
+  --brand-badge-foreground: var(--brand-800);
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -130,15 +182,17 @@
   --secondary-foreground: #334155;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #e7f1f1;
-  --accent-foreground: #0f766e;
+  /* A light wash of the brand teal (not brand-50, a paler mint-cyan): the
+     hover fill of outline buttons and menu items. */
+  --accent: color-mix(in oklab, var(--brand-700) 8%, #ffffff);
+  --accent-foreground: var(--brand-700);
   --destructive: #dc2626;
   --border: #e2e8f0;
   --input: #cbd5e1;
-  --ring: #16a34a;
+  --ring: var(--brand-600);
 
-  --chart-1: #166534;
-  --chart-2: #16a34a;
+  --chart-1: var(--brand-700);
+  --chart-2: var(--brand-500);
   --chart-3: #64748b;
   --chart-4: #4f46e5;
   --chart-5: #d97706;
@@ -152,10 +206,12 @@
   --sidebar-foreground: #334155;
   --sidebar-primary: var(--brand-base);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e7f1f1;
-  --sidebar-accent-foreground: #0f766e;
+  /* Pressed / open sidebar items: the same light brand-teal wash as the selected
+     item (not brand-50, a paler mint-cyan). */
+  --sidebar-accent: color-mix(in oklab, var(--brand-700) 10%, #ffffff);
+  --sidebar-accent-foreground: var(--brand-800);
   --sidebar-border: #f1f5f9;
-  --sidebar-ring: #16a34a;
+  --sidebar-ring: var(--brand-600);
   --brand-soft: var(--accent);
   --brand-ink: var(--accent-foreground);
 
@@ -181,9 +237,9 @@
 
 .dark,
 [data-theme="dark"] {
-  --brand-hover: #16a34a;
-  --brand-pressed: #166534;
-  /* #16a34a on the dark card is 4.4:1; #166534 is 2.5:1, under the 3:1 a
+  --brand-hover: var(--brand-600);
+  --brand-pressed: var(--brand-700);
+  /* The lighter teal reads on the dark card; #0f766e alone is too dark, under the 3:1 a
      non-text mark needs. */
   --brand-strong: var(--brand-hover);
 
@@ -235,6 +291,32 @@
   }
   50% {
     opacity: 1;
+  }
+}
+
+/* ServicesCheckLoader: dashes flowing along a connector, and a dot crossing a
+   line. Only run under motion-safe. */
+@keyframes sdp-flow {
+  from {
+    stroke-dashoffset: 128;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes sdp-travel {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 0.375rem);
+    opacity: 0;
   }
 }
 
@@ -346,6 +428,192 @@ html:has([data-portal-root])::-webkit-scrollbar-thumb:hover {
   background-color: var(--muted-foreground);
 }
 
+/*
+ * Sign-in / sign-up controls (auth-styles.ts). Every interactive state lives
+ * here, outside the Tailwind layers, on purpose: the unlayered `* { border-border }`
+ * rule above beats every layered `border-*` colour utility, so classes such as
+ * `focus-visible:border-brand-accent` never applied, and only autofilled fields
+ * (styled here) changed colour on focus. One block keeps empty, typed and
+ * autofilled fields identical in every state.
+ *
+ * Fields: the box-shadow is built from two slots so autofill can add its
+ * repaint without losing the focus ring. Chrome paints autofilled inputs light
+ * blue; the large inset shadow (--auth-field-fill) covers it.
+ */
+.auth-field {
+  --auth-field-fill: 0 0 #0000;
+  --auth-field-ring: 0 0 #0000;
+  border-width: 1px;
+  border-color: var(--input);
+  background-color: var(--card);
+  box-shadow:
+    var(--auth-field-fill),
+    var(--auth-field-ring),
+    0 1px 2px rgb(15 23 42 / 0.04);
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.auth-field:hover {
+  border-color: #94a3b8;
+}
+
+.auth-field:focus {
+  border-color: var(--brand-accent);
+  --auth-field-ring: 0 0 0 3px
+    color-mix(in oklab, var(--brand-accent) 18%, transparent);
+}
+
+.auth-field[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+.auth-field[aria-invalid="true"]:focus {
+  --auth-field-ring: 0 0 0 3px
+    color-mix(in oklab, var(--destructive) 15%, transparent);
+}
+
+.auth-field:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
+  --auth-field-fill: inset 0 0 0 1000px var(--card);
+}
+
+/* Chrome draws a saved (autofilled) value in its own system font at a smaller
+   size until the visitor first clicks the page, then switches to the field's
+   font, so the email and password visibly changed on the first click.
+   `inherit` is not enough here (Chrome resolves it against its own autofill
+   style), so the app font and the fields' 14px are named outright, for every
+   field rather than only the sign-in ones. iPhones get 16px from the guard at
+   the end of this file. */
+input:-webkit-autofill,
+input:-webkit-autofill::first-line,
+input:autofill {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/*
+ * Every other field in the app (Input, Textarea, Select trigger) gets the
+ * sign-in field's look: a light border, grey on hover, and on focus a 1px
+ * brand border with a soft 3px brand halo instead of the thick dark ring.
+ * Unlayered, like .auth-field, so it wins over the components' Tailwind
+ * classes. Grouped inputs use data-slot="input-group-control" and stay
+ * borderless inside their group.
+ */
+[data-slot="input"]:not(.auth-field),
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  border-width: 1px;
+  border-color: var(--input);
+  background-color: var(--card);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+[data-slot="input"]:not(.auth-field):hover:not(:disabled):not(:focus),
+[data-slot="textarea"]:hover:not(:disabled):not(:focus),
+[data-slot="select-trigger"]:hover:not(:disabled):not(:focus-visible):not(
+    [data-state="open"]
+  ) {
+  border-color: #94a3b8;
+}
+
+[data-slot="input"]:not(.auth-field):focus,
+[data-slot="textarea"]:focus,
+[data-slot="select-trigger"]:focus-visible,
+[data-slot="select-trigger"][data-state="open"] {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklab, var(--brand-accent) 18%, transparent);
+}
+
+[data-slot="input"]:not(.auth-field)[aria-invalid="true"],
+[data-slot="textarea"][aria-invalid="true"],
+[data-slot="select-trigger"][aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+[data-slot="input"]:not(.auth-field)[aria-invalid="true"]:focus,
+[data-slot="textarea"][aria-invalid="true"]:focus,
+[data-slot="select-trigger"][aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 15%, transparent);
+}
+
+[data-slot="input"]:not(.auth-field):disabled,
+[data-slot="textarea"]:disabled,
+[data-slot="select-trigger"]:disabled {
+  background-color: color-mix(in oklab, var(--input) 25%, var(--card));
+  box-shadow: none;
+}
+
+/*
+ * Recharts 3 makes every chart focusable (role="application", tabindex="0") so
+ * arrow keys can step through its tooltip. A click then focuses the SVG or a
+ * pie's group and the browser draws a focus box around it, which reads as if
+ * the chart were a button. Charts here have no click action, so no outline.
+ */
+.recharts-wrapper:focus,
+.recharts-wrapper :focus,
+.recharts-surface:focus {
+  outline: none;
+}
+
+/* Landing page (src/app/page.tsx): menu and footer links scroll smoothly to
+   their section. Off for visitors who prefer reduced motion. */
+html:has([data-landing]) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has([data-landing]) {
+    scroll-behavior: auto;
+  }
+}
+
+/* Sign-in / sign-up pages (AuthSplitShell): always reserve the page
+   scrollbar's space, so a page tall enough to scroll (a long setup step) has
+   inputs exactly as wide as one that doesn't, and nothing shifts sideways
+   when a step grows. No effect where scrollbars overlay (phones, macOS). */
+html:has([data-auth-split]) {
+  scrollbar-gutter: stable;
+}
+
+/* Checkboxes ("Keep me signed in", "I agree to the Terms…"). */
+.auth-checkbox {
+  border-color: #94a3b8;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.auth-checkbox:hover {
+  border-color: #64748b;
+}
+
+.auth-checkbox[data-state="checked"] {
+  border-color: var(--brand-accent);
+}
+
+.auth-checkbox[aria-invalid="true"]:not([data-state="checked"]) {
+  border-color: var(--destructive);
+}
+
+/* "Continue with Google": same border and hover as the fields. */
+.auth-social {
+  border-color: var(--input);
+}
+
+.auth-social:hover:not(:disabled) {
+  border-color: #94a3b8;
+}
+
 .plan-card-current {
   border-color: var(--brand-accent);
 }
@@ -385,5 +653,26 @@ html:has([data-portal-root])::-webkit-scrollbar-thumb:hover {
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/*
+ * Text fields are 14px at every width, matching the labels and selects around
+ * them. iOS Safari zooms the page into any field under 16px when it is tapped,
+ * so iPhones and iPads alone keep 16px. The check matches only WebKit on iOS.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (pointer: coarse) {
+    input:not([type="checkbox"], [type="radio"], [type="range"]),
+    textarea,
+    select {
+      font-size: max(16px, 1em);
+    }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill::first-line,
+    input:autofill {
+      font-size: 16px;
+    }
   }
 }

@@ -163,7 +163,9 @@ export function NotificationsProvider({
     setPrefs(next);
     const res = await updateNotificationPrefsAction(next);
     if (!res.ok) {
-      toast.error(res.message ?? "We couldn't save your preferences.");
+      toast.error("Couldn't save your notification settings", {
+        description: res.message ?? "We couldn't save your preferences.",
+      });
       setPrefs(prev);
       return false;
     }
@@ -184,7 +186,9 @@ export function NotificationsProvider({
       });
       const res = await run();
       if (!res.ok) {
-        toast.error(res.message ?? fallback);
+        toast.error("Couldn't change your notifications", {
+          description: res.message ?? fallback,
+        });
         setNotifications(snapshot);
         return false;
       }

@@ -38,23 +38,7 @@ const VISIBLE_ROWS = 10;
 const ROW_HEIGHT = 60;
 const HEADER_HEIGHT = 40;
 
-const CELL = "px-4 sm:px-6";
-
-const AVATAR_COLORS = [
-  "bg-emerald-600",
-  "bg-blue-600",
-  "bg-violet-600",
-  "bg-orange-500",
-  "bg-rose-600",
-  "bg-teal-600",
-];
-
-/** Stable per agent, so a re-sort or a new range never repaints someone. */
-function avatarColor(id: string): string {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
+const CELL = "px-4";
 
 function sortValue(
   agent: AgentLoadMetric,
@@ -77,9 +61,9 @@ function sortValue(
 }
 
 function slaBarColor(pct: number): string {
-  if (pct >= 90) return "bg-success";
-  if (pct >= 70) return "bg-warning";
-  return "bg-destructive";
+  if (pct >= 90) return "bg-brand-700";
+  if (pct >= 70) return "bg-amber-500";
+  return "bg-red-500";
 }
 
 export function AgentPerformanceTable({
@@ -127,24 +111,24 @@ export function AgentPerformanceTable({
     <Card
       data-pdf-expand
       className={cn(
-        "min-w-0 gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-sm ring-1",
+        "min-w-0 gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-0",
         className,
       )}
     >
       {/* Same header as Billing history: icon tile, title, a count. */}
-      <header className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <header className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span
             aria-hidden
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
           >
-            <UsersRound className="size-5" />
+            <UsersRound className="size-4.5" strokeWidth={1.75} />
           </span>
           <div>
-            <h2 className="text-base font-semibold text-foreground">
+            <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
               Agent Performance
             </h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-0.5 text-xs text-slate-500 tabular-nums">
               {agents.length} agent{agents.length === 1 ? "" : "s"}
             </p>
           </div>
@@ -162,7 +146,7 @@ export function AgentPerformanceTable({
             placeholder="Search agents..."
             aria-label="Search agents"
             maxLength={200}
-            className="h-10 bg-card pl-9 text-sm"
+            className="h-10 rounded-lg bg-card pl-9"
           />
         </div>
       </header>
@@ -184,7 +168,7 @@ export function AgentPerformanceTable({
         <table className="w-full min-w-170 caption-bottom text-sm">
           <TableHeader className="sticky top-0 z-10 [&_tr]:border-b">
             <TableRow
-              className="border-slate-100 bg-slate-50 hover:bg-slate-50 dark:border-border dark:bg-muted dark:hover:bg-muted"
+              className="border-border bg-slate-50 hover:bg-slate-50 dark:bg-muted dark:hover:bg-muted"
               style={{ height: HEADER_HEIGHT }}
             >
               {COLUMNS.map((column) => {
@@ -204,15 +188,15 @@ export function AgentPerformanceTable({
                           : "descending"
                         : "none"
                     }
-                    className="h-auto px-4 sm:px-6"
+                    className="h-auto px-4"
                   >
                     <button
                       type="button"
                       onClick={() => toggleSort(column.key)}
                       className={cn(
-                        "group/sort inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider transition-colors hover:text-slate-700 dark:hover:text-foreground",
+                        "group/sort inline-flex items-center gap-1 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap uppercase transition-colors hover:text-slate-700 dark:hover:text-foreground",
                         activeSort
-                          ? "text-slate-700 dark:text-foreground"
+                          ? "text-brand-700 dark:text-brand-300"
                           : "text-slate-500 dark:text-muted-foreground",
                       )}
                     >
@@ -239,7 +223,7 @@ export function AgentPerformanceTable({
               <TableRow className="hover:bg-transparent">
                 <TableCell
                   colSpan={COLUMNS.length}
-                  className="py-10 text-center text-sm text-muted-foreground"
+                  className="py-14 text-center text-sm text-slate-500"
                 >
                   {agents.length === 0
                     ? "No agent activity in this period"
@@ -250,7 +234,7 @@ export function AgentPerformanceTable({
               rows.map((agent) => (
                 <TableRow
                   key={agent.id}
-                  className="border-b border-slate-200 hover:bg-slate-50/60 dark:border-border dark:hover:bg-muted/30"
+                  className="border-b border-border transition-colors hover:bg-slate-50/60 dark:hover:bg-muted/30"
                   style={{ height: ROW_HEIGHT }}
                 >
                   <TableCell className={cn(CELL, "py-0")}>
@@ -259,21 +243,18 @@ export function AgentPerformanceTable({
                         src={agent.avatarUrl}
                         initials={agent.initials || "?"}
                         className="size-9"
-                        fallbackClassName={cn(
-                          "text-sm font-semibold text-white",
-                          avatarColor(agent.id),
-                        )}
+                        fallbackClassName="bg-slate-100 text-xs font-semibold text-slate-600 dark:bg-muted dark:text-slate-300"
                       />
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">
+                        <p className="truncate font-semibold text-foreground">
                           {agent.name}
                           {agent.inactive && (
-                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                            <span className="ml-1.5 text-xs font-normal text-slate-400">
                               (inactive)
                             </span>
                           )}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="truncate text-xs text-slate-500">
                           {agent.email}
                         </p>
                       </div>
@@ -287,23 +268,23 @@ export function AgentPerformanceTable({
                   </TableCell>
                   <TableCell className={cn(CELL, "tabular-nums")}>
                     {agent.medianFirstReply ?? (
-                      <span className="text-muted-foreground">N/A</span>
+                      <span className="text-slate-400">N/A</span>
                     )}
                   </TableCell>
                   <TableCell className={cn(CELL, "min-w-44")}>
                     {agent.slaMet === null ? (
-                      <span className="text-muted-foreground">N/A</span>
+                      <span className="text-slate-400">N/A</span>
                     ) : (
                       <div className="space-y-1.5">
                         <p className="text-sm tabular-nums">
                           <span className="font-semibold text-foreground">
                             {agent.slaMet}%
                           </span>{" "}
-                          <span className="text-muted-foreground">
+                          <span className="text-slate-500">
                             ({agent.slaMetCount} / {agent.slaEligible})
                           </span>
                         </p>
-                        <div className="h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-muted">
+                        <div className="h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-slate-100 dark:bg-muted">
                           <div
                             className={cn(
                               "h-full rounded-full",
@@ -317,9 +298,7 @@ export function AgentPerformanceTable({
                   </TableCell>
                   <TableCell className={CELL}>
                     {agent.csatAverage === null ? (
-                      <span className="text-muted-foreground font-bold">
-                        N/A
-                      </span>
+                      <span className="text-slate-400">N/A</span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 tabular-nums">
                         <Star
@@ -329,7 +308,7 @@ export function AgentPerformanceTable({
                         <span className="font-medium text-foreground">
                           {agent.csatAverage}
                         </span>
-                        <span className="text-muted-foreground">
+                        <span className="text-slate-500">
                           ({agent.csatResponses})
                         </span>
                       </span>

@@ -34,7 +34,6 @@ import {
 } from "lucide-react";
 import { Pagination } from "@/components/shared/pagination";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +45,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  DASHBOARD_BUTTON,
+  DASHBOARD_CARD,
+  DASHBOARD_ICON_BUTTON,
+  DashboardPageHeader,
+} from "@/components/shared/dashboard-ui";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 import { cn } from "@/lib/utils";
 import type {
@@ -147,10 +152,10 @@ const TONES = {
   red: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400",
   blue: "bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400",
-  teal: "bg-primary/10 text-primary",
+  teal: "bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100",
   violet:
     "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400",
-  slate: "bg-muted text-muted-foreground",
+  slate: "bg-slate-100 text-slate-500 dark:bg-muted dark:text-muted-foreground",
 } as const;
 
 /** The unread dot on a row's icon, in the icon's colour with a soft halo. */
@@ -158,7 +163,7 @@ const TONE_DOTS: Record<keyof typeof TONES, string> = {
   red: "bg-red-600 ring-red-500/20 dark:bg-red-400",
   amber: "bg-amber-500 ring-amber-500/25 dark:bg-amber-400",
   blue: "bg-sky-600 ring-sky-500/20 dark:bg-sky-400",
-  teal: "bg-primary ring-primary/20",
+  teal: "bg-brand-700 ring-brand-700/20 dark:bg-brand-300",
   violet: "bg-violet-600 ring-violet-500/20 dark:bg-violet-400",
   slate: "bg-slate-500 ring-slate-500/20",
 };
@@ -218,7 +223,7 @@ function IconBadge({
         className,
       )}
     >
-      <Icon className="size-4" />
+      <Icon className="size-4" strokeWidth={1.75} />
     </div>
   );
 }
@@ -244,10 +249,10 @@ function FilterMenu<T extends string>({
         <Button
           variant="outline"
           aria-label={label}
-          className="h-10 flex-1 justify-between gap-2 bg-card px-3 text-sm font-medium sm:flex-none"
+          className="h-10 flex-1 justify-between gap-2 rounded-lg bg-card px-3 text-sm font-medium shadow-none hover:bg-slate-50 sm:flex-none dark:hover:bg-muted"
         >
           <span className="flex items-center gap-2">
-            <Icon className="size-4 text-muted-foreground" />
+            <Icon className="size-4 text-slate-400" />
             {current.label}
           </span>
           <ChevronDown className="size-4 text-muted-foreground" />
@@ -262,7 +267,7 @@ function FilterMenu<T extends string>({
             <DropdownMenuRadioItem
               key={option.id}
               value={option.id}
-              className="p-2 text-sm"
+              className="cursor-pointer p-2 text-sm"
             >
               {option.label}
             </DropdownMenuRadioItem>
@@ -281,8 +286,12 @@ function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center text-sm text-muted-foreground">
-      <IconBadge icon={Icon} tone="slate" className="size-11" />
+    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center text-sm text-slate-500">
+      <IconBadge
+        icon={Icon}
+        tone="slate"
+        className="size-11 bg-slate-100 text-slate-400"
+      />
       {children}
     </div>
   );
@@ -407,53 +416,68 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
   ];
 
   return (
-    // From lg the page is exactly the window's height and never scrolls, like
-    // the Audit log: the header, the preferences (shown in full, never
-    // scrolled) and the list's toolbar and pagination keep their size, and
-    // only the list scrolls in what is left. Below lg there is no room for
-    // that, so the page scrolls as usual.
-    <div className="h-full overflow-y-auto p-4 sm:p-6 lg:overflow-hidden lg:p-8">
-      <div className="mx-auto space-y-4 sm:space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:space-y-0 lg:gap-6">
-        <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Notifications
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Manage how you receive alerts. Configure email and in-app
-              notifications for important events.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={markAllRead}
-            disabled={isPending || unreadCount === 0}
-            className="h-10 w-full shrink-0 gap-2 bg-card px-4 text-sm font-semibold sm:w-auto"
-          >
-            <Mail className="size-4" />
-            Mark all as read
-          </Button>
+    // The page scrolls at every width and each card is as tall as its
+    // content. Locking it to the window's height left no room for the list on
+    // a laptop, where the preferences alone nearly fill the screen, and a
+    // fixed minimum left empty space under a short list.
+    <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto space-y-4 sm:space-y-6 lg:flex lg:flex-col lg:space-y-0 lg:gap-6">
+        <div className="shrink-0">
+          <DashboardPageHeader
+            eyebrow="Settings"
+            icon={Bell}
+            title="Notifications"
+            description="Manage how you receive alerts. Configure email and in-app notifications for important events."
+            action={
+              <Button
+                variant="outline"
+                onClick={markAllRead}
+                disabled={isPending || unreadCount === 0}
+                className={cn(
+                  DASHBOARD_BUTTON,
+                  "w-full gap-2 bg-card text-sm hover:bg-slate-50 sm:w-auto dark:hover:bg-muted",
+                )}
+              >
+                <MailOpen className="size-4" />
+                Mark all as read
+              </Button>
+            }
+          />
         </div>
 
-        <Card className="gap-4 rounded-xl bg-card p-4 sm:p-5 lg:shrink-0 lg:p-6">
+        <section
+          className={cn(
+            DASHBOARD_CARD,
+            "flex flex-col gap-4 p-4 sm:p-5 lg:shrink-0",
+          )}
+        >
           {/* Same column gap and right inset (px-3 + 1px border) as the rows
               below, so the channel headings sit centred over their switches. */}
           <div className="grid grid-cols-1 items-end gap-x-3 gap-y-1 sm:pr-3.25 sm:grid-cols-[minmax(0,1fr)_112px_112px] lg:grid-cols-[minmax(0,1fr)_160px_160px]">
-            <div className="min-w-0 space-y-0.5">
-              <h2 className="text-base font-bold text-foreground">
-                Notification preferences
-              </h2>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                Choose which events you want to be notified about via email and
-                in-app.
-              </p>
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100">
+                <Settings2
+                  className="size-4.5"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+              </span>
+              <div className="min-w-0 space-y-0.5">
+                <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+                  Notification preferences
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Choose which events you want to be notified about via email
+                  and in-app.
+                </p>
+              </div>
             </div>
             {CHANNELS.map((c) => (
               <span
                 key={c.id}
-                className="hidden items-center justify-center gap-1.5 pb-0.5 text-sm font-semibold text-foreground sm:flex"
+                className="hidden items-center justify-center gap-1.5 pb-0.5 text-[11px] font-semibold tracking-[0.06em] text-slate-500 uppercase sm:flex"
               >
-                <c.icon className="size-4" />
+                <c.icon className="size-3.5" />
                 {c.label}
               </span>
             ))}
@@ -463,7 +487,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
             {PREFERENCE_ROWS.map((row) => (
               <div
                 key={row.id}
-                className="grid grid-cols-2 items-center gap-x-3 gap-y-3 rounded-lg border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_112px_112px] sm:gap-y-0 sm:py-2.5 lg:grid-cols-[minmax(0,1fr)_160px_160px]"
+                className="grid grid-cols-2 items-center gap-x-3 gap-y-3 rounded-lg border border-border px-3 py-3 transition-colors hover:bg-slate-50/60 sm:grid-cols-[minmax(0,1fr)_112px_112px] sm:gap-y-0 sm:py-2.5 lg:grid-cols-[minmax(0,1fr)_160px_160px] dark:hover:bg-muted/30"
               >
                 <div className="col-span-2 flex min-w-0 items-center gap-3 sm:col-span-1 sm:gap-4">
                   <IconBadge
@@ -475,15 +499,13 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                     <p className="text-sm font-semibold text-foreground">
                       {row.label}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {row.description}
-                    </p>
+                    <p className="text-xs text-slate-500">{row.description}</p>
                   </div>
                 </div>
                 {CHANNELS.map((channel) => (
                   <label
                     key={channel.id}
-                    className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 sm:justify-center sm:bg-transparent sm:p-0"
+                    className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 sm:justify-center sm:bg-transparent sm:p-0 dark:bg-muted/50"
                   >
                     <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:hidden">
                       <channel.icon className="size-3.5" />
@@ -502,14 +524,16 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
               </div>
             ))}
           </div>
-        </Card>
+        </section>
 
-        <Card className="gap-0 overflow-hidden rounded-xl bg-card p-0 lg:min-h-0">
-          <div className="flex shrink-0 flex-col gap-3 border-b px-3 py-3 sm:px-5 xl:flex-row xl:items-center xl:justify-between">
+        <section
+          className={cn(DASHBOARD_CARD, "flex flex-col overflow-hidden")}
+        >
+          <div className="flex shrink-0 flex-col gap-3 border-b border-border p-3 xl:flex-row xl:items-center xl:justify-between">
             <div
               role="tablist"
               aria-label="Notifications"
-              className="-mx-3 flex gap-2 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0"
+              className="flex h-10 w-fit max-w-full shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-slate-100/70 p-1 scrollbar-none dark:bg-muted/50"
             >
               {tabs.map((t) => (
                 <button
@@ -519,10 +543,10 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                   aria-selected={tab === t.id}
                   onClick={() => resetPage(setTab)(t.id)}
                   className={cn(
-                    "h-10 shrink-0 whitespace-nowrap rounded-full border px-5 text-sm font-medium transition-colors",
+                    "flex h-8 shrink-0 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap tabular-nums transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                     tab === t.id
-                      ? "border-primary! bg-primary/10 font-semibold text-primary"
-                      : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-white font-semibold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 dark:bg-card dark:ring-border"
+                      : "text-slate-500 hover:text-foreground",
                   )}
                 >
                   {t.label}
@@ -534,7 +558,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
               <div className="relative w-full sm:flex-1 xl:w-64 xl:flex-none">
                 <Search
                   aria-hidden
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
                   type="search"
@@ -543,7 +567,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                   placeholder="Search notifications..."
                   aria-label="Search notifications"
                   maxLength={200}
-                  className="h-10 bg-card pl-9 text-sm"
+                  className="h-10 rounded-lg bg-card pl-9 text-sm"
                 />
               </div>
               <div className="flex gap-2 sm:shrink-0">
@@ -567,15 +591,14 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
             </div>
           </div>
 
-          {/* The one part of the page that scrolls, from lg. */}
-          <div className="lg:min-h-0 lg:overflow-y-auto">
+          <div>
             {tab === "history" ? (
               pageHistory.length === 0 ? (
                 <EmptyState icon={Settings2}>
                   No preference changes to show.
                 </EmptyState>
               ) : (
-                <ul className="divide-y">
+                <ul className="divide-y divide-border">
                   {pageHistory.map((change) => {
                     const row = PREFERENCE_ROWS.find(
                       (r) => r.id === change.event,
@@ -597,13 +620,13 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                             {channel?.label} {change.enabled ? "on" : "off"} for
                             “{row?.label}”
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-slate-500">
                             You turned {change.enabled ? "on" : "off"}{" "}
                             {channel?.label.toLowerCase()} notifications for
                             this event.
                           </p>
                         </div>
-                        <span className="shrink-0 text-xs text-muted-foreground">
+                        <span className="shrink-0 text-xs text-slate-500 tabular-nums">
                           {change.time}
                         </span>
                       </li>
@@ -620,14 +643,14 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                     : "No notifications match your filters."}
               </EmptyState>
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y divide-border">
                 {pageItems.map((item) => {
                   const { icon, tone } = notificationIcon(item);
                   const href = ticketHref(item);
                   return (
                     <li
                       key={item.id}
-                      className="group relative flex items-center gap-2  border-transparent pr-2 transition-colors hover:border-primary hover:bg-primary/5 sm:pr-3"
+                      className="group relative flex items-center gap-2 pr-3 transition-colors hover:bg-slate-50/60 sm:pr-4 dark:hover:bg-muted/30"
                     >
                       <button
                         type="button"
@@ -668,15 +691,15 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                             {item.title}
                           </p>
                           {item.subtitle && (
-                            <p className="truncate text-xs text-muted-foreground">
+                            <p className="truncate text-xs text-slate-500">
                               {item.subtitle}
                             </p>
                           )}
-                          <p className="text-xs text-muted-foreground md:hidden">
+                          <p className="text-xs text-slate-500 tabular-nums md:hidden">
                             {item.time}
                           </p>
                         </div>
-                        <span className="hidden w-32 shrink-0 text-xs text-muted-foreground md:block">
+                        <span className="hidden w-32 shrink-0 text-xs text-slate-500 tabular-nums md:block">
                           {item.time}
                         </span>
                       </button>
@@ -684,9 +707,12 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
-                            className="size-8 shrink-0 text-muted-foreground"
+                            className={cn(
+                              DASHBOARD_ICON_BUTTON,
+                              "shrink-0 text-slate-500 hover:bg-slate-50 hover:text-foreground dark:hover:bg-muted",
+                            )}
                             aria-label={`Actions for ${item.title}`}
                           >
                             <MoreVertical className="size-4" />
@@ -694,7 +720,10 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           {href && (
-                            <DropdownMenuItem asChild>
+                            <DropdownMenuItem
+                              asChild
+                              className="cursor-pointer p-2"
+                            >
                               <Link
                                 href={href}
                                 onClick={() => setRead(item.id, true)}
@@ -705,6 +734,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
+                            className="cursor-pointer p-2"
                             disabled={isPending}
                             onSelect={() => setRead(item.id, item.unread)}
                           >
@@ -713,6 +743,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
+                            className="cursor-pointer p-2"
                             variant="destructive"
                             disabled={isPending}
                             onSelect={() => remove(item.id)}
@@ -730,8 +761,8 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
           </div>
 
           {total > 0 && (
-            <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row sm:px-5">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 sm:flex-row dark:bg-muted/20">
+              <p className="text-sm text-slate-500 tabular-nums">
                 Showing {start + 1} - {Math.min(start + PAGE_SIZE, total)} of{" "}
                 {total} {tab === "history" ? "changes" : "notifications"}
               </p>
@@ -745,7 +776,7 @@ export default function NotificationsView({ data }: NotificationsViewProps) {
               )}
             </div>
           )}
-        </Card>
+        </section>
       </div>
     </div>
   );

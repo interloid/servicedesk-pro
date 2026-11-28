@@ -1,6 +1,6 @@
 "use client";
 
-import { Info } from "lucide-react";
+import { ArrowDownWideNarrow, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,16 +57,25 @@ export function PriorityConfirmDialog({
           TEAM_DIALOG_CONTENT,
         )}
       >
-        <DialogHeader className="min-w-0 pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Lower priority to {label}?
-          </DialogTitle>
+        <DialogHeader className="min-w-0 flex-row items-start gap-3.5 pr-6 text-left">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300">
+            <ArrowDownWideNarrow
+              className="size-5"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle className={cn(TEAM_DIALOG_TITLE, "font-heading")}>
+              Lower priority to {label}?
+            </DialogTitle>
 
-          <DialogDescription className="wrap-break-word">
-            {ticketCount > 1
-              ? `Some of the ${ticketCount} selected tickets will drop in priority.`
-              : "This ticket will drop in priority."}
-          </DialogDescription>
+            <DialogDescription className="leading-relaxed wrap-break-word">
+              {ticketCount > 1
+                ? `Some of the ${ticketCount} selected tickets will drop in priority.`
+                : "This ticket will drop in priority."}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <div className="w-full min-w-0">
@@ -78,12 +87,17 @@ export function PriorityConfirmDialog({
           </ModalNotice>
         </div>
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter
+          className={cn(
+            TEAM_DIALOG_FOOTER,
+            "flex-row bg-slate-50/60 dark:bg-muted/30",
+          )}
+        >
           <Button
             type="button"
             variant="outline"
             disabled={pending}
-            className={TEAM_MODAL_BUTTON}
+            className={cn(TEAM_MODAL_BUTTON, "flex-1 sm:flex-none")}
             onClick={onCancel}
           >
             Cancel
@@ -93,7 +107,11 @@ export function PriorityConfirmDialog({
             type="button"
             autoFocus
             disabled={pending}
-            className={cn(TEAM_MODAL_BUTTON, TEAM_MODAL_BUTTON_PRIMARY)}
+            className={cn(
+              TEAM_MODAL_BUTTON,
+              TEAM_MODAL_BUTTON_PRIMARY,
+              "flex-1 sm:flex-none",
+            )}
             onClick={onConfirm}
           >
             {pending ? "Saving…" : "Lower priority"}

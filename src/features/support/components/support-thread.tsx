@@ -40,8 +40,8 @@ function Message({
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full sm:size-8",
           fromSupport
-            ? "bg-primary/10 text-primary"
-            : "bg-muted text-muted-foreground",
+            ? "bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100"
+            : "bg-slate-100 text-slate-600 dark:bg-muted dark:text-muted-foreground",
         )}
         aria-hidden
       >
@@ -53,7 +53,7 @@ function Message({
           ownSide && "items-end",
         )}
       >
-        <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+        <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-slate-500">
           <span className="font-semibold text-foreground">{author}</span>
           {label && <span>{label}</span>}
           <span>{time}</span>
@@ -64,8 +64,8 @@ function Message({
             // push the rest of the conversation out of view.
             "max-h-72 overflow-y-auto overscroll-contain rounded-xl border px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] sm:max-h-80 sm:px-3.5 sm:py-2.5",
             ownSide
-              ? "border-primary/20 bg-primary/5 text-foreground"
-              : "border-border bg-card text-foreground",
+              ? "border-brand-700/20! bg-brand-50/70 text-foreground dark:bg-brand-700/10"
+              : "border-border bg-slate-50/60 text-foreground dark:bg-muted/30",
           )}
         >
           {body}
@@ -156,7 +156,7 @@ export function SupportReplyBox({
 
   if (disabledReason) {
     return (
-      <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+      <p className="rounded-lg border border-dashed border-border bg-slate-50/60 px-4 py-3 text-sm text-slate-500 dark:bg-muted/30">
         {disabledReason}
       </p>
     );
@@ -172,15 +172,19 @@ export function SupportReplyBox({
         const result = await send({ requestId, body: text });
 
         if (!result.ok) {
-          toast.error(result.message ?? "We couldn't send that reply.");
+          toast.error("Couldn't send your reply", {
+            description: result.message,
+          });
           return;
         }
 
         setBody("");
-        toast.success("Reply sent.");
+        toast.success("Reply sent");
         onSent?.();
       } catch {
-        toast.error("We couldn't send that reply. Check your connection.");
+        toast.error("Couldn't send your reply", {
+          description: "Check your connection and try again.",
+        });
       }
     });
   }
@@ -202,7 +206,7 @@ export function SupportReplyBox({
         value={body}
         maxLength={SUPPORT_BODY_MAX}
         placeholder={placeholder}
-        className="max-h-60 min-h-24 resize-y"
+        className="max-h-60 min-h-24 resize-y rounded-lg"
         onChange={(event) => setBody(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -212,13 +216,13 @@ export function SupportReplyBox({
         }}
       />
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <span className="hidden text-xs text-muted-foreground sm:inline">
+        <span className="hidden text-xs text-slate-400 sm:inline">
           Ctrl + Enter to send
         </span>
         <Button
           type="submit"
           disabled={isSending || !body.trim()}
-          className="h-10 w-full gap-2 rounded-lg bg-brand-accent px-4 sm:w-auto font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90"
+          className="h-10 w-full gap-2 rounded-lg bg-brand-accent px-4 font-semibold text-brand-accent-foreground shadow-none hover:bg-brand-accent/90 sm:w-auto"
         >
           {isSending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />

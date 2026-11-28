@@ -3,55 +3,55 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
-  BookOpen,
+  ArrowRight,
   ChevronRight,
-  CreditCard,
   LifeBuoy,
-  Rocket,
+  MessageCircle,
   Search,
-  ShieldCheck,
-  Wrench,
   X,
-  type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PORTAL_CHAT_OPEN_EVENT } from "@/features/chatbot/chatbot";
+import {
+  helpTopics,
+  type HelpQuestion,
+  type HelpTopic,
+} from "@/features/portal/help-topics";
 import { cn } from "@/lib/utils";
 
-type Topic = {
-  icon: LucideIcon;
-  title: string;
-  body: string;
-  /** Pre-fills the request subject; null opens a blank request. */
-  subject: string | null;
-  /** Extra words the search box matches on, so "invoice" finds billing. */
-  keywords: string;
-  tone: string;
-};
-
-const CARD =
-  "group flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 text-foreground transition-all sm:p-5 hover:-translate-y-0.5 hover:border-brand-accent/40 hover:text-foreground hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)] focus-visible:ring-2 focus-visible:ring-brand-accent/30 focus-visible:outline-none";
+/** The questions picked for "Popular questions", as topic slug + question id. */
+const POPULAR: Array<[string, string]> = [
+  ["getting-started", "raise-a-request"],
+  ["troubleshooting", "waiting-on-you"],
+  ["troubleshooting", "problem-came-back"],
+  ["using-the-product", "attach-files"],
+  ["security", "set-password"],
+];
 
 /**
- * The help centre's search box and topic list.
+ * The help centre: a search box, the topics, popular questions, and a way to
+ * reach the team.
  *
- * There is no knowledge-base table yet, so no topic opens an article. Searching
- * filters the topics that do exist and never navigates by itself: the old
- * behaviour typed into the box, hit enter, and landed on the request form with
- * the words in the subject -- which told a customer who had not decided they
- * wanted a ticket that they had just raised one. Creating the request is now
- * something the customer does on purpose, either by clicking a topic or by
- * taking the fallback when the search finds nothing.
- *
- * When articles exist, the fallback below is what gets replaced: filter
- * articles instead of topics, and keep the card for "no article matched".
+ * Searching filters the topics (their titles, descriptions, keywords and the
+ * questions on them) and never navigates by itself: typing and pressing enter
+ * used to land on the request form with the words in the subject, which told a
+ * customer who had not decided they wanted a ticket that they had just raised
+ * one. Creating the request is something the customer does on purpose -- from
+ * a topic page, the panel at the bottom, or the fallback when nothing matches.
  */
 export function PortalHelpSearch({
   productName,
+  helpPath,
   newRequest,
+  chatEnabled = false,
 }: {
   /** The tenant's name, so a topic can say "Using <product>". */
   productName: string;
+  /** The chat is on the page (signed in, chatbot on): offer it. */
+  chatEnabled?: boolean;
+  /** Path of the help centre, for the topic pages under it. */
+  helpPath: string;
   /** Path of the request form, built on the server. */
   newRequest: string;
 }) {
@@ -65,13 +65,17 @@ export function PortalHelpSearch({
     : topics;
   const nothingFound = isSearching && matches.length === 0;
 
+  const popular = POPULAR.flatMap(([slug, id]) => {
+    const topic = topics.find((t) => t.slug === slug);
+    const question = topic?.questions.find((q) => q.id === id);
+    return topic && question ? [{ topic, question }] : [];
+  });
+
   /**
    * The form is a plain GET to the request form, so it still works with no
    * JavaScript -- but only as the fallback. Filtering is live, so there is
-   * nothing for a submit button to do while there are results, and a button
-   * that does nothing is worse than no button: it is drawn only once the
-   * search has come up empty, where pressing it is the "ask our team about
-   * this" the fallback card has been promising.
+   * nothing to submit while there are results; the button is drawn only once
+   * the search has come up empty.
    */
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     if (!nothingFound) event.preventDefault();
@@ -90,13 +94,9 @@ export function PortalHelpSearch({
       role="search"
       onSubmit={handleSubmit}
     >
-      {/* The Input primitive's focus treatment (input.tsx), on the wrapper
-          rather than the input inside it: the bar, not the bare input, is the
-          box that gets drawn, and only the input can take focus, so
-          focus-visible here would never match. focus-within is the same
-          intent -- the field is focused -- and unlike focus it also covers
-          clicking the padding. */}
-      <div className="mx-auto mt-6 flex max-w-2xl items-center gap-2 rounded-xl border bg-card p-1.5 pl-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.05)] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 focus-within:outline-none">
+      {/* The Input primitive's focus treatment, on the bar rather than the
+          bare input inside it: the bar is the box that gets drawn. */}
+      <div className="mx-auto mt-6 flex max-w-2xl items-center gap-2 rounded-xl border bg-card p-1.5 pl-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 focus-within:outline-none">
         <Search
           aria-hidden
           className="size-4.5 shrink-0 text-muted-foreground"
@@ -112,13 +112,9 @@ export function PortalHelpSearch({
           maxLength={200}
           autoComplete="off"
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="What do you need help with?"
-          className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+          placeholder="Search for answers, e.g. password, invoice, attachment"
+          className="h-11 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
         />
-        {/* The cross is bare, same as the show/hide eye on the password inputs:
-            the ghost variant fills a box on hover, and inside this bar that
-            reads as a second field sitting next to the search box. The hover
-            affordance is the icon darkening instead. */}
         {isSearching ? (
           <Button
             type="button"
@@ -131,7 +127,6 @@ export function PortalHelpSearch({
             <span className="sr-only">Clear search</span>
           </Button>
         ) : null}
-        {/* Nothing to submit while the list is filtering itself. */}
         {nothingFound ? (
           <Button type="submit" className="h-10 shrink-0 px-4 font-semibold">
             Ask us
@@ -139,29 +134,25 @@ export function PortalHelpSearch({
         ) : null}
       </div>
 
-      {/* Filtering happens as you type, so the count is the only thing that
-          needs announcing. */}
       <p role="status" aria-live="polite" className="sr-only">
         {status}
       </p>
 
       {nothingFound ? (
-        <div className="mt-8 rounded-xl border border-dashed bg-card px-6 py-10 text-center sm:mt-12">
+        <div className="mx-auto mt-10 max-w-2xl rounded-xl border border-dashed bg-card px-6 py-10 text-center">
           <span
             aria-hidden
-            className="mx-auto flex size-11 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300"
+            className="mx-auto flex size-11 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground"
           >
             <LifeBuoy className="size-5" />
           </span>
-
           <h2 className="mt-4 text-sm font-semibold">
             Nothing here covers &ldquo;{trimmed}&rdquo;
           </h2>
           <p className="mx-auto mt-1.5 max-w-md text-xs leading-5 text-muted-foreground">
-            Written guides are still on the way. Send the question to our team
-            and you&apos;ll get a reply on the request.
+            Send the question to our team and you&apos;ll get a reply on the
+            request.
           </p>
-
           {/* Submits the form above, so the request opens with what the
               customer just typed already in the subject. */}
           <Button type="submit" className="mt-5 h-10 px-4 font-semibold">
@@ -170,130 +161,188 @@ export function PortalHelpSearch({
         </div>
       ) : (
         <>
-          <h2 className="mt-10 text-sm font-bold text-foreground sm:mt-12">
-            Browse by topic
-          </h2>
-
-          {isSearching ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {matches.length} topic{matches.length === 1 ? "" : "s"} matching
-              &ldquo;{trimmed}&rdquo;
-            </p>
-          ) : null}
+          <div className="mt-10 flex items-end justify-between gap-3 sm:mt-12">
+            <h2 className="text-base font-semibold text-foreground">
+              Browse by topic
+            </h2>
+            {isSearching ? (
+              <p className="text-xs text-muted-foreground">
+                {matches.length} topic{matches.length === 1 ? "" : "s"} matching
+                &ldquo;{trimmed}&rdquo;
+              </p>
+            ) : null}
+          </div>
 
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
-            {matches.map(({ icon: Icon, title, body, subject, tone }) => (
-              <li key={title}>
-                <Link
-                  href={
-                    subject
-                      ? `${newRequest}?subject=${encodeURIComponent(subject)}`
-                      : newRequest
-                  }
-                  className={CARD}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "flex size-11 shrink-0 items-center justify-center rounded-full",
-                      tone,
-                    )}
-                  >
-                    <Icon className="size-5" />
-                  </span>
-
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{title}</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                      {body}
-                    </span>
-                  </span>
-
-                  <ChevronRight
-                    aria-hidden
-                    className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-accent"
-                  />
-                </Link>
+            {matches.map((topic) => (
+              <li key={topic.slug}>
+                <TopicCard topic={topic} href={`${helpPath}/${topic.slug}`} />
               </li>
             ))}
           </ul>
+
+          {!isSearching ? (
+            <section className="mt-10 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+              <div className="overflow-hidden rounded-xl border bg-card">
+                <h2 className="border-b px-5 py-3.5 text-sm font-semibold text-foreground">
+                  Popular questions
+                </h2>
+                <ul className="divide-y">
+                  {popular.map(({ topic, question }) => (
+                    <li key={question.id}>
+                      <QuestionLink
+                        href={`${helpPath}/${topic.slug}#${question.id}`}
+                        question={question}
+                        topicTitle={topic.title}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <StillNeedHelp
+                newRequest={newRequest}
+                chatEnabled={chatEnabled}
+              />
+            </section>
+          ) : null}
         </>
       )}
-
-      <p className="mt-8 text-center text-xs text-muted-foreground">
-        Written guides are on their way. Until then, every question goes
-        straight to our team.
-      </p>
     </form>
   );
 }
 
-function helpTopics(productName: string): Topic[] {
-  return [
-    {
-      icon: Rocket,
-      title: "Getting started",
-      body: "Learn the basics and set up your account.",
-      subject: "Help getting started",
-      keywords:
-        "new account setup sign up signup onboarding first steps start profile how do i begin",
-      tone: "bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300",
-    },
-    {
-      icon: CreditCard,
-      title: "Account & billing",
-      body: "Manage your plan, payments and invoices.",
-      subject: "Question about my account or billing",
-      keywords:
-        "invoice payment payments plan plans subscription subscribe billing charge charged card credit card receipt refund price pricing upgrade downgrade cancel",
-      tone: "bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-300",
-    },
-    {
-      icon: BookOpen,
-      title: `Using ${productName}`,
-      body: "Guides and best practices.",
-      subject: `How do I… (using ${productName})`,
-      keywords:
-        "how do i how to guide guides feature features workflow workflows best practice practices settings options configuration dashboard report reports",
-      tone: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300",
-    },
-    {
-      icon: Wrench,
-      title: "Troubleshooting",
-      body: "Something isn't working as expected.",
-      subject: "Something isn't working",
-      keywords:
-        "error errors broken bug crash crashed failed failing failure issue issue problem stuck blank loading slow doesn't work not working cannot can't won't freeze frozen",
-      tone: "bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Security",
-      body: "Keep your account safe.",
-      subject: "Security question",
-      keywords:
-        "password passwords login log in signin access locked out hack hacked compromised suspicious privacy permissions permission two factor 2fa mfa",
-      tone: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300",
-    },
-    {
-      icon: LifeBuoy,
-      title: "Contact support",
-      body: "Still need help? Submit a request.",
-      subject: null,
-      keywords:
-        "contact support help team agent human person someone talk message question ask speak",
-      tone: "bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300",
-    },
-  ];
+function TopicCard({ topic, href }: { topic: HelpTopic; href: string }) {
+  const Icon = topic.icon;
+
+  return (
+    <Link
+      href={href}
+      className="group flex h-full flex-col rounded-xl border bg-card p-5 text-foreground transition-colors outline-none hover:border-foreground/20 hover:bg-muted/30 hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand-accent/30"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "flex size-10 items-center justify-center rounded-lg",
+          topic.tone,
+        )}
+      >
+        <Icon className="size-5" />
+      </span>
+      <span className="mt-4 block text-sm font-semibold">{topic.title}</span>
+      <span className="mt-1 block flex-1 text-xs leading-5 text-muted-foreground">
+        {topic.body}
+      </span>
+      <span className="mt-4 flex items-center justify-between border-t pt-3 text-xs">
+        <span className="text-muted-foreground">
+          {topic.questions.length} question
+          {topic.questions.length === 1 ? "" : "s"}
+        </span>
+        <span className="inline-flex items-center gap-1 font-semibold text-brand-ink">
+          Read more
+          <ArrowRight
+            aria-hidden
+            className="size-3.5 transition-transform group-hover:translate-x-0.5"
+          />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function QuestionLink({
+  href,
+  question,
+  topicTitle,
+}: {
+  href: string;
+  question: HelpQuestion;
+  topicTitle: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 px-5 py-3.5 text-foreground transition-colors outline-none hover:bg-muted/40 hover:text-foreground focus-visible:bg-muted/40"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{question.question}</span>
+        <span className="block text-xs text-muted-foreground">
+          {topicTitle}
+        </span>
+      </span>
+      <ChevronRight
+        aria-hidden
+        className="size-4 shrink-0 text-muted-foreground/70 transition-transform group-hover:translate-x-0.5"
+      />
+    </Link>
+  );
 }
 
 /**
- * Every word the customer typed has to appear somewhere on the topic, so
- * "invoice" and "billing" narrow the list while "invoice billing" still finds
- * the one card that covers both.
+ * The way out of the help centre to a person: the request form, or the chat
+ * for a quick answer. Shared with the topic pages.
  */
-function topicMatches(topic: Topic, query: string): boolean {
-  const haystack = [topic.title, topic.body, topic.keywords]
+export function StillNeedHelp({
+  newRequest,
+  chatEnabled = false,
+  className,
+}: {
+  /** The request form, with a topic's subject already in it if there is one. */
+  newRequest: string;
+  /** Only where the chat widget is on the page, or the button does nothing. */
+  chatEnabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <aside className={cn("rounded-xl border bg-card p-5", className)}>
+      <span
+        aria-hidden
+        className="flex size-10 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground"
+      >
+        <LifeBuoy className="size-5" />
+      </span>
+      <h2 className="mt-4 text-sm font-semibold text-foreground">
+        Still need help?
+      </h2>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Our team replies on your request, and you can follow the whole
+        conversation under Your requests.
+      </p>
+      <div className="mt-4 flex flex-col gap-2">
+        <Button asChild className="h-10 font-semibold">
+          <Link href={newRequest}>Create a request</Link>
+        </Button>
+        {chatEnabled ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              window.dispatchEvent(new Event(PORTAL_CHAT_OPEN_EVENT))
+            }
+            className="h-10 gap-2 font-semibold hover:bg-brand-accent/10 hover:text-brand-accent"
+          >
+            <MessageCircle aria-hidden className="size-4" />
+            Chat with us
+          </Button>
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * Every word the customer typed has to appear somewhere on the topic -- its
+ * title, description, keywords or questions -- so "invoice" and "billing"
+ * narrow the list while "invoice billing" still finds the one topic that
+ * covers both.
+ */
+function topicMatches(topic: HelpTopic, query: string): boolean {
+  const haystack = [
+    topic.title,
+    topic.body,
+    topic.keywords,
+    ...topic.questions.map((q) => q.question),
+  ]
     .join(" ")
     .toLowerCase();
 

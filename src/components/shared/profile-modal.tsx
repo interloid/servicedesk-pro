@@ -3,20 +3,25 @@
 import { useState, useRef, useEffect, ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera } from "lucide-react";
+import { Camera, UserRound } from "lucide-react";
 
 import {
   ProfileFormValues,
   profileFormSchema,
 } from "@/lib/validations/profile";
 
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  TEAM_DIALOG_CONTENT,
+  TEAM_DIALOG_FOOTER,
+  TEAM_MODAL_BUTTON,
+  TEAM_MODAL_BUTTON_PRIMARY,
+  TEAM_MODAL_CONTROL,
+} from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 import {
   Form,
   FormControl,
@@ -101,7 +106,7 @@ export function ProfileModal({
     if (file) {
       const problem = avatarError(file);
       if (problem) {
-        toast.error(problem);
+        toast.error("Couldn't use that photo", { description: problem });
         return;
       }
       setSelectedFile(file);
@@ -129,7 +134,9 @@ export function ProfileModal({
         });
 
         if (!prepared.success) {
-          toast.error(prepared.message);
+          toast.error("Couldn't upload your photo", {
+            description: prepared.message,
+          });
           return;
         }
 
@@ -150,15 +157,18 @@ export function ProfileModal({
           });
         });
       } else {
-        toast.error(result.message);
+        toast.error("Couldn't save your profile", {
+          description: result.message,
+        });
       }
     } catch (err) {
       console.error(err);
-      toast.error(
-        err instanceof Error && err.message
-          ? err.message
-          : "We couldn't save your profile. Try again.",
-      );
+      toast.error("Couldn't save your profile", {
+        description:
+          err instanceof Error && err.message
+            ? err.message
+            : "We couldn't save your profile. Try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -166,22 +176,23 @@ export function ProfileModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md p-4 sm:p-6 rounded-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-1 text-left">
-          <DialogTitle className="text-lg sm:text-xl font-bold text-slate-900">
-            Profile settings
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm font-medium text-slate-500">
-            {role} · {companyName}
-          </DialogDescription>
-        </DialogHeader>
+      {/* The platform console's popup: icon header, roomy body, banded footer. */}
+      <DialogContent
+        className={`max-h-[90vh] overflow-y-auto sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}
+      >
+        <DialogIconHeader
+          icon={UserRound}
+          title="Profile settings"
+          description={
+            <>
+              {role} · {companyName}
+            </>
+          }
+        />
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4 pt-2"
-          >
-            <div className="flex items-center gap-3 sm:gap-4 py-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-slate-50/60 p-3 sm:gap-4 dark:bg-muted/20">
               <div
                 className="relative group cursor-pointer shrink-0"
                 onClick={() => fileInputRef.current?.click()}
@@ -233,13 +244,13 @@ export function ProfileModal({
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-slate-800 font-semibold text-xs sm:text-sm">
+                  <FormLabel className="text-sm font-semibold">
                     Full name
                   </FormLabel>
                   <FormControl>
                     <Input
                       disabled={isSubmitting}
-                      className="h-10 text-sm"
+                      className={`rounded-lg text-sm ${TEAM_MODAL_CONTROL}`}
                       {...field}
                     />
                   </FormControl>
@@ -253,14 +264,12 @@ export function ProfileModal({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-slate-800 font-semibold text-xs sm:text-sm">
-                    Email
-                  </FormLabel>
+                  <FormLabel className="text-sm font-semibold">Email</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
                       disabled
-                      className="h-10 text-sm"
+                      className={`rounded-lg text-sm ${TEAM_MODAL_CONTROL}`}
                       {...field}
                     />
                   </FormControl>
@@ -270,7 +279,7 @@ export function ProfileModal({
             />
 
             <FormItem>
-              <FormLabel className="text-slate-800 font-semibold text-xs sm:text-sm">
+              <FormLabel className="text-sm font-semibold">
                 Company name
               </FormLabel>
 
@@ -278,7 +287,7 @@ export function ProfileModal({
                 <Input
                   value={companyName}
                   disabled
-                  className="bg-slate-100 text-slate-500 h-10 text-sm"
+                  className={`rounded-lg bg-slate-100 text-sm text-slate-500 ${TEAM_MODAL_CONTROL}`}
                 />
               </FormControl>
 
@@ -286,24 +295,26 @@ export function ProfileModal({
                 Contact support to update your company name.
               </p>
             </FormItem>
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-4">
+            <DialogFooter
+              className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}
+            >
               <Button
                 type="button"
                 variant="outline"
                 disabled={isSubmitting}
                 onClick={() => handleOpenChange(false)}
-                className="h-10 w-full text-sm font-semibold sm:w-auto"
+                className={TEAM_MODAL_BUTTON}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-10 w-full text-sm font-semibold sm:w-auto"
+                className={`${TEAM_MODAL_BUTTON} ${TEAM_MODAL_BUTTON_PRIMARY}`}
               >
                 {isSubmitting ? "Saving..." : "Save changes"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

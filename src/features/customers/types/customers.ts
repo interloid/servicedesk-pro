@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Database } from "@/lib/supabase/database.types";
+import type { TicketStatus } from "@/features/tickets/types/tickets.types";
 import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 
 /**
@@ -8,7 +8,7 @@ import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
  * "server-only", so anything a client component needs lives here instead.
  */
 
-export type TicketStatus = Database["public"]["Enums"]["ticket_status"];
+export type { TicketStatus };
 
 /**
  * Where a customer stands with the support portal, from their `memberships`

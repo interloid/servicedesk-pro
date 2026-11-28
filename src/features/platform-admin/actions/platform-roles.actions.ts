@@ -16,6 +16,7 @@ import {
   setPlatformRoleStatus,
   updatePlatformRole,
 } from "../services/platform-roles.service";
+import { userErrorMessage } from "@/lib/user-error";
 
 type ActionResult =
   | { success: true }
@@ -86,8 +87,7 @@ async function run(
 
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : `Couldn't ${label} the role.`,
+      message: userErrorMessage(error, `Couldn't ${label} the role.`),
     };
   }
 

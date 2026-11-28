@@ -1,21 +1,18 @@
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
   TEAM_DIALOG_CONTENT,
   TEAM_DIALOG_FOOTER,
-  TEAM_DIALOG_TITLE,
   TEAM_MODAL_BUTTON,
   TEAM_MODAL_BUTTON_DANGER,
 } from "@/features/team/components/modal-buttons";
+import {
+  DIALOG_FOOTER_BAND,
+  DialogIconHeader,
+} from "@/features/team/components/dialog-icon-header";
 
 /**
  * "Leave without saving?" popup for useUnsavedChangesGuard. Same look as the
@@ -34,15 +31,15 @@ export function UnsavedChangesDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onStay()}>
-      <DialogContent className={`gap-3 sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}>
-        <DialogHeader className="pr-6">
-          <DialogTitle className={TEAM_DIALOG_TITLE}>
-            Leave without saving?
-          </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+      <DialogContent className={`sm:max-w-115 ${TEAM_DIALOG_CONTENT}`}>
+        <DialogIconHeader
+          icon={TriangleAlert}
+          tint="bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300"
+          title="Leave without saving?"
+          description={description}
+        />
 
-        <DialogFooter className={TEAM_DIALOG_FOOTER}>
+        <DialogFooter className={`${TEAM_DIALOG_FOOTER} ${DIALOG_FOOTER_BAND}`}>
           <Button
             type="button"
             variant="outline"

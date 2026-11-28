@@ -12,6 +12,7 @@ import {
   updatePlatformPlan,
 } from "../services/platform-plans.service";
 import { PLAN_FEATURES, UNLIMITED_SEATS, type PlanFeatureKey } from "../types";
+import { userErrorMessage } from "@/lib/user-error";
 
 const planSchema = z.object({
   id: z.string().uuid(),
@@ -63,8 +64,7 @@ export async function savePlatformPlanAction(input: unknown): Promise<
 
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : "Couldn't save the plan.",
+      message: userErrorMessage(error, "Couldn't save the plan."),
     };
   }
 

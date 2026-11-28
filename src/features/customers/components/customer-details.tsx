@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { BackLink } from "@/components/shared/back-link";
+import { DASHBOARD_CARD, StatCard } from "@/components/shared/dashboard-ui";
 import { Pagination } from "@/components/shared/pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -47,7 +48,7 @@ import { TENANT_ROUTES, tenantPath } from "@/lib/tenancy";
 import { cn } from "@/lib/utils";
 import { CustomerStatusBadge } from "@/features/customers/components/customer-access";
 
-const CARD = "rounded-2xl border bg-card shadow-xs";
+const CARD = DASHBOARD_CARD;
 
 /** How many rows the Overview shows before "View all". */
 const RECENT_TICKETS = 5;
@@ -82,10 +83,9 @@ export function CustomerHeader({
 
         <div className="mt-4 flex min-w-0 items-center gap-4 sm:gap-6">
           <div className="relative shrink-0">
-            {/* A gap of page colour, then a soft ring in the workspace's
-                accent: a bare circular photo has no defined edge and reads as
-                a hole. Tinted from brand-accent so it follows branding. */}
-            <Avatar className="size-14 overflow-hidden shadow-md ring-[3px] ring-brand-accent/35 ring-offset-[3px] ring-offset-background sm:size-20 sm:ring-4 sm:ring-offset-4">
+            {/* A gap of page colour, then a soft hairline ring: a bare
+                circular photo has no defined edge and reads as a hole. */}
+            <Avatar className="size-14 overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200 ring-offset-[3px] ring-offset-background sm:size-20 sm:ring-offset-4 dark:ring-slate-700">
               {customer.avatarUrl ? (
                 <AvatarImage
                   src={customer.avatarUrl}
@@ -95,17 +95,21 @@ export function CustomerHeader({
               ) : null}
               {/* AvatarImage only renders once the load succeeds, so the
                   fallback covers no photo and a broken URL alike. */}
-              <AvatarFallback className="bg-brand-accent/10 text-xl font-bold text-brand-accent">
+              <AvatarFallback className="bg-slate-100 text-xl font-bold text-slate-600">
                 {getInitials(customer.fullName, customer.email)}
               </AvatarFallback>
             </Avatar>
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="line-clamp-2 text-xl font-bold wrap-break-word tracking-tight text-foreground sm:text-3xl">
+            <span className="mb-1 inline-flex w-fit items-center gap-1.5 text-xs font-semibold tracking-[0.08em] text-brand-700 uppercase">
+              <Building2 className="size-3.5" strokeWidth={2} aria-hidden />
+              Workspace
+            </span>
+            <h1 className="line-clamp-2 font-heading text-[1.5rem] leading-tight font-bold wrap-break-word tracking-tight text-foreground sm:text-[2rem]">
               {customer.fullName}
             </h1>
-            <p className="mt-1 flex flex-col gap-y-1 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5 sm:text-base">
+            <p className="mt-1.5 flex flex-col gap-y-1 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5 sm:text-[15px]">
               <span className="inline-flex max-w-full min-w-0 items-center gap-1.5">
                 <Mail aria-hidden className="size-4 shrink-0" />
                 <span className="truncate">{customer.email}</span>
@@ -124,7 +128,7 @@ export function CustomerHeader({
                 </>
               ) : null}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-slate-500">
               Customer since {formatCustomerDate(customer.createdAt)}
             </p>
           </div>
@@ -166,7 +170,7 @@ export function CustomerTicketsTab({
     <section className={cn(CARD, "overflow-hidden")}>
       <TicketTable tickets={tickets.tickets} now={now} tenant={tenant} />
       {tickets.pageCount > 1 ? (
-        <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:px-6">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-border bg-slate-50/50 px-4 py-3 text-sm text-slate-500 tabular-nums sm:flex-row sm:px-6">
           <span>
             Showing {(tickets.page - 1) * CUSTOMER_TICKET_PAGE_SIZE + 1} -
             {Math.min(tickets.page * CUSTOMER_TICKET_PAGE_SIZE, tickets.total)}{" "}
@@ -205,59 +209,48 @@ export function CustomerOverview({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 @2xl:gap-4 @5xl:grid-cols-4">
+      {/* Two up, four once the page is wide enough, as on the other dashboards. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4">
         <StatCard
           icon={Inbox}
-          tone="bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300"
+          iconClassName="bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300"
           label="Open tickets"
-          value={customer.openTicketsCount}
+          value={customer.openTicketsCount.toLocaleString("en-US")}
         />
         <StatCard
           icon={Ticket}
-          tone="bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300"
+          iconClassName="bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300"
           label="Total tickets"
-          value={ticketPage.total}
+          value={ticketPage.total.toLocaleString("en-US")}
         />
         <StatCard
           icon={Building2}
-          tone="bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-300"
+          iconClassName="bg-brand-50 text-brand-700"
           label="Company"
-          value={
-            customer.company ? (
-              /* Shouting, because a company name here is a label rather than a
-                 sentence: it is the one stat card whose value is a word, and
-                 mixed case read as a sentence fragment next to three numbers. */
-              <span className="block truncate uppercase">
-                {customer.company}
-              </span>
-            ) : (
-              <span className="text-muted-foreground">-</span>
-            )
-          }
+          // Shouting, because a company name here is a label rather than a
+          // sentence: it is the one stat card whose value is a word.
+          value={customer.company ? customer.company.toUpperCase() : "-"}
         />
         <StatCard
           icon={Star}
-          tone="bg-amber-50 text-amber-500 dark:bg-amber-950/50 dark:text-amber-300"
+          iconClassName="bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300"
           label="CSAT"
           value={
-            customer.csatScore === null ? (
-              <span>0</span>
-            ) : (
-              <span className="flex items-baseline gap-1">
-                {formatCsatScore(customer.csatScore)}
-                <span className="text-base font-medium text-muted-foreground">
-                  / 5
-                </span>
-              </span>
-            )
+            customer.csatScore === null
+              ? "0"
+              : `${formatCsatScore(customer.csatScore)} / 5`
           }
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1.65fr)]">
         <section className={cn(CARD, "@container flex min-w-0 flex-col")}>
-          <SectionHeader icon={ShieldCheck} title="Contact & portal access" />
-          <div className="flex flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
+          <SectionHeader
+            icon={ShieldCheck}
+            title="Contact & portal access"
+            description="Who to reach, and where to send them."
+          />
+          <div className="flex flex-1 flex-col px-5 pb-5">
             <div className="flex flex-col gap-2.5">
               <ContactRow
                 name={customer.fullName}
@@ -328,7 +321,11 @@ export function CustomerOverview({
         </section>
 
         <section className={cn(CARD, "min-w-0 overflow-hidden")}>
-          <SectionHeader icon={ReceiptText} title="Recent tickets">
+          <SectionHeader
+            icon={ReceiptText}
+            title="Recent tickets"
+            description="The latest requests from this customer."
+          >
             {ticketPage.total > RECENT_TICKETS ? (
               <ViewAll href={ticketsHref} />
             ) : null}
@@ -345,64 +342,36 @@ export function CustomerOverview({
   );
 }
 
-function StatCard({
-  icon: Icon,
-  tone,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  tone: string;
-  label: string;
-  value: ReactNode;
-}) {
-  return (
-    // Its own container: a narrow card (two up on a phone) stacks the icon
-    // over the text so the label and value keep the width.
-    <div className={cn(CARD, "@container min-w-0 p-3.5 @2xl:p-5")}>
-      <div className="flex flex-col gap-3 @[15rem]:flex-row @[15rem]:items-center @[15rem]:gap-4">
-        <span
-          aria-hidden
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-xl @[15rem]:size-12",
-            tone,
-          )}
-        >
-          <Icon className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-medium text-muted-foreground">
-            {label}
-          </p>
-          <div className="mt-1 min-w-0 text-2xl leading-tight font-bold text-foreground tabular-nums @[15rem]:text-3xl">
-            {value}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+/** A panel header in the platform style: round teal icon, title, one line. */
 function SectionHeader({
   icon: Icon,
   title,
+  description,
   children,
 }: {
   icon: LucideIcon;
   title: string;
+  description?: string;
   children?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
-      <h2 className="flex items-center gap-3 text-base font-bold text-foreground">
+    <div className="flex items-start justify-between gap-3 px-5 py-5">
+      <div className="flex min-w-0 items-start gap-3">
         <span
           aria-hidden
-          className="flex size-9 items-center justify-center rounded-lg bg-brand-accent/10 text-brand-accent"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
         >
-          <Icon className="size-4" />
+          <Icon className="size-4.5" strokeWidth={1.75} />
         </span>
-        {title}
-      </h2>
+        <div className="min-w-0">
+          <h2 className="font-heading text-base leading-snug font-bold tracking-tight text-foreground">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+          ) : null}
+        </div>
+      </div>
       {children}
     </div>
   );
@@ -478,7 +447,7 @@ function ContactRow({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-xl border",
+        "flex items-start gap-3 rounded-xl border border-border bg-slate-50/40",
         primary ? "p-3.5" : "px-3.5 py-3",
       )}
     >
@@ -490,7 +459,7 @@ function ContactRow({
         ) : null}
         <AvatarFallback
           className={cn(
-            "bg-muted font-semibold text-muted-foreground",
+            "bg-slate-100 font-bold text-slate-600",
             primary ? "text-base" : "text-[11px]",
           )}
         >
@@ -550,11 +519,11 @@ function TicketTable({
       <div className="flex flex-col items-center px-5 pt-6 pb-10 text-center">
         <span
           aria-hidden
-          className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800/60 dark:text-slate-300"
+          className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-300"
         >
           <Ticket className="size-5" />
         </span>
-        <p className="mt-4 text-sm font-semibold text-foreground">
+        <p className="mt-4 font-heading text-sm font-bold text-foreground">
           No tickets raised yet
         </p>
         <p className="mt-1.5 max-w-sm text-xs leading-5 text-muted-foreground">
@@ -579,14 +548,14 @@ function TicketTable({
   // Updated all still fit; narrower than that and the reader scrolls rather
   // than loses data.
   const head =
-    "h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:px-6 dark:text-muted-foreground";
+    "h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 sm:px-6 dark:text-muted-foreground";
   const cell = "px-4 py-3.5 sm:px-6 sm:py-4";
 
   return (
     <div className={className}>
       <Table className="min-w-190 table-fixed text-sm">
         <TableHeader>
-          <TableRow className="border-slate-100 bg-slate-50 hover:bg-slate-50 dark:border-border dark:bg-muted/40 dark:hover:bg-muted/40">
+          <TableRow className="border-slate-100 bg-slate-50/80 hover:bg-slate-50/80 dark:border-border dark:bg-muted/40 dark:hover:bg-muted/40">
             <TableHead className={cn(head, "w-24")}>Ticket ID</TableHead>
             <TableHead className={head}>Subject</TableHead>
             <TableHead className={cn(head, "w-28")}>Status</TableHead>
@@ -603,7 +572,7 @@ function TicketTable({
               <TableCell
                 className={cn(
                   cell,
-                  "whitespace-nowrap font-mono text-xs font-semibold tracking-tight text-slate-900 dark:text-foreground",
+                  "whitespace-nowrap text-xs font-semibold tracking-tight text-slate-900 dark:text-foreground tabular-nums",
                 )}
               >
                 #{ticket.number ?? "-"}
@@ -619,7 +588,7 @@ function TicketTable({
                     `${TENANT_ROUTES.TICKETS}/${ticket.id}`,
                   )}
                   title={ticket.subject}
-                  className="block truncate font-medium text-slate-900 after:absolute after:inset-0 focus-visible:outline-none dark:text-foreground"
+                  className="block truncate font-semibold text-slate-900 after:absolute after:inset-0 focus-visible:outline-none dark:text-foreground"
                 >
                   {ticket.subject}
                 </Link>
@@ -627,7 +596,7 @@ function TicketTable({
               <TableCell className={cn(cell, "whitespace-nowrap")}>
                 <span
                   className={cn(
-                    "inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold leading-5",
+                    "inline-flex h-6 shrink-0 items-center rounded-md px-2 text-xs font-semibold whitespace-nowrap ring-1 ring-current/15 ring-inset",
                     TICKET_STATUS_BADGE[ticket.status],
                   )}
                 >
