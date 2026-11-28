@@ -62,22 +62,22 @@ Rules:
 
 Set each of these in both `development` and `production`, with that environment's values. The deploy stops before changing anything if a required one is missing, and lists every missing name.
 
-| Name                                                                                                                                 | Kind     | Required | Goes to        |
-| ------------------------------------------------------------------------------------------------------------------------------------ | -------- | -------- | -------------- |
-| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN`                                                                      | Secret   | Yes      | The deploy     |
-| `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`                                                                         | Variable | Yes      | The deploy     |
-| `APP_DOMAIN_ALIAS` (development only)                                                                                                | Variable | No       | The deploy     |
-| `PLATFORM_ADMIN_PASSWORD`: the platform admin account is created with it, and its password reset to it on every deploy               | Secret   | No       | The deploy     |
-| `PLATFORM_ADMIN_EMAIL`: that account's email (default `platform-admin@servicedesk-pro.com`); also list it in `PLATFORM_ADMIN_EMAILS` | Variable | No       | The deploy     |
-| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_DESCRIPTION`                            | Variable | Yes      | Vercel         |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                          | Variable | Yes      | Vercel         |
-| `SUPABASE_SERVICE_ROLE_KEY`                                                                                                          | Secret   | Yes      | Vercel         |
-| `NEXT_PUBLIC_TWITTER_HANDLE`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Variable | No       | Vercel         |
-| `NEXT_PUBLIC_DEMO_LOGINS` (`true` to show demo sign-in buttons), `NEXT_PUBLIC_DEMO_PASSWORD`, `NEXT_PUBLIC_DEMO_PLATFORM_EMAIL`, `NEXT_PUBLIC_DEMO_PLATFORM_PASSWORD` — development only, they ship to the browser | Variable | No | Vercel |
-| `PLATFORM_ADMIN_EMAILS`                                                                                                              | Either   | No       | Vercel         |
-| `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                     | Secret   | No       | Vercel         |
-| `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                         | Variable | Yes      | Edge Functions |
-| `PAYPAL_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`                                                               | Secret   | Yes      | Edge Functions |
+| Name                                                                                                                                                                                                               | Kind     | Required | Goes to        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | -------- | -------------- |
+| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN`                                                                                                                                                    | Secret   | Yes      | The deploy     |
+| `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`                                                                                                                                                       | Variable | Yes      | The deploy     |
+| `APP_DOMAIN_ALIAS` (development only)                                                                                                                                                                              | Variable | No       | The deploy     |
+| `PLATFORM_ADMIN_PASSWORD`: the platform admin account is created with it, and its password reset to it on every deploy                                                                                             | Secret   | No       | The deploy     |
+| `PLATFORM_ADMIN_EMAIL`: that account's email (default `platform-admin@servicedesk-pro.com`); also list it in `PLATFORM_ADMIN_EMAILS`                                                                               | Variable | No       | The deploy     |
+| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_DESCRIPTION`                                                                                                          | Variable | Yes      | Vercel         |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`                                                                                                                                                        | Variable | Yes      | Vercel         |
+| `SUPABASE_SERVICE_ROLE_KEY`                                                                                                                                                                                        | Secret   | Yes      | Vercel         |
+| `NEXT_PUBLIC_TWITTER_HANDLE`, `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`                                                                               | Variable | No       | Vercel         |
+| `NEXT_PUBLIC_DEMO_LOGINS` (`true` to show demo sign-in buttons), `NEXT_PUBLIC_DEMO_PASSWORD`, `NEXT_PUBLIC_DEMO_PLATFORM_EMAIL`, `NEXT_PUBLIC_DEMO_PLATFORM_PASSWORD` — development only, they ship to the browser | Variable | No       | Vercel         |
+| `PLATFORM_ADMIN_EMAILS`                                                                                                                                                                                            | Either   | No       | Vercel         |
+| `SUPABASE_MANAGEMENT_TOKEN`, `SENTRY_AUTH_TOKEN`                                                                                                                                                                   | Secret   | No       | Vercel         |
+| `PAYPAL_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_WEBHOOK_ID`, `GOOGLE_CLIENT_ID`, `FROM_EMAIL`, `FRONTEND_URL`                                                                                                       | Variable | Yes      | Edge Functions |
+| `PAYPAL_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`                                                                                                                                             | Secret   | Yes      | Edge Functions |
 
 `SUPABASE_PROJECT_REF` also reaches the app. The deploy also checks that `NEXT_PUBLIC_SUPABASE_URL` belongs to `SUPABASE_PROJECT_REF`, and that development never uses live PayPal. An optional value left empty in GitHub is left as it is in Vercel. To change a value, edit it in GitHub and run **Actions → Deploy** (on `main` for development, on the release tag for production).
 
