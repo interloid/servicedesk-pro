@@ -8,8 +8,8 @@ import {
 } from "lucide-react";
 
 /**
- * One-click demo sign-ins for the demo page (/login/demo), shown only when
- * demo mode is on (NEXT_PUBLIC_DEMO_LOGINS=true) and a demo password is set. These are the
+ * One-click demo sign-ins for the login page, shown only when demo mode is on
+ * (NEXT_PUBLIC_DEMO_LOGINS=true) and a demo password is set. These are the
  * throwaway accounts scripts/seed-tenants.mjs creates (the same ones the e2e
  * suite uses, see e2e/support/accounts.ts). NEXT_PUBLIC_* values ship to the
  * browser, so never turn this on for a site with real accounts.
@@ -21,10 +21,8 @@ import {
 export type DemoAccount = {
   role: string;
   description: string;
-  /** What this role is responsible for, as short lines for its card. */
-  responsibilities: string[];
-  /** Where the account lands after signing in. */
-  landsOn: string;
+  /** A few words for the role tile. */
+  summary: string;
   email: string;
   password: string;
   icon: LucideIcon;
@@ -45,12 +43,7 @@ function buildAccounts(): DemoAccount[] {
     {
       role: "Tenant Admin",
       description: "Runs the workspace: team, settings and billing",
-      responsibilities: [
-        "Invite people and set their roles and permissions",
-        "Set up branding, notifications and the audit log",
-        "Manage the plan, seats and billing",
-      ],
-      landsOn: "The ticket queue",
+      summary: "Team, settings, billing",
       email: "nicole.sanders@cedarhealthgroup.com",
       password: PASSWORD,
       icon: ShieldCheck,
@@ -59,12 +52,7 @@ function buildAccounts(): DemoAccount[] {
     {
       role: "Manager",
       description: "Oversees the queue, SLAs and the team",
-      responsibilities: [
-        "Watch the whole queue and reassign tickets",
-        "Set SLA targets and business hours",
-        "Review team performance in reports",
-      ],
-      landsOn: "The ticket queue",
+      summary: "Queue, SLAs, reports",
       email: "emily.johnson@juniperridgeenergy.com",
       password: PASSWORD,
       icon: UsersRound,
@@ -73,12 +61,7 @@ function buildAccounts(): DemoAccount[] {
     {
       role: "Agent",
       description: "Works tickets and replies to customers",
-      responsibilities: [
-        "Pick up, reply to and resolve tickets",
-        "Keep each ticket inside its SLA target",
-        "Save the ticket views you use most",
-      ],
-      landsOn: "The ticket queue",
+      summary: "Works the tickets",
       email: "stephanie.mitchell@cedarhealthgroup.com",
       password: PASSWORD,
       icon: Headset,
@@ -87,12 +70,7 @@ function buildAccounts(): DemoAccount[] {
     {
       role: "Customer",
       description: "Raises and tracks requests in the portal",
-      responsibilities: [
-        "Raise a request and attach files",
-        "Follow replies and answer the team",
-        "Search the help centre or ask the assistant",
-      ],
-      landsOn: "The customer support portal",
+      summary: "Support portal",
       email: "dana.whitfield@northfieldclinic.com",
       password: PASSWORD,
       icon: LifeBuoy,
@@ -104,12 +82,7 @@ function buildAccounts(): DemoAccount[] {
     accounts.push({
       role: "Platform Admin",
       description: "Manages every workspace, plan and billing",
-      responsibilities: [
-        "See every workspace, its plan and its usage",
-        "Create plans and manage subscriptions",
-        "Block a workspace, or sign in as one to give support",
-      ],
-      landsOn: "The platform console",
+      summary: "All workspaces",
       email: PLATFORM_EMAIL,
       password: PLATFORM_PASSWORD,
       icon: UserCog,
@@ -121,6 +94,3 @@ function buildAccounts(): DemoAccount[] {
 }
 
 export const DEMO_ACCOUNTS: DemoAccount[] = buildAccounts();
-
-/** True when the demo page has at least one account to offer. */
-export const DEMO_LOGIN_ENABLED = DEMO_ACCOUNTS.length > 0;

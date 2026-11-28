@@ -287,7 +287,6 @@ const SESSION_TOLERANT_PATHS = new Set<string>([TENANT_ROUTES.RESET_PASSWORD]);
 export const CENTRAL_PATHS = new Set<string>([
   APP_ROUTES.SETUP,
   APP_ROUTES.LOGIN,
-  APP_ROUTES.DEMO_LOGIN,
   // Reachable without a staff session, and deliberately outside every tenant:
   // it is where a customer is sent instead of the dashboard.
   APP_ROUTES.UNAUTHORIZED,

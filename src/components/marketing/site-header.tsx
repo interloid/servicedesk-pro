@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
 import { usePlatformBrand } from "@/components/shared/platform-brand";
-import { DEMO_LOGIN_ENABLED } from "@/features/auth/demo-accounts";
 import { APP_ROUTES } from "@/lib/routes";
 
 // Every item scrolls to a section on the landing page (src/app/page.tsx).
@@ -52,14 +51,6 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          {DEMO_LOGIN_ENABLED && (
-            <Link
-              href={APP_ROUTES.DEMO_LOGIN}
-              className="rounded-md px-3.5 py-2 text-sm font-semibold whitespace-nowrap text-brand-accent transition-colors hover:bg-slate-100 hover:text-brand-accent"
-            >
-              Try demo login
-            </Link>
-          )}
           <Link
             href={APP_ROUTES.LOGIN}
             className="rounded-md px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-foreground"
@@ -108,15 +99,6 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex flex-col gap-2.5 border-t border-border pt-3">
-            {DEMO_LOGIN_ENABLED && (
-              <Link
-                href={APP_ROUTES.DEMO_LOGIN}
-                onClick={closeMobileMenu}
-                className="w-full rounded-lg border border-brand-accent/40 bg-white px-4 py-2.5 text-center text-sm font-semibold text-brand-accent transition-colors hover:bg-muted hover:text-brand-accent"
-              >
-                Try demo login
-              </Link>
-            )}
             <Link
               href={APP_ROUTES.LOGIN}
               onClick={closeMobileMenu}
