@@ -37,6 +37,8 @@ const ROUTES: Partial<Record<"anonymous" | AccountName, Route[]>> = {
     { route: "/blocked", path: "/blocked" },
     { route: "/forgot-password", path: "/forgot-password" },
     { route: "/login", path: "/login" },
+    // Demo mode is off in the test stack, so the page sends you to /login.
+    { route: "/login/demo", path: "/login/demo", lands: /\/login$/ },
     { route: "/maintenance", path: "/maintenance" },
     { route: "/reset-password", path: "/reset-password" },
     { route: "/setup", path: "/setup" },

@@ -1,6 +1,12 @@
 export const APP_ROUTES = {
   HOME: "/",
   LOGIN: "/login",
+  /**
+   * The demo sign-in page: each role, what it does, and a one-click sign-in.
+   * Under /login because `login` can never be a workspace slug. It sends
+   * visitors to /login unless demo mode is on (see features/auth/demo-accounts).
+   */
+  DEMO_LOGIN: "/login/demo",
   SIGNUP: "/signup",
   CONTACT_SALES: "/contact-sales",
   FORGOT_PASSWORD: "/forgot-password",

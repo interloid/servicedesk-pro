@@ -382,7 +382,10 @@ async function routeRequest(request: NextRequest): Promise<NextResponse> {
               response,
             );
           }
-        } else {
+        } else if (pathname !== APP_ROUTES.DEMO_LOGIN) {
+          // The demo sign-in page stays open to a signed-in team member, so a
+          // visitor can switch from one demo role to another without signing
+          // out first: signing in there replaces the session.
           return withSessionCookies(
             NextResponse.redirect(
               new URL(
