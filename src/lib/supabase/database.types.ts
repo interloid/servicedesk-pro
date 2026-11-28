@@ -379,6 +379,172 @@ export type Database = {
           },
         ];
       };
+      email_inbound_events: {
+        Row: {
+          created_at: string;
+          customer_id: string | null;
+          error_category: string | null;
+          error_message: string | null;
+          id: string;
+          ignore_reason: string | null;
+          in_reply_to: string | null;
+          integration_id: string;
+          locked_at: string | null;
+          max_retries: number;
+          message_id: string | null;
+          next_attempt_at: string;
+          outcome: string | null;
+          processed_at: string | null;
+          provider: string;
+          provider_message_id: string;
+          provider_thread_id: string | null;
+          received_at: string | null;
+          recipient_email: string | null;
+          references_header: string | null;
+          retry_count: number;
+          sender_email: string | null;
+          sender_name: string | null;
+          status: string;
+          subject: string | null;
+          tenant_id: string;
+          ticket_id: string | null;
+          ticket_message_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          customer_id?: string | null;
+          error_category?: string | null;
+          error_message?: string | null;
+          id?: string;
+          ignore_reason?: string | null;
+          in_reply_to?: string | null;
+          integration_id: string;
+          locked_at?: string | null;
+          max_retries?: number;
+          message_id?: string | null;
+          next_attempt_at?: string;
+          outcome?: string | null;
+          processed_at?: string | null;
+          provider: string;
+          provider_message_id: string;
+          provider_thread_id?: string | null;
+          received_at?: string | null;
+          recipient_email?: string | null;
+          references_header?: string | null;
+          retry_count?: number;
+          sender_email?: string | null;
+          sender_name?: string | null;
+          status?: string;
+          subject?: string | null;
+          tenant_id: string;
+          ticket_id?: string | null;
+          ticket_message_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          customer_id?: string | null;
+          error_category?: string | null;
+          error_message?: string | null;
+          id?: string;
+          ignore_reason?: string | null;
+          in_reply_to?: string | null;
+          integration_id?: string;
+          locked_at?: string | null;
+          max_retries?: number;
+          message_id?: string | null;
+          next_attempt_at?: string;
+          outcome?: string | null;
+          processed_at?: string | null;
+          provider?: string;
+          provider_message_id?: string;
+          provider_thread_id?: string | null;
+          received_at?: string | null;
+          recipient_email?: string | null;
+          references_header?: string | null;
+          retry_count?: number;
+          sender_email?: string | null;
+          sender_name?: string | null;
+          status?: string;
+          subject?: string | null;
+          tenant_id?: string;
+          ticket_id?: string | null;
+          ticket_message_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_inbound_events_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_sync_jobs: {
+        Row: {
+          attempts: number;
+          completed_at: string | null;
+          created_at: string;
+          history_id: string | null;
+          id: string;
+          integration_id: string;
+          kind: string;
+          last_error: string | null;
+          locked_at: string | null;
+          max_attempts: number;
+          reason: string;
+          run_after: string;
+          status: string;
+          tenant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          history_id?: string | null;
+          id?: string;
+          integration_id: string;
+          kind?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          max_attempts?: number;
+          reason?: string;
+          run_after?: string;
+          status?: string;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          history_id?: string | null;
+          id?: string;
+          integration_id?: string;
+          kind?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          max_attempts?: number;
+          reason?: string;
+          run_after?: string;
+          status?: string;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_sync_jobs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       impersonation_sessions: {
         Row: {
           id: string;
@@ -1571,6 +1737,99 @@ export type Database = {
           },
         ];
       };
+      tenant_email_integrations: {
+        Row: {
+          access_token_encrypted: string | null;
+          auto_create_customer: boolean;
+          connected_by: string | null;
+          connected_email: string;
+          created_at: string;
+          disconnected_at: string | null;
+          enabled: boolean;
+          granted_scopes: string | null;
+          id: string;
+          last_error: string | null;
+          last_error_at: string | null;
+          last_sync_at: string | null;
+          provider: string;
+          provider_history_id: string | null;
+          receiving_email: string;
+          refresh_token_encrypted: string | null;
+          status: string;
+          sync_lease_owner: string | null;
+          sync_lease_until: string | null;
+          tenant_id: string;
+          token_expires_at: string | null;
+          updated_at: string;
+          watch_expiration: string | null;
+        };
+        Insert: {
+          access_token_encrypted?: string | null;
+          auto_create_customer?: boolean;
+          connected_by?: string | null;
+          connected_email: string;
+          created_at?: string;
+          disconnected_at?: string | null;
+          enabled?: boolean;
+          granted_scopes?: string | null;
+          id?: string;
+          last_error?: string | null;
+          last_error_at?: string | null;
+          last_sync_at?: string | null;
+          provider: string;
+          provider_history_id?: string | null;
+          receiving_email: string;
+          refresh_token_encrypted?: string | null;
+          status?: string;
+          sync_lease_owner?: string | null;
+          sync_lease_until?: string | null;
+          tenant_id: string;
+          token_expires_at?: string | null;
+          updated_at?: string;
+          watch_expiration?: string | null;
+        };
+        Update: {
+          access_token_encrypted?: string | null;
+          auto_create_customer?: boolean;
+          connected_by?: string | null;
+          connected_email?: string;
+          created_at?: string;
+          disconnected_at?: string | null;
+          enabled?: boolean;
+          granted_scopes?: string | null;
+          id?: string;
+          last_error?: string | null;
+          last_error_at?: string | null;
+          last_sync_at?: string | null;
+          provider?: string;
+          provider_history_id?: string | null;
+          receiving_email?: string;
+          refresh_token_encrypted?: string | null;
+          status?: string;
+          sync_lease_owner?: string | null;
+          sync_lease_until?: string | null;
+          tenant_id?: string;
+          token_expires_at?: string | null;
+          updated_at?: string;
+          watch_expiration?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_email_integrations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tenant_email_integrations_connected_by_fkey";
+            columns: ["connected_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenants: {
         Row: {
           delete_reason: string | null;
@@ -1640,8 +1899,12 @@ export type Database = {
           body: string;
           created_at: string;
           edited_at: string | null;
+          email_in_reply_to: string | null;
+          email_message_id: string | null;
+          email_references: string | null;
           id: string;
           is_edited: boolean;
+          source: string;
           tenant_id: string;
           ticket_id: string;
           updated_at: string;
@@ -1653,8 +1916,12 @@ export type Database = {
           body: string;
           created_at?: string;
           edited_at?: string | null;
+          email_in_reply_to?: string | null;
+          email_message_id?: string | null;
+          email_references?: string | null;
           id?: string;
           is_edited?: boolean;
+          source?: string;
           tenant_id: string;
           ticket_id: string;
           updated_at?: string;
@@ -1666,8 +1933,12 @@ export type Database = {
           body?: string;
           created_at?: string;
           edited_at?: string | null;
+          email_in_reply_to?: string | null;
+          email_message_id?: string | null;
+          email_references?: string | null;
           id?: string;
           is_edited?: boolean;
+          source?: string;
           tenant_id?: string;
           ticket_id?: string;
           updated_at?: string;
@@ -1752,6 +2023,7 @@ export type Database = {
           requester_customer_id: string;
           resolved_at: string | null;
           sla_policy_id: string | null;
+          source: string;
           status: Database["public"]["Enums"]["ticket_status"];
           subject: string;
           tenant_id: string;
@@ -1772,6 +2044,7 @@ export type Database = {
           requester_customer_id: string;
           resolved_at?: string | null;
           sla_policy_id?: string | null;
+          source?: string;
           status?: Database["public"]["Enums"]["ticket_status"];
           subject: string;
           tenant_id: string;
@@ -1792,6 +2065,7 @@ export type Database = {
           requester_customer_id?: string;
           resolved_at?: string | null;
           sla_policy_id?: string | null;
+          source?: string;
           status?: Database["public"]["Enums"]["ticket_status"];
           subject?: string;
           tenant_id?: string;
@@ -1898,6 +2172,31 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      email_channel_stats: {
+        Args: { p_since?: string };
+        Returns: Json;
+      };
+      email_enqueue_sync: {
+        Args: {
+          p_integration_id: string;
+          p_history_id?: string;
+          p_reason?: string;
+          p_kind?: string;
+        };
+        Returns: string | null;
+      };
+      email_advance_history: {
+        Args: { p_integration_id: string; p_history_id: string };
+        Returns: string | null;
+      };
+      email_kick_worker: {
+        Args: never;
+        Returns: number | null;
+      };
+      email_retry_inbound_event: {
+        Args: { p_tenant_id: string; p_event_id: string };
+        Returns: boolean;
+      };
       current_workspace_block: { Args: never; Returns: string | null };
       platform_analytics: { Args: { p_from: string }; Returns: Json };
       platform_db_health: { Args: never; Returns: Json };

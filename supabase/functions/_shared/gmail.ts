@@ -48,7 +48,19 @@ export type EmailMessage = {
   subject: string;
   html: string;
   text: string;
+  /**
+   * Where the recipient's reply goes, when it is not FROM_EMAIL: a ticket
+   * that came in by email is answered at the workspace's support address,
+   * so the reply is filed on the ticket (email-to-ticket).
+   */
+  replyTo?: string;
+  /** RFC 5322 threading headers, so the reply lands in the same thread. */
+  inReplyTo?: string;
+  references?: string;
 };
+
+/** One `<id@host>`: nothing that could break out of the header. */
+const MESSAGE_ID = /^<[^<>\s"]{1,500}>$/;
 
 type GmailConfig = {
   clientId: string;
@@ -262,9 +274,33 @@ function buildMimeMessage(from: string, message: EmailMessage): string {
   const boundary = `=_${crypto.randomUUID().replace(/-/g, "")}`;
   const wrap = (value: string) => value.replace(/.{1,76}/g, "$&\r\n");
 
+  const threadHeaders: string[] = [];
+
+  if (message.replyTo && EMAIL_ADDRESS.test(message.replyTo)) {
+    threadHeaders.push(`Reply-To: ${message.replyTo}`);
+  }
+
+  if (message.inReplyTo && MESSAGE_ID.test(message.inReplyTo)) {
+    threadHeaders.push(`In-Reply-To: ${message.inReplyTo}`);
+  }
+
+  const references = (message.references ?? "")
+    .split(/\s+/)
+    .filter((id) => MESSAGE_ID.test(id))
+    .slice(-20);
+
+  if (references.length > 0) {
+    threadHeaders.push(`References: ${references.join(" ")}`);
+  }
+
   return [
     `From: ${from}`,
     `To: ${message.to}`,
+    // Marks mail the platform sent itself. Email-to-ticket never files a
+    // message carrying it, so if FROM_EMAIL is ever a connected support
+    // mailbox, the app's own emails cannot come back as tickets or replies.
+    "X-ServiceDesk-Origin: platform",
+    ...threadHeaders,
     `Subject: ${encodeHeaderText(message.subject)}`,
     `Date: ${new Date().toUTCString()}`,
     "MIME-Version: 1.0",

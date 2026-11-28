@@ -36,6 +36,20 @@ create table if not exists public.ticket_messages
 
     edited_at timestamptz,
 
+    -- Email-to-ticket (migration 20261127120000): where the message came
+    -- from, and the RFC 5322 headers threading matches replies on.
+    source text
+        not null
+        default 'app'
+        constraint ticket_messages_source_check
+            check (source in ('app', 'email', 'system')),
+
+    email_message_id text,
+
+    email_in_reply_to text,
+
+    email_references text,
+
     created_at timestamptz
         not null
         default now(),
@@ -85,6 +99,10 @@ on public.ticket_messages(created_at desc);
 
 create index if not exists idx_ticket_messages_visibility
 on public.ticket_messages(visibility);
+
+create index if not exists idx_ticket_messages_email_message_id
+on public.ticket_messages (tenant_id, email_message_id)
+where email_message_id is not null;
 
 ------------------------------------------------------------
 -- Full Text Search

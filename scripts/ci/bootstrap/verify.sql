@@ -33,7 +33,8 @@ begin
 
     if (select count(*) from vault.secrets
         where name in ('service_role_key', 'email_jobs_url',
-                       'reconcile_subscriptions_url', 'portal_storage_sweep_url')) <> 4 then
+                       'reconcile_subscriptions_url', 'portal_storage_sweep_url',
+                       'email_ingest_url')) <> 5 then
         raise exception 'A Vault secret is missing.';
     end if;
 

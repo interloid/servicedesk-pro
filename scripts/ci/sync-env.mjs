@@ -88,6 +88,23 @@ export const MANIFEST = [
   },
   { name: "FROM_EMAIL", to: "functions", required: true },
   { name: "FRONTEND_URL", to: "functions", required: true },
+  // Email-to-ticket (optional: the channel is offered once these are set).
+  // The OAuth client and the encryption key are needed on both sides.
+  { name: "GOOGLE_CLIENT_ID", to: "app" },
+  { name: "GOOGLE_CLIENT_SECRET", to: "app", secret: true },
+  { name: "GOOGLE_REDIRECT_URI", to: "app" },
+  { name: "GOOGLE_PUBSUB_TOPIC", to: "app" },
+  { name: "GOOGLE_PUBSUB_TOPIC", to: "functions" },
+  { name: "EMAIL_ENCRYPTION_KEY", to: "app", secret: true },
+  { name: "EMAIL_ENCRYPTION_KEY", to: "functions", secret: true },
+  { name: "GOOGLE_PUBSUB_AUDIENCE", to: "functions" },
+  { name: "GOOGLE_PUBSUB_SERVICE_ACCOUNT", to: "functions" },
+  {
+    name: "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+    to: "functions",
+    secret: true,
+  },
+  { name: "EMAIL_MAX_ATTACHMENT_BYTES", to: "functions" },
 ];
 
 const LIVE_PAYPAL = "https://api-m.paypal.com";

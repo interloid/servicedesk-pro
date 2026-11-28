@@ -212,6 +212,35 @@ BEGIN
                 'Our API key is sk_live_123.');
 
         INSERT INTO authz.ids VALUES (w.key || '_support_request', v_ticket);
+
+        -- A connected support mailbox (email-to-ticket), one recorded email
+        -- and a queued sync, for the sweep and 80_email_ingest.sql.
+        INSERT INTO public.tenant_email_integrations (
+            tenant_id, provider, connected_email, receiving_email,
+            access_token_encrypted, refresh_token_encrypted, status,
+            provider_history_id, watch_expiration
+        )
+        VALUES (
+            v_tenant, 'gmail', format('mailbox@%s.authz.test', w.slug),
+            format('mailbox+support@%s.authz.test', w.slug),
+            'v1:ciphertext-access', 'v1:ciphertext-refresh', 'connected',
+            '1000', now() + interval '6 days'
+        )
+        RETURNING id INTO v_pm;
+
+        INSERT INTO authz.ids VALUES (w.key || '_email_integration', v_pm);
+
+        INSERT INTO public.email_inbound_events (
+            tenant_id, integration_id, provider, provider_message_id,
+            sender_email, subject, status, received_at
+        )
+        VALUES (
+            v_tenant, v_pm, 'gmail', 'fixture-msg-1',
+            format('customer@%s.authz.test', w.slug), 'Fixture email', 'ignored', now()
+        );
+
+        INSERT INTO public.email_sync_jobs (tenant_id, integration_id, kind, reason, status)
+        VALUES (v_tenant, v_pm, 'sync', 'push', 'completed');
     END LOOP;
 
     -- A signed-in user who belongs to no workspace.

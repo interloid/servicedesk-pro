@@ -151,8 +151,9 @@ Unscoped Preview variables in Vercel (used by pull-request previews) aren't touc
 
 3. If a deploy warns that `PAYPAL_WEBHOOK_ID` differs from the project's webhook, copy the id it prints into the GitHub `development` environment. The functions already use the right id; this only stops the warning, since a workflow can't write its own GitHub variables.
 4. For a new project ref, add its callback URL to the Google OAuth client (see section 2.B). Google sign-in fails with `redirect_uri_mismatch` until you do.
-5. Optional: load demo data with `node --env-file=<dev env file> scripts/seed-tenants.mjs --apply --project-ref <dev ref>`.
-6. Check it end to end: open the dev URL, create a workspace at `/setup`, raise a ticket, confirm the email reaches the test inbox, and make a sandbox payment.
+5. Optional: email-to-ticket. Set up the Google Cloud side and the variables in [email-to-ticket.md](email-to-ticket.md). The bootstrap run above already created its Vault secret (`email_ingest_url`).
+6. Optional: load demo data with `node --env-file=<dev env file> scripts/seed-tenants.mjs --apply --project-ref <dev ref>`.
+7. Check it end to end: open the dev URL, create a workspace at `/setup`, raise a ticket, confirm the email reaches the test inbox, and make a sandbox payment.
 
 ## 3. Production setup (deployed by release tags)
 

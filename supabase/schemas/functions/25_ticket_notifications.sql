@@ -196,7 +196,9 @@ DECLARE
     v_ticket   public.tickets%rowtype;
     v_customer text;
 BEGIN
-    IF NEW.author_type = 'agent' AND NEW.visibility = 'public' THEN
+    -- An agent reply that came in by email (sent from the connected Gmail)
+    -- has already reached the customer: queue nothing for it.
+    IF NEW.author_type = 'agent' AND NEW.visibility = 'public' AND NEW.source <> 'email' THEN
         PERFORM public.queue_customer_ticket_email(
             'customer_ticket_reply',
             NEW.tenant_id,

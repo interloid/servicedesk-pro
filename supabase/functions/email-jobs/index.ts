@@ -376,7 +376,49 @@ type CustomerTicket = {
   email: string;
   workspace: string;
   link: string | null;
+  /** Set when the ticket came in by email and its mailbox is still connected. */
+  emailThread: {
+    replyTo: string;
+    inReplyTo?: string;
+  } | null;
 };
+
+/**
+ * For a ticket raised by email: the workspace's support address (replies go
+ * there and are filed on the ticket) and the opening email's Message-ID (so
+ * the customer's client threads our emails with theirs). Null for any other
+ * ticket, or once the mailbox is disconnected or turned off -- those emails
+ * keep pointing at the portal, as before.
+ */
+async function loadEmailThread(
+  ticketId: string,
+  tenantId: string,
+): Promise<CustomerTicket["emailThread"]> {
+  const { data: integration } = await admin
+    .from("tenant_email_integrations")
+    .select("receiving_email")
+    .eq("tenant_id", tenantId)
+    .eq("enabled", true)
+    .in("status", ["connected", "error"])
+    .limit(1)
+    .maybeSingle();
+
+  if (!integration?.receiving_email) return null;
+
+  const { data: opening } = await admin
+    .from("email_inbound_events")
+    .select("message_id")
+    .eq("tenant_id", tenantId)
+    .eq("ticket_id", ticketId)
+    .eq("outcome", "ticket_created")
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    replyTo: integration.receiving_email as string,
+    inReplyTo: (opening?.message_id as string | null) ?? undefined,
+  };
+}
 
 /**
  * The ticket, its requester's address and the workspace, read at send time.
@@ -388,7 +430,7 @@ async function loadCustomerTicket(
   const { data: ticket, error } = await admin
     .from("tickets")
     .select(
-      "number, subject, status, customer:customers(email), tenant:tenants(name, slug)",
+      "number, subject, status, source, tenant_id, customer:customers(email), tenant:tenants(name, slug)",
     )
     .eq("id", ticketId)
     .maybeSingle();
@@ -400,6 +442,11 @@ async function loadCustomerTicket(
   if (!ticket) {
     return null;
   }
+
+  const emailThread =
+    ticket.source === "email"
+      ? await loadEmailThread(ticketId, ticket.tenant_id as string)
+      : null;
 
   const customer = ticket.customer as { email?: string } | null;
   const tenant = ticket.tenant as { name?: string; slug?: string } | null;
@@ -420,6 +467,7 @@ async function loadCustomerTicket(
             tenant.slug,
           )}/portal/requests/${ticketId}`
         : null,
+    emailThread,
   };
 }
 
@@ -437,6 +485,9 @@ async function sendCustomerTicketEmail(
   await sendEmail({
     to: ticket.email,
     subject: content.subject,
+    replyTo: ticket.emailThread?.replyTo,
+    inReplyTo: ticket.emailThread?.inReplyTo,
+    references: ticket.emailThread?.inReplyTo,
     html: customerTicketEmailHtml({
       workspace: ticket.workspace,
       link: ticket.link,
@@ -510,7 +561,9 @@ async function sendCustomerTicketReply({
     intro: `The team replied to "${ticket.subject}" (#${ticket.number}):`,
     quote: body.length > 4000 ? `${body.slice(0, 4000)}…` : body,
     buttonLabel: "View and reply",
-    note: "Replies to this email aren't read. Answer from the support portal so the team sees it.",
+    note: ticket.emailThread
+      ? "You can reply to this email, or answer from the support portal."
+      : "Replies to this email aren't read. Answer from the support portal so the team sees it.",
   });
 }
 

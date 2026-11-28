@@ -36,7 +36,8 @@ begin
             ('service_role_key', current_setting('bootstrap.service_role_key')),
             ('email_jobs_url', v_base || 'email-jobs'),
             ('reconcile_subscriptions_url', v_base || 'reconcile-subscriptions'),
-            ('portal_storage_sweep_url', v_base || 'portal-storage-sweep')
+            ('portal_storage_sweep_url', v_base || 'portal-storage-sweep'),
+            ('email_ingest_url', v_base || 'email-ingest')
         ) as s(name, value)
     loop
         if exists (select 1 from vault.secrets where name = v_secret.name) then

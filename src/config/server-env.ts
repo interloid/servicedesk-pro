@@ -24,6 +24,18 @@ const serverEnvSchema = z.object({
   CHATBOT_MODEL: optional(z.string()),
   OLLAMA_BASE_URL: optional(z.url()),
   OLLAMA_MODEL: optional(z.string()),
+  // Email-to-ticket (Settings -> Channels). The Gmail connection is offered
+  // only when all of these are set; see docs/email-to-ticket.md.
+  GOOGLE_CLIENT_ID: optional(z.string()),
+  GOOGLE_CLIENT_SECRET: optional(z.string()),
+  // https://<app>/api/integrations/gmail/callback, registered on the client.
+  GOOGLE_REDIRECT_URI: optional(z.url()),
+  // projects/<project>/topics/<topic>
+  GOOGLE_PUBSUB_TOPIC: optional(
+    z.string().regex(/^projects\/[^/]+\/topics\/[^/]+$/),
+  ),
+  // 32 bytes, base64 (openssl rand -base64 32). Same value as the Edge Functions'.
+  EMAIL_ENCRYPTION_KEY: optional(z.string()),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);

@@ -57,6 +57,13 @@ create table if not exists public.tickets
 
     opened_at timestamptz,
 
+    -- Channel it was raised through (migration 20261127120000).
+    source text
+        not null
+        default 'app'
+        constraint tickets_source_check
+            check (source in ('app', 'email', 'system')),
+
     created_at timestamptz
         not null
         default now(),

@@ -489,6 +489,20 @@ verify_jwt = true
 [functions.portal-storage-sweep]
 verify_jwt = true
 
+# Email-to-ticket worker (migration 20261127120000). Called by pg_cron every
+# minute while a sync job is due, and by gmail-webhook right after it queues
+# one, both with the service role key as a bearer token. The function itself
+# then requires role = service_role.
+[functions.email-ingest]
+verify_jwt = true
+
+# Gmail's Pub/Sub push endpoint. Google's OIDC token is not a Supabase JWT, so
+# the gateway check is off and the function verifies the token itself
+# (signature, audience, service account) -- it refuses everything when
+# GOOGLE_PUBSUB_AUDIENCE or GOOGLE_PUBSUB_SERVICE_ACCOUNT is unset.
+[functions.gmail-webhook]
+verify_jwt = false
+
 
 [analytics]
 enabled = true

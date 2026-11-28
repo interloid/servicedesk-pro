@@ -164,7 +164,7 @@ export function AppSidebar({ identity }: { identity: ShellIdentity | null }) {
           locked: !planIncludesBranding(identity?.org.planName),
         },
         {
-          label: "Channels & email",
+          label: "Channels & Integrations",
           href: TENANT_ROUTES.SETTINGS.CHANNELS,
           icon: Mail,
           roles: ["tenant_admin"],
