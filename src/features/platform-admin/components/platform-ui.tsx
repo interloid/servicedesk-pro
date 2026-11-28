@@ -48,9 +48,9 @@ export const PLATFORM_SEARCH = "sm:col-span-2 xl:w-72 xl:flex-none";
 export const KPI_TILE =
   "flex min-w-0 flex-col justify-between gap-3 p-4 text-left transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.18)] sm:p-5";
 
-/** What the tile measures: up to two lines on phones, one from sm; cut-off text shows in a tooltip. */
+/** What the tile measures: wraps in full on phones, up to two lines from sm; cut-off text shows in a tooltip. */
 export const KPI_LABEL =
-  "line-clamp-2 min-w-0 pt-1 text-[13px] leading-snug font-medium break-words text-slate-500 sm:line-clamp-1 dark:text-slate-400";
+  "min-w-0 pt-1 text-[13px] leading-snug font-medium break-words text-slate-500 sm:line-clamp-2 dark:text-slate-400";
 
 /** The small round icon at the tile's top right. */
 export const KPI_ICON =

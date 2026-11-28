@@ -64,6 +64,7 @@ import {
   stepPath,
 } from "@/features/portal/services/portal.service";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { isPlatformAdminEmail } from "@/features/platform-admin/services/platform-access";
 
 const MINUTE = 60_000;
 
@@ -198,6 +199,13 @@ export async function passwordSignInAction(
       parsed.data.email,
       parsed.data.password,
     );
+
+    // A platform operator whose address also has a customer account here
+    // belongs in the console, as on the main sign-in page (loginAction), not
+    // in this tenant's support portal.
+    if (isPlatformAdminEmail(parsed.data.email)) {
+      return { success: true, data: { redirectTo: "/platform" } };
+    }
 
     // The password page's banner says how they signed in; this is the one
     // route that is not the email link.

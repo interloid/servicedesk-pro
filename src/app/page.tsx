@@ -303,7 +303,12 @@ export default async function Home() {
             </div>
             <ol className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-5">
               {STEPS.map((step, index) => (
-                <li key={step.title} className="relative bg-white p-6">
+                <li
+                  key={step.title}
+                  // An odd last step spans both columns on a tablet, so the
+                  // grid has no empty grey cell.
+                  className="relative bg-white p-6 sm:last:odd:col-span-2 lg:last:odd:col-span-1"
+                >
                   {/* Desktop timeline: a line runs through every step's
                       number badge, from the first to the last. */}
                   {index > 0 && (

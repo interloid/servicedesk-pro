@@ -105,19 +105,19 @@ export function HeroPreview({ host }: { host: string }) {
     >
       {/* Browser chrome */}
       <div className="flex h-10 items-center gap-3 rounded-t-xl border-b border-slate-200 bg-slate-50 px-4">
-        <div className="flex gap-1.5">
+        <div className="flex shrink-0 gap-1.5">
           <span className="size-2.5 rounded-full bg-slate-300" />
           <span className="size-2.5 rounded-full bg-slate-300" />
           <span className="size-2.5 rounded-full bg-slate-300" />
         </div>
-        <div className="mx-auto flex h-6 w-full max-w-sm items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-card px-3 text-[11px] text-slate-500">
+        <div className="mx-auto flex h-6 w-full max-w-sm min-w-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-card px-3 text-[11px] text-slate-500">
           <Lock className="size-3 shrink-0 text-success" />
           <span className="truncate font-mono">
             <span className="font-medium text-slate-700">acme.{host}</span>
             /tickets
           </span>
         </div>
-        <div className="w-10.5" />
+        <div className="hidden w-10.5 shrink-0 sm:block" />
       </div>
 
       <div className="grid min-h-[22rem] grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem] lg:grid-cols-[3.25rem_minmax(0,1fr)_19rem]">

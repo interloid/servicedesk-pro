@@ -12,6 +12,9 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  LogIn,
+  MapPin,
+  Minus,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -27,6 +30,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import {
   AUTH_CARD_CLASS,
@@ -88,18 +97,22 @@ function CredentialRow({
 
   return (
     <div className="flex items-center gap-2 px-3 py-2">
-      <span className="w-28 shrink-0 truncate text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate text-[13px] text-foreground",
-          hidden ? "tracking-[0.2em] text-slate-500" : "select-all",
-        )}
-        title={hidden ? undefined : value}
-      >
-        {hidden ? "••••••••" : value}
-      </span>
+      {/* On a phone the label sits above the value, so a long email is shown
+          in full (wrapping if it must) instead of cut down to a few letters. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+        <span className="truncate text-xs font-medium text-muted-foreground sm:w-28 sm:shrink-0">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "min-w-0 flex-1 text-[13px] break-words text-foreground sm:truncate",
+            hidden ? "tracking-[0.2em] text-slate-500" : "select-all",
+          )}
+          title={hidden ? undefined : value}
+        >
+          {hidden ? "••••••••" : <BreakAtAt value={value} />}
+        </span>
+      </div>
       {secret && (
         <button
           type="button"
@@ -144,6 +157,105 @@ function CredentialRow({
 }
 
 /**
+ * The hover card on a demo tile: who the role is, what it can reach and where
+ * it opens, so a visitor can pick the right one before signing in. A light
+ * card rather than the default dark tooltip, to match the tiles.
+ */
+function RoleDetailsCard({ account }: { account: DemoAccount }) {
+  const Icon = account.icon;
+  const { org, purpose, can, cannot, landsOn } = account.details;
+
+  return (
+    <TooltipContent
+      side="top"
+      sideOffset={8}
+      collisionPadding={12}
+      // The base arrow is drawn in the dark tooltip colour; this card is
+      // light, so it goes without one (the last child is that arrow).
+      className="w-76 max-w-[calc(100vw-1.5rem)] flex-col items-stretch gap-0 rounded-xl border border-slate-200 bg-card p-0 text-left text-foreground shadow-[0_12px_32px_-8px_rgba(15,23,42,0.22),0_2px_6px_rgba(15,23,42,0.06)] [&>span:last-child]:hidden"
+    >
+      <div className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-3">
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-full",
+            account.tint,
+          )}
+        >
+          <Icon className="size-4.5" strokeWidth={1.75} aria-hidden />
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm leading-tight font-semibold">
+            {account.role}
+          </span>
+          <span className="text-[11px] leading-snug text-muted-foreground">
+            {org}
+          </span>
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-3 px-3.5 py-3">
+        <p className="text-xs leading-relaxed text-slate-600">{purpose}</p>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold tracking-[0.08em] text-slate-400 uppercase">
+            What you can do
+          </span>
+          <ul className="flex flex-col gap-1.5">
+            {can.map((item) => (
+              <li
+                key={item}
+                className="flex items-start gap-2 text-xs leading-snug text-slate-700"
+              >
+                <Check
+                  className="mt-px size-3.5 shrink-0 text-brand-accent"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                {item}
+              </li>
+            ))}
+            {cannot && (
+              <li className="flex items-start gap-2 text-xs leading-snug text-slate-500">
+                <Minus
+                  className="mt-px size-3.5 shrink-0 text-slate-300"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                {cannot}
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/80 px-3.5 py-2 text-[11px] text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <MapPin className="size-3 shrink-0" aria-hidden />
+          <span className="truncate">Opens on {landsOn}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1 font-medium text-brand-accent">
+          <LogIn className="size-3" aria-hidden />
+          Click to sign in
+        </span>
+      </div>
+    </TooltipContent>
+  );
+}
+
+/** Lets a wrapping email break just before the "@" instead of mid-word. */
+function BreakAtAt({ value }: { value: string }) {
+  const at = value.indexOf("@");
+  if (at <= 0) return <>{value}</>;
+  return (
+    <>
+      {value.slice(0, at)}
+      <wbr />
+      {value.slice(at)}
+    </>
+  );
+}
+
+/**
  * "Explore a demo": always visible under the sign-in form, one click per
  * role. A tile fills the form above and submits it, so sign-in, errors and
  * redirects are the normal path. The raw credentials stay behind "View
@@ -170,7 +282,7 @@ function DemoSection({
       aria-labelledby="demo-heading"
       className="flex flex-col gap-3 rounded-xl border border-slate-200! bg-slate-50/70 p-3.5 dark:bg-muted/20"
     >
-      <div className="flex items-baseline justify-between gap-2 px-0.5">
+      <div className="flex flex-col gap-0.5 px-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
         <h2 id="demo-heading" className="text-sm font-semibold text-foreground">
           Explore a demo account
         </h2>
@@ -179,52 +291,72 @@ function DemoSection({
         </span>
       </div>
 
-      <ul className="grid grid-cols-2 gap-2">
-        {DEMO_ACCOUNTS.map((account, index) => {
-          const Icon = account.icon;
-          const pending = pendingEmail === account.email;
-          const lastOdd =
-            index === DEMO_ACCOUNTS.length - 1 &&
-            DEMO_ACCOUNTS.length % 2 === 1;
-          return (
-            <li key={account.email} className={cn(lastOdd && "col-span-2")}>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onPick(account)}
-                title={`${account.description}. Signs in as ${account.email}`}
-                aria-label={`Sign in to the demo as ${account.role}`}
-                className="group flex w-full items-center gap-2.5 rounded-[10px] border border-slate-200! bg-card px-2.5 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-brand-accent/50! hover:shadow-[0_2px_8px_rgba(15,118,110,0.10)] focus-visible:ring-3 focus-visible:ring-brand-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+      {/* One per row on a phone: two columns there left room for only the
+          first three letters of each role. */}
+      {/* A short delay, so sweeping the pointer across the tiles does not
+          flash every card on the way. */}
+      <TooltipProvider delayDuration={250}>
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {DEMO_ACCOUNTS.map((account, index) => {
+            const Icon = account.icon;
+            const pending = pendingEmail === account.email;
+            const lastOdd =
+              index === DEMO_ACCOUNTS.length - 1 &&
+              DEMO_ACCOUNTS.length % 2 === 1;
+            return (
+              <li
+                key={account.email}
+                className={cn(lastOdd && "sm:col-span-2")}
               >
-                <span
-                  className={cn(
-                    "flex size-8 shrink-0 items-center justify-center rounded-full",
-                    account.tint,
-                  )}
-                >
-                  {pending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Icon className="size-4" strokeWidth={1.75} aria-hidden />
-                  )}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[13px] leading-tight font-semibold text-foreground">
-                    {account.role}
-                  </span>
-                  <span className="truncate text-[11px] leading-tight text-muted-foreground">
-                    {pending ? "Signing in…" : account.summary}
-                  </span>
-                </span>
-                <ArrowRight
-                  className="size-3.5 shrink-0 -translate-x-1 text-brand-accent opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
-                  aria-hidden
-                />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => onPick(account)}
+                      aria-label={`Sign in to the demo as ${account.role}`}
+                      className="group flex w-full items-center gap-2.5 rounded-[10px] border border-slate-200! bg-card px-2.5 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-brand-accent/50! hover:shadow-[0_2px_8px_rgba(15,118,110,0.10)] focus-visible:ring-3 focus-visible:ring-brand-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-full",
+                          account.tint,
+                        )}
+                      >
+                        {pending ? (
+                          <Loader2
+                            className="size-4 animate-spin"
+                            aria-hidden
+                          />
+                        ) : (
+                          <Icon
+                            className="size-4"
+                            strokeWidth={1.75}
+                            aria-hidden
+                          />
+                        )}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-[13px] leading-tight font-semibold text-foreground">
+                          {account.role}
+                        </span>
+                        <span className="truncate text-[11px] leading-tight text-muted-foreground">
+                          {pending ? "Signing in…" : account.summary}
+                        </span>
+                      </span>
+                      <ArrowRight
+                        className="size-3.5 shrink-0 -translate-x-1 text-brand-accent opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                        aria-hidden
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <RoleDetailsCard account={account} />
+                </Tooltip>
+              </li>
+            );
+          })}
+        </ul>
+      </TooltipProvider>
 
       <div className="flex flex-col gap-2">
         <button

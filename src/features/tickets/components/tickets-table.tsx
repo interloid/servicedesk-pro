@@ -876,9 +876,10 @@ export default function TicketsTable({
             ) : (
               /* Fixed layout with set column widths, so the subject takes what
                  is left and ends in "…" rather than pushing the table wider
-                 than the card. Below 720px (phones) it scrolls sideways. */
+                 than the card. Below 832px (phones, tablets) it scrolls sideways,
+                 which keeps about 13rem for the subject instead of a few letters. */
               <div className="@container overflow-x-auto">
-                <Table className="min-w-180 table-fixed">
+                <Table className="min-w-208 table-fixed">
                   <TableHeader className="bg-slate-50/80 dark:bg-muted/40 [&_tr]:border-b-0">
                     <TableRow className="shadow-[inset_0_-1px_0_var(--border)] hover:bg-transparent">
                       <TableHead className="h-10 w-11 px-3 text-center align-middle">
@@ -928,7 +929,9 @@ export default function TicketsTable({
                       )}
 
                       {visibleColumns?.assignee && (
-                        <TableHead className={cn(TH, "w-40 @6xl:w-48")}>
+                        <TableHead
+                          className={cn(TH, "w-36 @5xl:w-40 @6xl:w-48")}
+                        >
                           ASSIGNEE
                         </TableHead>
                       )}

@@ -297,7 +297,7 @@ function PortalPreview({ host }: { host: string }) {
           maxLength={40}
           placeholder="Company name"
           autoComplete="off"
-          className="mt-2 h-10 rounded-lg bg-white px-3 text-base md:text-sm"
+          className="mt-2 h-10 rounded-lg bg-white px-3 text-sm"
         />
       </div>
 

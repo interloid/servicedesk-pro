@@ -481,16 +481,19 @@ html:has([data-portal-root])::-webkit-scrollbar-thumb:hover {
   --auth-field-fill: inset 0 0 0 1000px var(--card);
 }
 
-/* Chrome draws an autofilled value in its own default font until the visitor
-   interacts with the page, then switches to the field's font, so the saved
-   email visibly grew on the first click. Pin the autofill text to the field's
-   own font and size so it is the same before and after. (Only the
-   pseudo-element: on the input itself `inherit` would beat its text-* class.) */
-.auth-field:-webkit-autofill::first-line {
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
+/* Chrome draws a saved (autofilled) value in its own system font at a smaller
+   size until the visitor first clicks the page, then switches to the field's
+   font, so the email and password visibly changed on the first click.
+   `inherit` is not enough here (Chrome resolves it against its own autofill
+   style), so the app font and the fields' 14px are named outright, for every
+   field rather than only the sign-in ones. iPhones get 16px from the guard at
+   the end of this file. */
+input:-webkit-autofill,
+input:-webkit-autofill::first-line,
+input:autofill {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 
 /*
@@ -650,5 +653,26 @@ html:has([data-auth-split]) {
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/*
+ * Text fields are 14px at every width, matching the labels and selects around
+ * them. iOS Safari zooms the page into any field under 16px when it is tapped,
+ * so iPhones and iPads alone keep 16px. The check matches only WebKit on iOS.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (pointer: coarse) {
+    input:not([type="checkbox"], [type="radio"], [type="range"]),
+    textarea,
+    select {
+      font-size: max(16px, 1em);
+    }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill::first-line,
+    input:autofill {
+      font-size: 16px;
+    }
   }
 }

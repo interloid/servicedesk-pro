@@ -39,7 +39,9 @@ type ProfileMenuProps = {
 };
 
 export function ProfileMenu({ identity }: ProfileMenuProps) {
-  const { logout, isPending } = useLogout();
+  // The main sign-in page, as on the platform console, rather than the
+  // workspace's own login.
+  const { logout, isPending } = useLogout({ redirectTo: "/login" });
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState<boolean>(false);
 

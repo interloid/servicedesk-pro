@@ -72,7 +72,9 @@ export function ChatTeaser({
   onDismiss: () => void;
 }) {
   return (
-    <div className="relative w-[min(17rem,calc(100vw-2rem))] animate-in duration-300 fade-in slide-in-from-bottom-2">
+    // Not on a phone: there the bubble would sit over the page's search,
+    // filters and form fields. The launcher button alone stays.
+    <div className="relative hidden w-[min(17rem,calc(100vw-2rem))] animate-in duration-300 fade-in slide-in-from-bottom-2 sm:block">
       {/* Solid on hover too: a see-through bubble shows the page behind it. */}
       <button
         type="button"

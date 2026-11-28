@@ -117,7 +117,7 @@ export function PricingPlans() {
         ))}
       </div>
 
-      <div className="grid w-full max-w-6xl grid-cols-1 items-stretch gap-6 lg:grid-cols-3">
+      <div className="grid w-full max-w-xl grid-cols-1 items-stretch gap-6 lg:max-w-6xl lg:grid-cols-3">
         {PLANS.map((plan) => {
           const perMonth = annual
             ? plan.monthly * (1 - ANNUAL_DISCOUNT)

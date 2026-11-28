@@ -11,6 +11,7 @@ import { NotificationsProvider } from "@/features/notifications/components/notif
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WorkspaceStatusWatcher } from "@/features/platform-admin/components/workspace-status-watcher";
 import { getShellIdentity } from "@/lib/identity";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { APP_ROUTES } from "@/lib/routes";
 import { isStaffRole } from "@/lib/tenancy";
 import { notFound, redirect } from "next/navigation";
@@ -42,6 +43,19 @@ export default async function DashboardLayout({
   // (see allowsExistingSession in lib/tenancy.ts), so redirecting there would
   // loop forever for exactly the broken sessions this guard catches.
   if (!identity) {
+    // Signed out altogether -- most often the page re-rendering in the same
+    // moment Sign out clears the session -- goes to the sign-in page, as the
+    // platform console does, instead of flashing a 404 first. No loop: the
+    // proxy only bounces visitors who still have a session off /login.
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect(APP_ROUTES.LOGIN);
+    }
+
     notFound();
   }
 

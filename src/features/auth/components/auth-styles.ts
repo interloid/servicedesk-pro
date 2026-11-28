@@ -7,10 +7,10 @@
  * unlayered rule there overrides Tailwind's border-colour classes, so they
  * would silently do nothing. Keep only sizing and type in these strings.
  */
-// text-base below md: iOS Safari zooms the page into any field under 16px when
-// it's tapped. 14px from md up, as before.
+// text-sm at every width, like the rest of the form. iPhones get 16px from the
+// guard in globals.css, since Safari zooms into any field under 16px on focus.
 export const AUTH_FIELD_CLASS =
-  "auth-field h-11 rounded-[10px] pl-3.5 text-base text-foreground placeholder:text-slate-400 md:text-sm";
+  "auth-field h-11 rounded-[10px] pl-3.5 text-sm text-foreground placeholder:text-slate-400";
 
 export const AUTH_LABEL_CLASS = "text-sm font-semibold text-foreground";
 

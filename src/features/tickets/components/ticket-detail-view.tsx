@@ -1062,7 +1062,9 @@ export default function TicketDetailView({
           <section
             className={cn(
               DASHBOARD_CARD,
-              "flex h-[75dvh] min-h-112 flex-col overflow-hidden lg:h-auto lg:min-h-0",
+              // A phone gets the screen under the header, so the thread is not
+              // squeezed out by the reply box; a tablet keeps three quarters.
+              "flex h-[calc(100dvh-8.5rem)] min-h-120 flex-col overflow-hidden sm:h-[75dvh] sm:min-h-112 lg:h-auto lg:min-h-0",
             )}
           >
             <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-4 py-3 sm:px-5">
