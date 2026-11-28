@@ -48,11 +48,16 @@ return { success: true };
 // (auth)/reset-password/page.tsx — onSubmit
 try {
   const result = await updatePasswordAction(values);
-  if (!result.success) { /* existing error handling */ return; }
+  if (!result.success) {
+    /* existing error handling */ return;
+  }
   await createSupabaseClient().auth.signOut({ scope: "local" });
   // existing success path
 } catch {
-  form.setError("root", { message: "We couldn't update your password. Check your connection and try again." });
+  form.setError("root", {
+    message:
+      "We couldn't update your password. Check your connection and try again.",
+  });
 }
 ```
 
@@ -83,10 +88,17 @@ try {
 
 ```ts
 // before the central-path block (line 364)
-const subdomainSlug = SUBDOMAIN_ROUTING_AVAILABLE ? tenantLabelFromHost(hostHeader) : null;
+const subdomainSlug = SUBDOMAIN_ROUTING_AVAILABLE
+  ? tenantLabelFromHost(hostHeader)
+  : null;
 if (subdomainSlug && isCentralPath(pathname)) {
   return withSessionCookies(
-    NextResponse.redirect(new URL(`${pathname}${url.search}`, `${url.protocol}//${process.env.NEXT_PUBLIC_APP_DOMAIN}`)),
+    NextResponse.redirect(
+      new URL(
+        `${pathname}${url.search}`,
+        `${url.protocol}//${process.env.NEXT_PUBLIC_APP_DOMAIN}`,
+      ),
+    ),
     response,
   );
 }
@@ -103,7 +115,9 @@ useEffect(() => {
   let cancelled = false;
   const search = new URLSearchParams(window.location.search);
   // ...use `search` instead of `searchParams`; check `cancelled` before each setState
-  return () => { cancelled = true; };
+  return () => {
+    cancelled = true;
+  };
 }, []);
 ```
 
@@ -129,7 +143,9 @@ const lastFromOther = !!lastMessage && lastMessage.has_attachments && /* existin
 import type { Metadata } from "next";
 import { PaymentSuccess } from "@/features/billing/components/payment-success"; // the current body, "use client"
 export const metadata: Metadata = { title: "Payment confirmation" };
-export default function Page() { return <PaymentSuccess />; }
+export default function Page() {
+  return <PaymentSuccess />;
+}
 ```
 
 - **RISK-007** · `src/app/(app)/[tenantSlug]/payment/success/page.tsx:133`
@@ -142,7 +158,14 @@ export default function Page() { return <PaymentSuccess />; }
 useEffect(() => {
   if (checking || rateApprovalUrl || unverified) return;
   // ...existing countdown
-}, [checking, countdown, rateApprovalUrl, unverified, router, targetRedirectUrl]);
+}, [
+  checking,
+  countdown,
+  rateApprovalUrl,
+  unverified,
+  router,
+  targetRedirectUrl,
+]);
 ```
 
 - **RISK-008** · `src/features/billing/billing-actions.ts:37,57,111,159`, `src/features/billing/services/billing.service.ts:204,320,409`, `src/features/auth/services/auth.service.ts:438`, `src/features/tickets/actions/tickets.actions.ts:454` (and 7 more action files)
@@ -181,12 +204,12 @@ useEffect(() => {
 
 ## 🧪 4. Required Test Cases
 
-| Risk ID  | What the test does | What it should prove |
-| -------- | ------------------ | -------------------- |
-| RISK-001 | Open `/reset-password` with a valid recovery link, set a new password, then open `/login`. | The sign-in form shows. The user is not redirected to the dashboard, and `supabase.auth.getSession()` returns `null`. |
-| RISK-001 | Use an invite link on the central page, set the first password, then sign in with it. | The membership moves from "invited" to "active", the same as the tenant page. |
-| RISK-001 | Make `updatePasswordAction` reject (simulate the network going offline) and submit the form. | The form stays on screen with a retry message. The error boundary does not appear. |
-| RISK-001 | Call `updatePassword` when Supabase returns an error. | The returned message is the friendly mapped text, not Supabase's raw `error.message`. |
+| Risk ID  | What the test does                                                                           | What it should prove                                                                                                  |
+| -------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| RISK-001 | Open `/reset-password` with a valid recovery link, set a new password, then open `/login`.   | The sign-in form shows. The user is not redirected to the dashboard, and `supabase.auth.getSession()` returns `null`. |
+| RISK-001 | Use an invite link on the central page, set the first password, then sign in with it.        | The membership moves from "invited" to "active", the same as the tenant page.                                         |
+| RISK-001 | Make `updatePasswordAction` reject (simulate the network going offline) and submit the form. | The form stays on screen with a retry message. The error boundary does not appear.                                    |
+| RISK-001 | Call `updatePassword` when Supabase returns an error.                                        | The returned message is the friendly mapped text, not Supabase's raw `error.message`.                                 |
 
 ---
 
@@ -198,18 +221,18 @@ useEffect(() => {
 
 ## 📋 6. Risk Tracking Table
 
-| Risk ID  | Priority | Risk (Short Description)                    | File                                                       | Completed | Reason if Not Completed |
-| -------- | -------- | ------------------------------------------- | ---------------------------------------------------------- | --------- | ----------------------- |
-| RISK-001 | High     | Password reset leaves link session signed in | `src/features/auth/services/auth.service.ts`               | Yes       | —                       |
-| RISK-002 | Medium   | Any tenant's SLA delete refreshes all queues | `src/hooks/use-realtime-tickets-refresh.ts`                | Yes       | —                       |
-| RISK-003 | Medium   | Dead subdomain redirect; generic login shown | `src/proxy.ts`                                             | Yes       | —                       |
-| RISK-004 | Medium   | Reset link effect runs twice                 | `src/app/(auth)/reset-password/page.tsx`                   | Yes       | —                       |
-| RISK-005 | Medium   | Full page refresh on every incoming message  | `src/features/tickets/components/ticket-detail-view.tsx`   | Yes       | —                       |
-| RISK-006 | Medium   | Client-only pages cannot set metadata        | `src/app/(app)/[tenantSlug]/payment/success/page.tsx`      | Yes       | —                       |
-| RISK-007 | Medium   | Payment failure screen auto-redirects away   | `src/app/(app)/[tenantSlug]/payment/success/page.tsx`      | Yes       | —                       |
-| RISK-008 | Medium   | Raw error messages returned to browser       | `src/features/billing/billing-actions.ts`                  | Yes       | —                       |
-| RISK-009 | Medium   | Duplicated, drifted reset-password logic     | `src/app/(auth)/reset-password/page.tsx`                   | Yes       | —                       |
-| RISK-010 | Low      | TicketStatus and Timezone types duplicated   | `src/features/tickets/types/tickets.types.ts`              | Yes       | —                       |
-| RISK-011 | Low      | Needless dynamic imports in billing actions  | `src/features/billing/billing-actions.ts`                  | Yes       | —                       |
+| Risk ID  | Priority | Risk (Short Description)                     | File                                                     | Completed | Reason if Not Completed |
+| -------- | -------- | -------------------------------------------- | -------------------------------------------------------- | --------- | ----------------------- |
+| RISK-001 | High     | Password reset leaves link session signed in | `src/features/auth/services/auth.service.ts`             | Yes       | —                       |
+| RISK-002 | Medium   | Any tenant's SLA delete refreshes all queues | `src/hooks/use-realtime-tickets-refresh.ts`              | Yes       | —                       |
+| RISK-003 | Medium   | Dead subdomain redirect; generic login shown | `src/proxy.ts`                                           | Yes       | —                       |
+| RISK-004 | Medium   | Reset link effect runs twice                 | `src/app/(auth)/reset-password/page.tsx`                 | Yes       | —                       |
+| RISK-005 | Medium   | Full page refresh on every incoming message  | `src/features/tickets/components/ticket-detail-view.tsx` | Yes       | —                       |
+| RISK-006 | Medium   | Client-only pages cannot set metadata        | `src/app/(app)/[tenantSlug]/payment/success/page.tsx`    | Yes       | —                       |
+| RISK-007 | Medium   | Payment failure screen auto-redirects away   | `src/app/(app)/[tenantSlug]/payment/success/page.tsx`    | Yes       | —                       |
+| RISK-008 | Medium   | Raw error messages returned to browser       | `src/features/billing/billing-actions.ts`                | Yes       | —                       |
+| RISK-009 | Medium   | Duplicated, drifted reset-password logic     | `src/app/(auth)/reset-password/page.tsx`                 | Yes       | —                       |
+| RISK-010 | Low      | TicketStatus and Timezone types duplicated   | `src/features/tickets/types/tickets.types.ts`            | Yes       | —                       |
+| RISK-011 | Low      | Needless dynamic imports in billing actions  | `src/features/billing/billing-actions.ts`                | Yes       | —                       |
 
 > Update the **Completed** column as you fix each item. If a risk will not be fixed, replace `_Pending_` with the reason (for example: "Deferred to Q3 — requires auth refactor" or "Accepted risk — internal admin page only").
