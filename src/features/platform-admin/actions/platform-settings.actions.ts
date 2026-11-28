@@ -13,6 +13,7 @@ import {
   PAYMENT_GRACE_DAYS_MIN,
   type PlatformSettings,
 } from "../types";
+import { userErrorMessage } from "@/lib/user-error";
 
 const settingsSchema = z.object({
   platformName: z
@@ -56,8 +57,7 @@ export async function savePlatformSettingsAction(input: unknown): Promise<
 
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : "Couldn't save the settings.",
+      message: userErrorMessage(error, "Couldn't save the settings."),
     };
   }
 

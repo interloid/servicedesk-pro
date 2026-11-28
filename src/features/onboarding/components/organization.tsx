@@ -26,6 +26,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { checkSlugAvailabilityAction } from "../actions/register-actions";
+import type { Timezone } from "../services/onboarding.service";
 
 const organizationFormSchema = z.object({
   orgName: z
@@ -44,15 +45,6 @@ const organizationFormSchema = z.object({
 });
 
 type OrganizationFormValues = z.infer<typeof organizationFormSchema>;
-
-export interface Timezone {
-  id: string;
-  display_name?: string;
-  name?: string;
-  label?: string;
-  cities?: string;
-  utc_offset?: string;
-}
 
 interface StepOrganizationProps {
   data: OnboardingState;

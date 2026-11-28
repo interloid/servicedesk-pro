@@ -16,6 +16,7 @@ import {
 } from "@/features/team/services/team.service";
 import type { TeamRole } from "@/features/team/types/team";
 import { registerSchema, RegisterInput } from "../schemas/onboarding.schema";
+import { userErrorMessage } from "@/lib/user-error";
 
 // The invite payload uses TeamRole labels; the signup form sends DB values.
 const ONBOARDING_ROLE_LABEL: Record<
@@ -33,6 +34,9 @@ export interface Timezone {
   code?: string;
   label?: string;
   name?: string;
+  display_name?: string;
+  /** Example cities, e.g. "Chennai, Mumbai". */
+  cities?: string;
   utc_offset?: string;
 }
 
@@ -296,7 +300,7 @@ export async function checkSlugAvailability(
 
     return {
       available: true,
-      error: error instanceof Error ? error.message : "Slug check failed",
+      error: userErrorMessage(error, "Slug check failed"),
     };
   }
 }

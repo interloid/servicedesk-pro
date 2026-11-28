@@ -10,6 +10,7 @@ import {
   useEffect,
 } from "react";
 import { useRouter } from "next/navigation";
+import { createSupabaseClient } from "@/lib/supabase/client";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_CARD } from "@/components/shared/dashboard-ui";
@@ -483,8 +484,9 @@ export default function TicketDetailView({
   }, [attachments, ticket.id]);
 
   // Someone else's message arrives over realtime without its files (they are
-  // recorded just after it, and links are signed on the server): refetch the
-  // page shortly after so they show in the bubble.
+  // recorded just after it, and links are signed on the server). Most replies
+  // have none, so ask first -- one small query -- and re-render the page only
+  // when files are actually there to show.
   const lastMessage = messages.at(-1);
   const lastFromOther =
     !!lastMessage &&
@@ -495,9 +497,21 @@ export default function TicketDetailView({
     !attachmentsByMessage.has(lastMessage.id);
   const [seenLastId] = useState(lastMessageId);
   useEffect(() => {
-    if (!lastFromOther || lastMessageId === seenLastId) return;
-    const id = setTimeout(() => router.refresh(), 1500);
-    return () => clearTimeout(id);
+    if (!lastFromOther || !lastMessageId || lastMessageId === seenLastId)
+      return;
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      const { count, error } = await createSupabaseClient()
+        .from("attachments")
+        .select("id", { count: "exact", head: true })
+        .eq("message_id", lastMessageId);
+      // On a failed check, refresh anyway rather than hide someone's files.
+      if (!cancelled && (error || (count ?? 0) > 0)) router.refresh();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [lastFromOther, lastMessageId, seenLastId, router]);
 
   useEffect(() => {

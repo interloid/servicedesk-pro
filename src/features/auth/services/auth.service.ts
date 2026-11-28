@@ -400,46 +400,24 @@ export async function sendTenantPasswordResetLink(
   }
 }
 
-export async function updatePassword(values: UpdatePasswordValues) {
+/**
+ * The central reset page's save: the same steps as updatePasswordForTenant,
+ * checked against "any workspace" because this page has no slug.
+ */
+export async function updatePassword(
+  values: UpdatePasswordValues,
+): Promise<TenantPasswordAccessResult> {
   const validatedFields = updatePasswordSchema.safeParse(values);
 
   if (!validatedFields.success) {
     return {
       success: false,
-      error: "Invalid password fields.",
+      error: "Check the password fields and try again.",
+      reason: "retry",
     };
   }
 
-  const access = await checkPasswordAccess().catch((error) => {
-    console.error("[auth] checkPasswordAccess failed", error);
-    return {
-      success: false as const,
-      error: "We couldn't update your password. Try again in a moment.",
-    };
-  });
-
-  if (!access.success) {
-    return { success: false, error: access.error };
-  }
-
-  if (await isImpersonating()) {
-    return { success: false, error: IMPERSONATION_ACCOUNT_LOCKED };
-  }
-
-  const supabase = await createSupabaseServerClient();
-
-  const { error } = await supabase.auth.updateUser({
-    password: validatedFields.data.password,
-  });
-
-  if (error) {
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-
-  return { success: true };
+  return savePasswordFromLink(validatedFields.data, checkPasswordAccess);
 }
 
 type TenantMembershipAccess = "allowed" | "no-membership" | "disabled";
@@ -609,8 +587,23 @@ export async function updatePasswordForTenant(
   payload: UpdatePasswordValues,
   tenantSlug: string,
 ): Promise<TenantPasswordAccessResult> {
+  return savePasswordFromLink(payload, () =>
+    checkTenantPasswordAccess(tenantSlug),
+  );
+}
+
+/**
+ * Save a password on an email link's session, for both reset pages. One copy,
+ * so a fix lands on both: re-check access (it can be revoked while the page is
+ * open), refuse during impersonation, map Supabase's errors to plain text, and
+ * end the link's session afterwards.
+ */
+async function savePasswordFromLink(
+  payload: UpdatePasswordValues,
+  checkAccess: () => Promise<TenantPasswordAccessResult>,
+): Promise<TenantPasswordAccessResult> {
   try {
-    const access = await checkTenantPasswordAccess(tenantSlug);
+    const access = await checkAccess();
 
     if (!access.success) {
       return access;
@@ -632,7 +625,7 @@ export async function updatePasswordForTenant(
 
     if (updateError) {
       console.error(
-        "[auth] tenant password update failed:",
+        "[auth] password update failed:",
         updateError.code,
         updateError.message,
       );
@@ -646,6 +639,7 @@ export async function updatePasswordForTenant(
 
     // Done with the link's session: the person signs in with the new
     // password, which also runs the invite-to-active step on a fresh token.
+    // Left signed in, /login would bounce them straight to the dashboard.
     await supabase.auth.signOut();
 
     return { success: true };

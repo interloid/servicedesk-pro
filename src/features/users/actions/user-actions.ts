@@ -11,6 +11,7 @@ import {
 } from "@/features/users/services/user-service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { verifyUserTenantMembership } from "@/features/tenancy/services/tenant-resolver";
+import { userErrorMessage } from "@/lib/user-error";
 
 /** The signed-in staff member, if they belong to `tenantId`. */
 async function currentMember(tenantId: string) {
@@ -62,10 +63,10 @@ export async function prepareProfileAvatarUploadAction(
   } catch (error) {
     return {
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "We couldn't start that upload. Try again.",
+      message: userErrorMessage(
+        error,
+        "We couldn't start that upload. Try again.",
+      ),
     };
   }
 }
@@ -114,8 +115,7 @@ export async function updateProfileAction(
   } catch (error) {
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : "Failed to update profile.",
+      message: userErrorMessage(error, "Failed to update profile."),
     };
   }
 }

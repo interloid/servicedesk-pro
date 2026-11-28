@@ -55,9 +55,10 @@ import {
 } from "@/lib/notifications.service";
 import { getTenantIdBySlug } from "@/features/tenancy/services/tenant-resolver";
 import { extractMentionIds, stripMentions } from "@/lib/mentions";
+import { userErrorMessage } from "@/lib/user-error";
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+  return userErrorMessage(error, "Something went wrong.");
 }
 
 const PRIORITIES = TICKET_PRIORITIES;
@@ -451,7 +452,7 @@ export async function sendTicketMessageAction(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
@@ -527,7 +528,7 @@ export async function updateTicketDetailsAction(input: {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
@@ -562,7 +563,7 @@ export async function assignTicketToMeAction(input: {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
@@ -599,7 +600,7 @@ export async function markTicketOpenedAction(input: {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
@@ -639,7 +640,7 @@ export async function bulkAssignToMeAction(input: {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
@@ -694,7 +695,7 @@ export async function bulkSetPriorityAction(input: {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
@@ -729,7 +730,7 @@ export async function bulkMarkSolvedAction(input: {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: userErrorMessage(error, "An error occurred"),
     };
   }
 }
